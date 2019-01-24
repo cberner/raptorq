@@ -7,3 +7,10 @@ authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [dependencies]
 rand = "0.6"
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "codec_benchmark"
+harness = false
