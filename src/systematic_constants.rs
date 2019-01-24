@@ -541,6 +541,34 @@ pub fn num_lt_symbols(source_block_symbols: u32) -> u32 {
     panic!(); // unreachable
 }
 
+// Calculates, L, the number of intermediate symbols, for a given number of source block symbols
+// See section 5.3.3.3
+pub fn num_intermediate_symbols(source_block_symbols: u32) -> u32 {
+    extended_source_block_symbols(source_block_symbols) +
+        num_ldpc_symbols(source_block_symbols) +
+        num_hdpc_symbols(source_block_symbols)
+}
+
+// Calculates, P, the number of PI symbols, for a given number of source block symbols
+// See section 5.3.3.3
+pub fn num_pi_symbols(source_block_symbols: u32) -> u32 {
+    num_intermediate_symbols(source_block_symbols) - num_lt_symbols(source_block_symbols)
+}
+
+// Calculates P1, smallest prime greater than P. See 5.3.3.3
+pub fn calculate_p1(source_block_symbols: u32) -> u32 {
+    let mut p1 = num_pi_symbols(source_block_symbols);
+    while !primal::is_prime(p1 as u64) {
+        if p1 % 2 == 0 {
+            p1 += 1;
+        }
+        else {
+            p1 += 2;
+        }
+    }
+    p1
+}
+
 #[cfg(test)]
 mod tests {
     use systematic_constants::MAX_SOURCE_SYMBOLS_PER_BLOCK;

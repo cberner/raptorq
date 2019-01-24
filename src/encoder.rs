@@ -1,6 +1,7 @@
 use base::EncodingPacket;
 use PayloadId;
 use systematic_constants::extended_source_block_symbols;
+use systematic_constants::num_pi_symbols;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
@@ -29,6 +30,7 @@ impl SourceBlockEncoder {
         for i in 0..((extended_source_symbols - self.num_source_symbols())*self.symbol_size as u32) {
             extended_data.push(0);
         }
+
     }
 
     pub fn all_source_packets(&self) -> Vec<EncodingPacket> {
