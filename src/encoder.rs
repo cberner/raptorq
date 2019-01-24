@@ -1,5 +1,6 @@
 use base::EncodingPacket;
 use PayloadId;
+use systematic_constants::extended_source_block_symbols;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
@@ -9,10 +10,24 @@ pub struct SourceBlockEncoder {
 
 impl SourceBlockEncoder {
     pub fn new(source_block_id: u8, symbol_size: u16, data: Vec<u8>) -> SourceBlockEncoder {
+        assert!(data.len() % symbol_size as usize == 0);
         SourceBlockEncoder {
             source_block_id,
             symbol_size,
             data
+        }
+    }
+
+    fn num_source_symbols(&self) -> u32 {
+        self.data.len() as u32 / self.symbol_size as u32
+    }
+
+    fn compute_intermediate_symbols(&self) {
+        let extended_source_symbols = extended_source_block_symbols(self.num_source_symbols());
+        // Extend the source block with padding. See section 5.3.2
+        let mut extended_data = self.data.clone();
+        for i in 0..((extended_source_symbols - self.num_source_symbols())*self.symbol_size as u32) {
+            extended_data.push(0);
         }
     }
 
