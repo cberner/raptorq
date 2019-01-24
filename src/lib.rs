@@ -1,3 +1,4 @@
+mod constants;
 mod base;
 mod encoder;
 mod decoder;

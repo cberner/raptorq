@@ -6,10 +6,11 @@ version = "0.0.0"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [dependencies]
-rand = "0.6"
 
 [dev-dependencies]
 criterion = "0.2"
+primal = "0.2"
+rand = "0.6"
 
 [[bench]]
 name = "codec_benchmark"
