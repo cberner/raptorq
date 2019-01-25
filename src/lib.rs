@@ -1,5 +1,6 @@
 mod systematic_constants;
 mod rng;
+mod symbol;
 mod base;
 mod encoder;
 mod decoder;
