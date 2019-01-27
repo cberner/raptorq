@@ -73,6 +73,12 @@ impl Octet {
             value: 0
         }
     }
+
+    pub fn alpha(i: u8) -> Octet {
+        Octet {
+            value: OCT_EXP[i as usize]
+        }
+    }
 }
 
 impl From<u8> for Octet {

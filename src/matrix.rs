@@ -44,8 +44,13 @@ impl OctetMatrix {
         result
     }
 
+    // TODO: can probably remove the parameter T, and just take an Octet
     pub fn set<T:Into<Octet>>(&mut self, i: usize, j: usize, value: T) {
         self.elements[i][j] = value.into();
+    }
+
+    pub fn get(&self, i: usize, j: usize) -> Octet {
+        self.elements[i][j].clone()
     }
 
     pub fn inverse(&self) -> Option<OctetMatrix> {

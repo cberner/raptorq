@@ -136,15 +136,19 @@ mod tests {
     use base::intermediate_tuple;
     use systematic_constants::num_intermediate_symbols;
     use encoder::gen_intermediate_symbols;
+    use systematic_constants::num_ldpc_symbols;
+    use systematic_constants::num_hdpc_symbols;
+    use systematic_constants::num_lt_symbols;
+    use systematic_constants::num_pi_symbols;
 
-    #[test]
-    fn intermediate_symbol_definition() {
-        let symbol_size = 4;
-        let num_symbols = 100;
+    const SYMBOL_SIZE: usize = 4;
+    const NUM_SYMBOLS: u32 = 100;
+
+    fn gen_test_symbols() -> Vec<Symbol> {
         let mut source_block: Vec<Symbol> = vec![];
-        for _ in 0..num_symbols {
-            let mut data: Vec<u8> = vec![0; symbol_size];
-            for i in 0..symbol_size {
+        for _ in 0..NUM_SYMBOLS {
+            let mut data: Vec<u8> = vec![0; SYMBOL_SIZE];
+            for i in 0..SYMBOL_SIZE {
                 data[i] = rand::thread_rng().gen();
             }
             source_block.push(Symbol {
@@ -152,14 +156,57 @@ mod tests {
             });
         }
 
-        let extended_source_block = extend_source_block(source_block);
-        let intermediate_symbols = gen_intermediate_symbols(extended_source_block);
+        extend_source_block(source_block)
+    }
+
+    #[test]
+    fn enc_constraint() {
+        let extended_source_symbols = gen_test_symbols();
+        let intermediate_symbols = gen_intermediate_symbols(extended_source_symbols.clone());
 
         // See section 5.3.3.4.1, item 1.
-        for i in 0..intermediate_symbols.len() {
-            let tuple = intermediate_tuple(num_symbols, i as u32);
-            let encoded = enc(num_symbols, intermediate_symbols.clone(), tuple);
-            assert_eq!(intermediate_symbols[i], encoded);
+        for i in 0..extended_source_symbols.len() {
+            let tuple = intermediate_tuple(NUM_SYMBOLS, i as u32);
+            let encoded = enc(NUM_SYMBOLS, intermediate_symbols.clone(), tuple);
+            assert_eq!(extended_source_symbols[i].clone(), encoded);
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn ldpc_constraint() {
+        let C = gen_intermediate_symbols(gen_test_symbols());
+        let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
+        let P = num_pi_symbols(NUM_SYMBOLS) as usize;
+        let W = num_lt_symbols(NUM_SYMBOLS) as usize;
+        let B = W - S;
+
+        // See section 5.3.3.3
+        let mut D = vec![];
+        for i in 0..S {
+            D.push(C[B + i].clone());
+        }
+
+        for i in 0..B {
+            let a = 1 + i / S;
+            let b = i % S;
+            D[b] = D[b].clone() + C[i].clone();
+
+            let b = (b + a) % S;
+            D[b] = D[b].clone() + C[i].clone();
+
+            let b = (b + a) % S;
+            D[b] = D[b].clone() + C[i].clone();
+        }
+
+        for i in 0..S {
+            let a = i % P;
+            let b = (i + 1) % P;
+            D[i] = D[i].clone() + C[W + a].clone() + C[W + b].clone();
+        }
+
+        for i in 0..S {
+            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i].clone());
         }
     }
 }
