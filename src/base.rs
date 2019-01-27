@@ -4,6 +4,7 @@ use systematic_constants::systematic_index;
 use rng::rand;
 use systematic_constants::num_lt_symbols;
 use systematic_constants::calculate_p1;
+use symbol::Symbol;
 
 // As defined in section 3.2
 pub struct PayloadId {
@@ -27,7 +28,7 @@ impl PayloadId {
 // As defined in section 4.4.2
 pub struct EncodingPacket {
     pub payload_id: PayloadId,
-    pub symbol: Vec<u8>
+    pub symbol: Symbol
 }
 
 // Deg[v] as defined in section 5.3.5.2

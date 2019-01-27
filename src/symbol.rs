@@ -69,6 +69,12 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    pub fn new(value: Vec<u8>) -> Symbol {
+        Symbol {
+            value
+        }
+    }
+
     pub fn zero(size: usize) -> Symbol {
         Symbol {
             value: vec![0; size]

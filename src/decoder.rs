@@ -23,8 +23,8 @@ impl SourceBlockDecoder {
     pub fn parse(& mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         self.received_esi.insert(packet.payload_id.encoding_symbol_id);
         let x = (packet.payload_id.encoding_symbol_id * self.symbol_size as u32) as usize;
-        for i in 0..packet.symbol.len() {
-            self.data[x + i] = packet.symbol[i];
+        for i in 0..packet.symbol.value.len() {
+            self.data[x + i] = packet.symbol.value[i];
         }
 
         if (self.received_esi.len() * self.symbol_size as usize) as u64 >= self.block_length {
