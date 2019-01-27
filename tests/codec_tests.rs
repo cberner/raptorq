@@ -9,7 +9,7 @@ mod codec_tests {
 
     #[test]
     fn round_trip() {
-        let elements = 1024*1024;
+        let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
             data[i] = rand::thread_rng().gen();

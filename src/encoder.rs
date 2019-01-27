@@ -9,11 +9,13 @@ use systematic_constants::num_intermediate_symbols;
 use systematic_constants::num_ldpc_symbols;
 use systematic_constants::num_hdpc_symbols;
 use constraint_matrix::generate_constraint_matrix;
+use base::intermediate_tuple;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
     symbol_size: u16,
-    source_symbols: Vec<Symbol>
+    source_symbols: Vec<Symbol>,
+    intermediate_symbols: Vec<Symbol>
 }
 
 impl SourceBlockEncoder {
@@ -22,10 +24,12 @@ impl SourceBlockEncoder {
         let source_symbols: Vec<Symbol> = data.chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
+        let intermediate_symbols = gen_intermediate_symbols(extend_source_block(source_symbols.clone()));
         SourceBlockEncoder {
             source_block_id,
             symbol_size,
-            source_symbols
+            source_symbols,
+            intermediate_symbols
         }
     }
 
@@ -40,8 +44,18 @@ impl SourceBlockEncoder {
         }).collect()
     }
 
+    // See section 5.3.4
     pub fn repair_packets(&self, start_encoding_symbol_id: u32, packets: u32) -> Vec<EncodingPacket> {
-        vec![]
+        assert!(start_encoding_symbol_id >= extended_source_block_symbols(self.source_symbols.len() as u32));
+        let mut result = vec![];
+        for i in 0..packets {
+            let tuple = intermediate_tuple(self.source_symbols.len() as u32, start_encoding_symbol_id + i);
+            result.push(EncodingPacket {
+                payload_id: PayloadId::new(self.source_block_id, start_encoding_symbol_id + i).unwrap(),
+                symbol: enc(self.source_symbols.len() as u32, self.intermediate_symbols.clone(), tuple)
+            });
+        }
+        result
     }
 }
 
