@@ -6,6 +6,9 @@ use symbol::Symbol;
 use systematic_constants::num_lt_symbols;
 use systematic_constants::calculate_p1;
 use systematic_constants::num_intermediate_symbols;
+use systematic_constants::num_ldpc_symbols;
+use systematic_constants::num_hdpc_symbols;
+use constraint_matrix::generate_constraint_matrix;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
@@ -69,12 +72,19 @@ fn extend_source_block(mut source_block: Vec<Symbol>) -> Vec<Symbol> {
 }
 
 // See section 5.3.3.4
+#[allow(non_snake_case)]
 fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>) -> Vec<Symbol> {
-    let mut intermediate_symbols = extended_source_block.clone();
-    while intermediate_symbols.len() < num_intermediate_symbols(extended_source_block.len() as u32) as usize {
-        unimplemented!();
+    let L = num_intermediate_symbols(extended_source_block.len() as u32);
+    let S = num_ldpc_symbols(extended_source_block.len() as u32);
+    let H = num_hdpc_symbols(extended_source_block.len() as u32);
+
+    let mut D = vec![Symbol::zero(extended_source_block[0].value.len()); L as usize];
+    for i in 0..extended_source_block.len() {
+        D[(S + H) as usize + i] = extended_source_block[i].clone();
     }
-    intermediate_symbols
+
+    let A = generate_constraint_matrix(extended_source_block.len() as u32);
+    A.inverse().unwrap().mul_symbols(&D)
 }
 
 // Enc[] function, as defined in section 5.3.5.3
