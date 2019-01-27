@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::ops::Mul;
 use std::ops::Div;
-use octet::Octet;
+use std::ops::Sub;
 
 // As defined in section 5.7.3
 const OCT_EXP: [u8; 510] = [
@@ -62,82 +62,92 @@ const OCT_LOG: [u8; 256] = [
    79, 174, 213, 233, 230, 231, 173, 232, 116, 214, 244, 234, 168, 80,
    88, 175];
 
-// TODO: rewrite to use Octet
 #[derive(Clone, Debug, PartialEq)]
-pub struct Symbol {
-    pub value: Vec<u8>
+pub struct Octet {
+    value: u8
 }
 
-impl Symbol {
-    pub fn zero(size: usize) -> Symbol {
-        Symbol {
-            value: vec![0; size]
-        }
-    }
-
-    pub fn mul_scalar(&self, scalar: &Octet) -> Symbol {
-        self.clone() * Symbol {
-            value: vec![scalar.clone().into(); self.value.len()]
+impl Octet {
+    pub fn zero() -> Octet {
+        Octet {
+            value: 0
         }
     }
 }
 
-impl Add for Symbol {
-    type Output = Symbol;
+impl From<u8> for Octet {
+    fn from(value: u8) -> Octet {
+        Octet {
+            value
+        }
+    }
+}
 
-    fn add(self, other: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
+impl Into<u8> for Octet {
+    fn into(self) -> u8 {
+        self.value
+    }
+}
+
+impl Add for Octet {
+    type Output = Octet;
+
+    fn add(self, other: Octet) -> Octet {
+        Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
-            result.push(self.value[i] ^ other.value[i]);
-        }
-        Symbol {
-            value: result
+            value: self.value ^ other.value
         }
     }
 }
 
-impl Mul for Symbol {
-    type Output = Symbol;
+impl Sub for Octet {
+    type Output = Octet;
 
-    fn mul(self, other: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
-            // As defined in section 5.7.2, multiplication is implemented via the tables above
-            if self.value[i] == 0 || other.value[i] == 0 {
-                result.push(0);
-            }
-            else {
-                let log_u = OCT_LOG[self.value[i] as usize] as usize;
-                let log_v = OCT_LOG[other.value[i] as usize] as usize;
-                result.push(OCT_EXP[log_u + log_v]);
-            }
-        }
-        Symbol {
-            value: result
+    fn sub(self, rhs: Octet) -> Octet {
+        Octet {
+            // As defined in section 5.7.2, subtraction on octets is implemented as bitxor
+            value: self.value ^ rhs.value
         }
     }
 }
 
-impl Div for Symbol {
-    type Output = Symbol;
+impl Mul for Octet {
+    type Output = Octet;
 
-    fn div(self, rhs: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
-            assert_ne!(0, rhs.value[i]);
-            // As defined in section 5.7.2, division is implemented via the tables above
-            if self.value[i] == 0 {
-                result.push(0);
-            }
-            else {
-                let log_u = OCT_LOG[self.value[i] as usize] as usize;
-                let log_v = OCT_LOG[rhs.value[i] as usize] as usize;
-                result.push(OCT_EXP[255 + log_u - log_v]);
+    fn mul(self, other: Octet) -> Octet {
+        // As defined in section 5.7.2, multiplication is implemented via the tables above
+        if self.value == 0 || other.value == 0 {
+            Octet {
+                value: 0
             }
         }
-        Symbol {
-            value: result
+        else {
+            let log_u = OCT_LOG[self.value as usize] as usize;
+            let log_v = OCT_LOG[other.value as usize] as usize;
+            Octet {
+                value: OCT_EXP[log_u + log_v]
+            }
+        }
+    }
+}
+
+impl Div for Octet {
+    type Output = Octet;
+
+    fn div(self, rhs: Octet) -> Octet {
+        assert_ne!(0, rhs.value);
+        // As defined in section 5.7.2, division is implemented via the tables above
+        if self.value == 0 {
+            Octet {
+                value: 0
+            }
+        }
+        else {
+            let log_u = OCT_LOG[self.value as usize] as usize;
+            let log_v = OCT_LOG[rhs.value as usize] as usize;
+            Octet {
+                value: OCT_EXP[255 + log_u - log_v]
+            }
         }
     }
 }
@@ -146,73 +156,53 @@ impl Div for Symbol {
 mod tests {
     extern crate rand;
 
-    use symbol::tests::rand::Rng;
-    use symbol::Symbol;
+    use octet::tests::rand::Rng;
+    use octet::Octet;
 
     #[test]
     fn addition() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol {
-            value: data
+        let octet = Octet {
+            value: rand::thread_rng().gen()
         };
-        let symbol2 = symbol.clone();
-        let zero = Symbol {
-            value: vec![0, 0, 0, 0]
+        let octet2 = octet.clone();
+        let zero = Octet {
+            value: 0
         };
         // See section 5.7.2. u is its own additive inverse
-        assert_eq!(zero, symbol + symbol2);
+        assert_eq!(zero, octet + octet2);
     }
 
     #[test]
     fn multiplication_identity() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol {
-            value: data
+        let octet = Octet {
+            value: rand::thread_rng().gen()
         };
-        let one = Symbol {
-            value: vec![1, 1, 1, 1]
+        let one = Octet {
+            value: 1
         };
-        assert_eq!(symbol, symbol.clone() * one);
+        assert_eq!(octet, octet.clone() * one);
     }
 
     #[test]
     fn multiplicative_inverse() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol {
-            value: data
+        let octet = Octet {
+            value: rand::thread_rng().gen_range(1, 255)
         };
-        let one = Symbol {
-            value: vec![1, 1, 1, 1]
+        let one = Octet {
+            value: 1
         };
-        assert_eq!(one.clone(), symbol.clone() * (one.clone() / symbol.clone()));
+        assert_eq!(one.clone(), octet.clone() * (one.clone() / octet.clone()));
     }
 
     #[test]
     fn division() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol {
-            value: data
+        let octet = Octet {
+            value: rand::thread_rng().gen_range(1, 255)
         };
-        let symbol2 = symbol.clone();
-        let one = Symbol {
-            value: vec![1, 1, 1, 1]
+        let octet2 = octet.clone();
+        let one = Octet {
+            value: 1
         };
-        assert_eq!(one, symbol / symbol2);
+        assert_eq!(one, octet / octet2);
     }
 }

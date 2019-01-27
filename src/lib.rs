@@ -1,6 +1,9 @@
 mod systematic_constants;
 mod rng;
+mod octet;
 mod symbol;
+mod matrix;
+mod constraint_matrix;
 mod base;
 mod encoder;
 mod decoder;
