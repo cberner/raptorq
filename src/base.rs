@@ -70,7 +70,7 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 
     let mut d1 = 2;
     if d < 4 {
-        let d1 = 2 + rand(internal_symbol_id, 3, 2);
+        d1 = 2 + rand(internal_symbol_id, 3, 2);
     }
 
     let a1 = 1 + rand(internal_symbol_id, 4, P1-1);
