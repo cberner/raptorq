@@ -83,7 +83,7 @@ fn enc_indices(source_block_symbols: u32,
 
 // See section 5.3.3.4.2
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix(source_block_symbols: u32) -> OctetMatrix {
+pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u32, encoded_symbol_indices: T) -> OctetMatrix {
     let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
     let S = num_ldpc_symbols(source_block_symbols) as usize;
     let H = num_hdpc_symbols(source_block_symbols) as usize;
@@ -135,11 +135,11 @@ pub fn generate_constraint_matrix(source_block_symbols: u32) -> OctetMatrix {
     }
 
     // G_ENC
-    for i in 0..Kprime {
-        let tuple = intermediate_tuple(Kprime as u32, i as u32);
+    for i in encoded_symbol_indices {
+        let tuple = intermediate_tuple(Kprime as u32, i);
 
         for j in enc_indices(Kprime as u32, tuple) {
-            matrix.set::<Octet>(i + S + H, j, 1.into());
+            matrix.set::<Octet>(i as usize + S + H, j, 1.into());
         }
     }
 

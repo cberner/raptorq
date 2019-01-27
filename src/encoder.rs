@@ -85,7 +85,7 @@ fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>) -> Vec<Symbol> {
         D[(S + H) as usize + i] = extended_source_block[i].clone();
     }
 
-    let A = generate_constraint_matrix(extended_source_block.len() as u32);
+    let A = generate_constraint_matrix(extended_source_block.len() as u32, 0..extended_source_block.len() as u32);
     A.inverse().unwrap().mul_symbols(&D)
 }
 
