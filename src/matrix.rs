@@ -172,7 +172,7 @@ mod tests {
     fn mul_symbol() {
         let identity = OctetMatrix::identity(4);
         let mut symbols: Vec<Symbol> = vec![];
-        for i in 0..4 {
+        for _ in 0..4 {
             let mut data = vec![];
             for _ in 0..3 {
                 data.push(rand::thread_rng().gen());

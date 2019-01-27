@@ -65,7 +65,7 @@ fn extend_source_block(mut source_block: Vec<Symbol>) -> Vec<Symbol> {
     let symbols = source_block.len() as u32;
     let symbol_size = source_block[0].value.len();
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
-    for i in 0..(extended_source_symbols - symbols) {
+    for _ in 0..(extended_source_symbols - symbols) {
         source_block.push(Symbol {
             value: vec![0; symbol_size]
         });
@@ -105,7 +105,7 @@ fn enc(source_block_symbols: u32,
     assert!(b1 < w);
 
     let mut result = intermediate_symbols[b as usize].clone();
-    for j in 1..d {
+    for _ in 1..d {
         b = (b + a) % w;
         result = result + intermediate_symbols[b as usize].clone();
     }
@@ -116,7 +116,7 @@ fn enc(source_block_symbols: u32,
 
     result = result + intermediate_symbols[(w + b1) as usize].clone();
 
-    for j in 1..d1 {
+    for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
@@ -136,10 +136,8 @@ mod tests {
     use encoder::extend_source_block;
     use encoder::enc;
     use base::intermediate_tuple;
-    use systematic_constants::num_intermediate_symbols;
     use encoder::gen_intermediate_symbols;
     use systematic_constants::num_ldpc_symbols;
-    use systematic_constants::num_hdpc_symbols;
     use systematic_constants::num_lt_symbols;
     use systematic_constants::num_pi_symbols;
 

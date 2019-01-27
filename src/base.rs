@@ -1,5 +1,4 @@
 use std::cmp::min;
-use systematic_constants::num_intermediate_symbols;
 use systematic_constants::systematic_index;
 use rng::rand;
 use systematic_constants::num_lt_symbols;
@@ -50,7 +49,6 @@ pub fn deg(v: u32, lt_symbols: u32) -> u32 {
 // Tuple[K', X] as defined in section 5.3.5.4
 #[allow(non_snake_case)]
 pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) -> (u32, u32, u32, u32, u32, u32) {
-    let L = num_intermediate_symbols(source_block_symbols);
     let J = systematic_index(source_block_symbols);
     let W = num_lt_symbols(source_block_symbols);
     let P1 = calculate_p1(source_block_symbols);

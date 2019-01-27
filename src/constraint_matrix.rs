@@ -59,7 +59,7 @@ fn enc_indices(source_block_symbols: u32,
     let mut indices = HashSet::new();
     indices.insert(b as usize);
 
-    for j in 1..d {
+    for _ in 1..d {
         b = (b + a) % w;
         indices.insert(b as usize);
     }
@@ -70,7 +70,7 @@ fn enc_indices(source_block_symbols: u32,
 
     indices.insert((w + b1) as usize);
 
-    for j in 1..d1 {
+    for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
@@ -90,7 +90,6 @@ pub fn generate_constraint_matrix(source_block_symbols: u32) -> OctetMatrix {
     let W = num_lt_symbols(source_block_symbols) as usize;
     let B = W - S;
     let P = num_pi_symbols(source_block_symbols) as usize;
-    let U = P - H;
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
     let mut matrix = OctetMatrix::new(L, L);
