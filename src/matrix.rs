@@ -22,14 +22,6 @@ impl OctetMatrix {
         }
     }
 
-    pub fn identity(size: usize) -> OctetMatrix {
-        let mut result = OctetMatrix::new(size, size);
-        for i in 0..size {
-            result.set(i, i, 1);
-        }
-        result
-    }
-
     pub fn mul_symbols(&self, symbols: &Vec<Symbol>) -> Vec<Symbol> {
         assert_eq!(self.width, symbols.len());
         assert_ne!(0, symbols.len());
@@ -156,9 +148,17 @@ mod tests {
     use matrix::OctetMatrix;
     use symbol::Symbol;
 
+    fn identity(size: usize) -> OctetMatrix {
+        let mut result = OctetMatrix::new(size, size);
+        for i in 0..size {
+            result.set(i, i, 1);
+        }
+        result
+    }
+
     #[test]
     fn mul() {
-        let identity = OctetMatrix::identity(4);
+        let identity = identity(4);
         let mut a = OctetMatrix::new(4, 5);
         for i in 0..4 {
             for j in 0..5 {
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn mul_symbol() {
-        let identity = OctetMatrix::identity(4);
+        let identity = identity(4);
         let mut symbols: Vec<Symbol> = vec![];
         for _ in 0..4 {
             let mut data = vec![];
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn inverse() {
-        let identity = OctetMatrix::identity(3);
+        let identity = identity(3);
         assert_eq!(identity, identity.clone() * identity.clone().inverse().unwrap());
 
         let mut a = OctetMatrix::new(3, 3);
