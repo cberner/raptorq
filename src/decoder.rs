@@ -39,6 +39,7 @@ impl SourceBlockDecoder {
     }
 
     pub fn parse(& mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
+        assert_eq!(self.source_block_id, packet.payload_id.source_block_number);
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
         if self.received_esi.insert(packet.payload_id.encoding_symbol_id) {
             if packet.payload_id.encoding_symbol_id >= num_extended_symbols {
