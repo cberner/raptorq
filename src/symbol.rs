@@ -31,8 +31,12 @@ impl Symbol {
     }
 
     pub fn mul_scalar(&self, scalar: &Octet) -> Symbol {
-        self.clone() * Symbol {
-            value: vec![scalar.clone(); self.value.len()]
+        let mut result = Vec::with_capacity(self.value.len());
+        for i in 0..self.value.len() {
+            result.push(self.value[i].clone() * scalar.clone());
+        }
+        Symbol {
+            value: result
         }
     }
 }
