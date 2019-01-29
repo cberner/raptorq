@@ -43,7 +43,7 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
 }
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
-fn enc_indices(source_block_symbols: u32,
+pub fn enc_indices(source_block_symbols: u32,
        source_tuple: (u32, u32, u32, u32, u32, u32)) -> HashSet<usize> {
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
@@ -135,12 +135,15 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
     }
 
     // G_ENC
+    let mut row = 0;
     for i in encoded_symbol_indices {
+        // row != i, because i is the ESI
         let tuple = intermediate_tuple(Kprime as u32, i);
 
         for j in enc_indices(Kprime as u32, tuple) {
-            matrix.set::<Octet>(i as usize + S + H, j, 1.into());
+            matrix.set::<Octet>(row as usize + S + H, j, 1.into());
         }
+        row += 1;
     }
 
     matrix

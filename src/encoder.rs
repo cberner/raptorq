@@ -45,8 +45,8 @@ impl SourceBlockEncoder {
     }
 
     // See section 5.3.4
-    pub fn repair_packets(&self, start_encoding_symbol_id: u32, packets: u32) -> Vec<EncodingPacket> {
-        assert!(start_encoding_symbol_id >= extended_source_block_symbols(self.source_symbols.len() as u32));
+    pub fn repair_packets(&self, start_repair_symbol_id: u32, packets: u32) -> Vec<EncodingPacket> {
+        let start_encoding_symbol_id = start_repair_symbol_id + extended_source_block_symbols(self.source_symbols.len() as u32);
         let mut result = vec![];
         for i in 0..packets {
             let tuple = intermediate_tuple(self.source_symbols.len() as u32, start_encoding_symbol_id + i);

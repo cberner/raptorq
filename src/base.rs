@@ -6,6 +6,7 @@ use systematic_constants::calculate_p1;
 use symbol::Symbol;
 
 // As defined in section 3.2
+#[derive(Clone)]
 pub struct PayloadId {
     pub source_block_number: u8,
     pub encoding_symbol_id: u32
@@ -25,6 +26,7 @@ impl PayloadId {
 }
 
 // As defined in section 4.4.2
+#[derive(Clone)]
 pub struct EncodingPacket {
     pub payload_id: PayloadId,
     pub symbol: Symbol
