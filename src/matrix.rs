@@ -29,6 +29,9 @@ impl OctetMatrix {
         for i in 0..self.height {
             let mut symbol = Symbol::zero(symbols[0].len());
             for j in 0..self.width {
+                if self.elements[i][j] == Octet::zero() {
+                    continue;
+                }
                 symbol += symbols[j].mul_scalar(&self.elements[i][j]);
             }
             result.push(symbol);
