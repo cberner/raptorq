@@ -37,7 +37,7 @@ impl OctetMatrix {
         for i in 0..self.height {
             let mut symbol = Symbol::zero(symbols[0].value.len());
             for j in 0..self.width {
-                symbol = symbol + symbols[j].mul_scalar(&self.elements[i][j]);
+                symbol += symbols[j].mul_scalar(&self.elements[i][j]);
             }
             result.push(symbol);
         }

@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::ops::Mul;
 use std::ops::Div;
 use octet::Octet;
+use std::ops::AddAssign;
 
 // As defined in section 5.7.3
 const OCT_EXP: [u8; 510] = [
@@ -99,6 +100,14 @@ impl Add for Symbol {
         }
         Symbol {
             value: result
+        }
+    }
+}
+
+impl AddAssign for Symbol {
+    fn add_assign(&mut self, other: Symbol) {
+        for i in 0..self.value.len() {
+            self.value[i] ^= other.value[i];
         }
     }
 }
