@@ -27,7 +27,7 @@ impl OctetMatrix {
         assert_ne!(0, symbols.len());
         let mut result: Vec<Symbol> = vec![];
         for i in 0..self.height {
-            let mut symbol = Symbol::zero(symbols[0].value.len());
+            let mut symbol = Symbol::zero(symbols[0].len());
             for j in 0..self.width {
                 symbol += symbols[j].mul_scalar(&self.elements[i][j]);
             }
@@ -177,9 +177,7 @@ mod tests {
             for _ in 0..3 {
                 data.push(rand::thread_rng().gen());
             }
-            symbols.push(Symbol {
-                value: data
-            });
+            symbols.push(Symbol::new(data));
         }
         assert_eq!(symbols.clone(), identity.mul_symbols(&symbols));
 

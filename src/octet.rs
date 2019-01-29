@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::ops::Mul;
 use std::ops::Div;
 use std::ops::Sub;
+use std::ops::AddAssign;
 
 // As defined in section 5.7.3
 const OCT_EXP: [u8; 510] = [
@@ -103,6 +104,12 @@ impl Add for Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
             value: self.value ^ other.value
         }
+    }
+}
+
+impl AddAssign for Octet {
+    fn add_assign(&mut self, other: Octet) {
+        self.value ^= other.value;
     }
 }
 

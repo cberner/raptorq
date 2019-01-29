@@ -24,7 +24,7 @@ impl SourceBlockEncoder {
         let source_symbols: Vec<Symbol> = data.chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
-        let intermediate_symbols = gen_intermediate_symbols(extend_source_block(source_symbols.clone()));
+        let intermediate_symbols = gen_intermediate_symbols(extend_source_block(source_symbols.clone(), symbol_size as usize), symbol_size as usize);
         SourceBlockEncoder {
             source_block_id,
             symbol_size,
@@ -60,27 +60,24 @@ impl SourceBlockEncoder {
 }
 
 // Extend the source block with padding. See section 5.3.2
-fn extend_source_block(mut source_block: Vec<Symbol>) -> Vec<Symbol> {
+fn extend_source_block(mut source_block: Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
     assert_ne!(0, source_block.len());
     let symbols = source_block.len() as u32;
-    let symbol_size = source_block[0].value.len();
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
     for _ in 0..(extended_source_symbols - symbols) {
-        source_block.push(Symbol {
-            value: vec![0; symbol_size]
-        });
+        source_block.push(Symbol::zero(symbol_size));
     }
     source_block
 }
 
 // See section 5.3.3.4
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>) -> Vec<Symbol> {
+fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
     let L = num_intermediate_symbols(extended_source_block.len() as u32);
     let S = num_ldpc_symbols(extended_source_block.len() as u32);
     let H = num_hdpc_symbols(extended_source_block.len() as u32);
 
-    let mut D = vec![Symbol::zero(extended_source_block[0].value.len()); L as usize];
+    let mut D = vec![Symbol::zero(symbol_size); L as usize];
     for i in 0..extended_source_block.len() {
         D[(S + H) as usize + i] = extended_source_block[i].clone();
     }
@@ -151,18 +148,16 @@ mod tests {
             for i in 0..SYMBOL_SIZE {
                 data[i] = rand::thread_rng().gen();
             }
-            source_block.push(Symbol {
-                value: data
-            });
+            source_block.push(Symbol::new(data));
         }
 
-        extend_source_block(source_block)
+        extend_source_block(source_block, SYMBOL_SIZE)
     }
 
     #[test]
     fn enc_constraint() {
         let extended_source_symbols = gen_test_symbols();
-        let intermediate_symbols = gen_intermediate_symbols(extended_source_symbols.clone());
+        let intermediate_symbols = gen_intermediate_symbols(extended_source_symbols.clone(), SYMBOL_SIZE);
 
         // See section 5.3.3.4.1, item 1.
         for i in 0..extended_source_symbols.len() {
@@ -175,7 +170,7 @@ mod tests {
     #[allow(non_snake_case)]
     #[test]
     fn ldpc_constraint() {
-        let C = gen_intermediate_symbols(gen_test_symbols());
+        let C = gen_intermediate_symbols(gen_test_symbols(), SYMBOL_SIZE);
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;
         let W = num_lt_symbols(NUM_SYMBOLS) as usize;
