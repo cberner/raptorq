@@ -16,5 +16,9 @@ rand = "0.6"
 name = "codec_benchmark"
 harness = false
 
+[[bin]]
+name = "matrix_sparsity"
+path = "src/bin_matrix_sparsity.rs"
+
 [profile.release]
 debug = true

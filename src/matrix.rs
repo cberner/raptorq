@@ -44,6 +44,14 @@ impl OctetMatrix {
         self.elements[i][j] = value.into();
     }
 
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
     pub fn get(&self, i: usize, j: usize) -> Octet {
         self.elements[i][j].clone()
     }
