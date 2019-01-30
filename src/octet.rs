@@ -143,10 +143,14 @@ impl<'a, 'b> Mul<&'b Octet> for &'a Octet {
             }
         }
         else {
-            let log_u = OCT_LOG[self.value as usize] as usize;
-            let log_v = OCT_LOG[other.value as usize] as usize;
-            Octet {
-                value: OCT_EXP[log_u + log_v]
+            unsafe {
+                // This is safe because value is a u8, and OCT_LOG is 256 elements long
+                let log_u = *OCT_LOG.get_unchecked(self.value as usize) as usize;
+                let log_v = *OCT_LOG.get_unchecked(other.value as usize) as usize;
+                // This is safe because the sum of two values in OCT_LOG cannot exceed 509
+                Octet {
+                    value: *OCT_EXP.get_unchecked(log_u + log_v)
+                }
             }
         }
     }
@@ -179,6 +183,8 @@ mod tests {
 
     use octet::tests::rand::Rng;
     use octet::Octet;
+    use octet::OCT_LOG;
+    use octet::OCT_EXP;
 
     #[test]
     fn addition() {
@@ -225,5 +231,11 @@ mod tests {
             value: 1
         };
         assert_eq!(one, octet / octet2);
+    }
+
+    #[test]
+    fn unsafe_mul_gaurantees() {
+        let max_value = *OCT_LOG.iter().max().unwrap() as usize;
+        assert!(2*max_value < OCT_EXP.len());
     }
 }
