@@ -44,7 +44,7 @@ impl Symbol {
         assert_eq!(self.value.len(), other.value.len());
         for i in 0..self.value.len() {
             unsafe  {
-                *self.value.get_unchecked_mut(i) += other.value.get_unchecked(i) * &scalar;
+                self.value.get_unchecked_mut(i).fma(other.value.get_unchecked(i), &scalar);
             }
         }
     }

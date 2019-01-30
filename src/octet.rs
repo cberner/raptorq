@@ -80,6 +80,18 @@ impl Octet {
             value: OCT_EXP[i as usize]
         }
     }
+
+    pub fn fma(&mut self, other1: &Octet, other2: &Octet) {
+        if other1.value != 0 && other2.value != 0 {
+            unsafe {
+                // This is safe because value is a u8, and OCT_LOG is 256 elements long
+                let log_u = *OCT_LOG.get_unchecked(other1.value as usize) as usize;
+                let log_v = *OCT_LOG.get_unchecked(other2.value as usize) as usize;
+                // This is safe because the sum of two values in OCT_LOG cannot exceed 509
+                self.value ^= *OCT_EXP.get_unchecked(log_u + log_v)
+            }
+        }
+    }
 }
 
 impl From<u8> for Octet {
@@ -237,5 +249,18 @@ mod tests {
     fn unsafe_mul_gaurantees() {
         let max_value = *OCT_LOG.iter().max().unwrap() as usize;
         assert!(2*max_value < OCT_EXP.len());
+    }
+
+    #[test]
+    fn fma() {
+        let mut result = Octet::zero();
+        let mut fma_result = Octet::zero();
+        for i in 0..255 {
+            for j in 0..255 {
+                result += Octet::from(i) * Octet::from(j);
+                fma_result.fma(&Octet::from(i), &Octet::from(j));
+                assert_eq!(result, fma_result);
+            }
+        }
     }
 }
