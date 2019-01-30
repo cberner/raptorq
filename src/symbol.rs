@@ -41,8 +41,11 @@ impl Symbol {
     }
 
     pub fn fused_addassign_mul_scalar(&mut self, other: &Symbol, scalar: &Octet) {
+        assert_eq!(self.value.len(), other.value.len());
         for i in 0..self.value.len() {
-            self.value[i] += &other.value[i] * &scalar;
+            unsafe  {
+                *self.value.get_unchecked_mut(i) += other.value.get_unchecked(i) * &scalar;
+            }
         }
     }
 }
