@@ -15,3 +15,6 @@ rand = "0.6"
 [[bench]]
 name = "codec_benchmark"
 harness = false
+
+[profile.release]
+debug = true
