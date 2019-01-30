@@ -39,6 +39,12 @@ impl Symbol {
             value: result
         }
     }
+
+    pub fn fused_addassign_mul_scalar(&mut self, other: &Symbol, scalar: &Octet) {
+        for i in 0..self.value.len() {
+            self.value[i] += &other.value[i] * &scalar;
+        }
+    }
 }
 
 impl Add for Symbol {

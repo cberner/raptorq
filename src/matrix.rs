@@ -32,7 +32,7 @@ impl OctetMatrix {
                 if self.elements[i][j] == Octet::zero() {
                     continue;
                 }
-                symbol += symbols[j].mul_scalar(&self.elements[i][j]);
+                symbol.fused_addassign_mul_scalar(&symbols[j], &self.elements[i][j]);
             }
             result.push(symbol);
         }

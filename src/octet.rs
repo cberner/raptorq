@@ -128,6 +128,14 @@ impl Mul for Octet {
     type Output = Octet;
 
     fn mul(self, other: Octet) -> Octet {
+        &self * &other
+    }
+}
+
+impl<'a, 'b> Mul<&'b Octet> for &'a Octet {
+    type Output = Octet;
+
+    fn mul(self, other: &'b Octet) -> Octet {
         // As defined in section 5.7.2, multiplication is implemented via the tables above
         if self.value == 0 || other.value == 0 {
             Octet {
