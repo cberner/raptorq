@@ -52,6 +52,10 @@ impl OctetMatrix {
         self.width
     }
 
+    pub fn elements(&self) -> Vec<Vec<Octet>> {
+        self.elements.clone()
+    }
+
     pub fn get(&self, i: usize, j: usize) -> Octet {
         self.elements[i][j].clone()
     }

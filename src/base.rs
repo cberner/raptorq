@@ -1,9 +1,14 @@
 use std::cmp::min;
 use systematic_constants::systematic_index;
 use rng::rand;
+use systematic_constants::num_intermediate_symbols;
 use systematic_constants::num_lt_symbols;
+use systematic_constants::num_pi_symbols;
 use systematic_constants::calculate_p1;
 use symbol::Symbol;
+use matrix::OctetMatrix;
+use std::collections::HashMap;
+use octet::Octet;
 
 // As defined in section 3.2
 #[derive(Clone)]
@@ -77,4 +82,175 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
     let b1 = rand(internal_symbol_id, 5, P1);
 
     (d, a, b, d1, a1, b1)
+}
+
+// See section 5.4.2.1
+#[allow(non_snake_case)]
+struct IntermediateSymbolDecoder {
+    A: Vec<Vec<Octet>>,
+    X: Vec<Vec<Octet>>,
+    D: Vec<Symbol>,
+    c: Vec<usize>,
+    d: Vec<usize>,
+    L: usize,
+    num_source_symbols: u32
+}
+
+impl IntermediateSymbolDecoder {
+    fn new(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
+        // TODO: implement for non-square matrices
+        assert_eq!(matrix.width(), symbols.len());
+        assert_eq!(matrix.height(), symbols.len());
+        let mut c = vec![];
+        let mut d = vec![];
+        for i in 0..matrix.width() {
+            c.push(i);
+            d.push(i);
+        }
+
+        IntermediateSymbolDecoder {
+            A: matrix.elements(),
+            X: matrix.elements(),
+            D: symbols.clone(),
+            c,
+            d,
+            L: num_intermediate_symbols(num_source_symbols) as usize,
+            num_source_symbols
+        }
+
+    }
+
+    // First phase (section 5.4.2.2)
+    #[allow(non_snake_case)]
+    fn first_phase(&mut self) -> bool {
+        // First phase (section 5.4.2.2)
+        let i = 0;
+        let u = num_pi_symbols(self.num_source_symbols);
+
+        true
+    }
+
+    // Second phase (section 5.4.2.3)
+    #[allow(non_snake_case)]
+    fn second_phase(&mut self) {
+
+    }
+    // Third phase (section 5.4.2.4)
+    #[allow(non_snake_case)]
+    fn third_phase(&mut self) {
+
+    }
+
+    // Fourth phase (section 5.4.2.5)
+    #[allow(non_snake_case)]
+    fn fourth_phase(&mut self) {
+
+    }
+
+    // Fifth phase (section 5.4.2.6)
+    #[allow(non_snake_case)]
+    fn fifth_phase(&mut self) {
+
+    }
+
+    // Helper operations to apply operations to A, also to D
+    fn mul_row(&mut self, i: usize, beta: Octet) {
+        self.D[self.d[i]] = self.D[self.d[i]].mul_scalar(&beta);
+        for j in 0..self.L {
+            self.A[i][j] = &self.A[i][j] * &beta;
+        }
+    }
+
+    fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
+        let temp = self.D[self.d[i]].clone();
+        self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
+        for j in 0..self.L {
+            self.A[iprime][j] += &self.A[i][j] * &beta;
+        }
+    }
+
+    fn swap_rows(&mut self, i: usize, iprime: usize) {
+        self.A.swap(i, iprime);
+        self.d.swap(i, iprime);
+    }
+
+    fn swap_columns(&mut self, j: usize, jprime: usize) {
+        for i in 0..self.A.len() {
+            self.A[i].swap(j, jprime);
+        }
+        self.c.swap(j, jprime);
+    }
+
+    fn execute(&mut self) -> Option<Vec<Symbol>> {
+        if !self.first_phase() {
+            return None
+        }
+        self.second_phase();
+        self.third_phase();
+        self.fourth_phase();
+        self.fifth_phase();
+
+        // See end of section 5.4.2.1
+        let mut index_mapping = HashMap::new();
+        for i in 0..self.L {
+            index_mapping.insert(self.c[i], self.d[i]);
+        }
+        let mut result = vec![];
+        for i in 0..self.L {
+            result.push(self.D[index_mapping[&i]].clone());
+        }
+        Some(result)
+    }
+}
+
+
+// Fused implementation for self.inverse().mul_symbols(symbols)
+// See section 5.4.2.1
+pub fn fused_inverse_mul_symbols(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> Option<Vec<Symbol>> {
+    IntermediateSymbolDecoder::new(matrix, symbols, num_source_symbols).execute()
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate rand;
+
+    use base::tests::rand::Rng;
+    use symbol::Symbol;
+    use matrix::OctetMatrix;
+    use systematic_constants::extended_source_block_symbols;
+    use constraint_matrix::generate_constraint_matrix;
+    use base::fused_inverse_mul_symbols;
+
+    fn identity(size: usize) -> OctetMatrix {
+        let mut result = OctetMatrix::new(size, size);
+        for i in 0..size {
+            result.set(i, i, 1);
+        }
+        result
+    }
+
+    fn rand_symbol(symbol_size: usize) -> Symbol {
+        let mut data: Vec<u8> = vec![0; symbol_size];
+        for i in 0..symbol_size {
+            data[i] = rand::thread_rng().gen();
+        }
+        Symbol::new(data)
+    }
+
+    #[test]
+    #[ignore]
+    fn inverse() {
+        for &source_symbols in [5, 20, 30, 50, 100].iter() {
+            let symbols = extended_source_block_symbols(source_symbols);
+            let a = generate_constraint_matrix(source_symbols, 0..symbols);
+            let identity = identity(a.height());
+            assert_eq!(identity, a.clone() * a.inverse().unwrap());
+
+            let mut rand_symbols = vec![];
+            for _ in 0..a.width() {
+                rand_symbols.push(rand_symbol(8));
+            }
+            assert_eq!(a.clone().inverse().unwrap().mul_symbols(&rand_symbols), fused_inverse_mul_symbols(&a, &rand_symbols, source_symbols).unwrap());
+        }
+    }
 }
