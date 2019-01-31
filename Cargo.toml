@@ -19,6 +19,7 @@ harness = false
 [[bin]]
 name = "matrix_sparsity"
 path = "src/bin_matrix_sparsity.rs"
+test = false
 
 [profile.release]
 debug = true
