@@ -148,3 +148,31 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
 
     matrix
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate rand;
+
+    use constraint_matrix::tests::rand::Rng;
+    use matrix::OctetMatrix;
+    use systematic_constants::extended_source_block_symbols;
+    use constraint_matrix::generate_constraint_matrix;
+
+    fn identity(size: usize) -> OctetMatrix {
+        let mut result = OctetMatrix::new(size, size);
+        for i in 0..size {
+            result.set(i, i, 1);
+        }
+        result
+    }
+
+    #[test]
+    fn inverse() {
+        for &source_symbols in [5, 20, 30, 50, 100].iter() {
+            let symbols = extended_source_block_symbols(source_symbols);
+            let a = generate_constraint_matrix(source_symbols, 0..symbols);
+            let identity = identity(a.height());
+            assert_eq!(identity, a.clone() * a.inverse().unwrap());
+        }
+    }
+}
