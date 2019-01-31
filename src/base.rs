@@ -92,6 +92,7 @@ struct IntermediateSymbolDecoder {
     D: Vec<Symbol>,
     c: Vec<usize>,
     d: Vec<usize>,
+    i: usize,
     L: usize,
     num_source_symbols: u32
 }
@@ -114,6 +115,7 @@ impl IntermediateSymbolDecoder {
             D: symbols.clone(),
             c,
             d,
+            i: 0,
             L: num_intermediate_symbols(num_source_symbols) as usize,
             num_source_symbols
         }
@@ -124,7 +126,6 @@ impl IntermediateSymbolDecoder {
     #[allow(non_snake_case)]
     fn first_phase(&mut self) -> bool {
         // First phase (section 5.4.2.2)
-        let i = 0;
         let u = num_pi_symbols(self.num_source_symbols);
 
         true
@@ -150,7 +151,18 @@ impl IntermediateSymbolDecoder {
     // Fifth phase (section 5.4.2.6)
     #[allow(non_snake_case)]
     fn fifth_phase(&mut self) {
-
+        for j in 1..=self.i as usize {
+            if self.A[j][j] != Octet::one() {
+                let temp = self.A[j][j].clone();
+                self.mul_row(j, Octet::one() / temp)
+            }
+            for l in 1..=j {
+                let temp = self.A[j][l].clone();
+                if temp != Octet::zero() {
+                    self.fma_rows(j, l, temp);
+                }
+            }
+        }
     }
 
     // Helper operations to apply operations to A, also to D

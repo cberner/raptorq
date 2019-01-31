@@ -75,6 +75,12 @@ impl Octet {
         }
     }
 
+    pub fn one() -> Octet {
+        Octet {
+            value: 0
+        }
+    }
+
     pub fn alpha(i: u8) -> Octet {
         Octet {
             value: OCT_EXP[i as usize]
