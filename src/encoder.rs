@@ -10,6 +10,7 @@ use systematic_constants::num_ldpc_symbols;
 use systematic_constants::num_hdpc_symbols;
 use constraint_matrix::generate_constraint_matrix;
 use base::intermediate_tuple;
+use base::fused_inverse_mul_symbols;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
@@ -83,7 +84,7 @@ fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>, symbol_size: usi
     }
 
     let A = generate_constraint_matrix(extended_source_block.len() as u32, 0..extended_source_block.len() as u32);
-    A.inverse().unwrap().mul_symbols(&D)
+    fused_inverse_mul_symbols(&A, &D, extended_source_block.len() as u32).unwrap()
 }
 
 // Enc[] function, as defined in section 5.3.5.3

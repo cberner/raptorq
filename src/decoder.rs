@@ -6,6 +6,7 @@ use systematic_constants::num_ldpc_symbols;
 use systematic_constants::num_hdpc_symbols;
 use constraint_matrix::generate_constraint_matrix;
 use base::intermediate_tuple;
+use base::fused_inverse_mul_symbols;
 use constraint_matrix::enc_indices;
 
 pub struct SourceBlockDecoder {
@@ -94,11 +95,12 @@ impl SourceBlockDecoder {
             }
 
             let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, encoded_indices.into_iter());
-            let inverse = constraint_matrix.inverse();
-            if inverse == None {
+            let intermediate_symbols =  fused_inverse_mul_symbols(&constraint_matrix, &d, self.source_block_symbols);
+
+            if intermediate_symbols == None {
                 return None
             }
-            let intermediate_symbols = inverse.unwrap().mul_symbols(&d);
+            let intermediate_symbols = intermediate_symbols.unwrap();
 
             let mut result = vec![];
             for i in 0..self.source_block_symbols as usize {
