@@ -372,47 +372,14 @@ impl IntermediateSymbolDecoder {
         }
 
         // Convert U_lower to row echelon form
-        let col_offset = self.i;
-        let row_offset = self.i;
-        for i in 0..self.u {
-            // Swap a row with leading coefficient i into place
-            for j in (row_offset + i)..self.A.len() {
-                if self.A[j][col_offset + i] != Octet::zero() {
-                    self.swap_rows(row_offset + i, j);
-                    break;
-                }
-            }
-
-            if self.A[row_offset + i][col_offset + i] == Octet::zero() {
-                // If all following rows are zero in this column, then matrix is singular
-                return false;
-            }
-
-            // Scale leading coefficient to 1
-            if self.A[row_offset + i][col_offset + i] != Octet::one() {
-                let element_inverse = Octet::one() / self.A[row_offset + i][col_offset + i].clone();
-                self.mul_row(row_offset + i, element_inverse);
-            }
-
-            // Zero out all following elements in i'th column
-            for j in (row_offset + i + 1)..self.A.len() {
-                if self.A[j][col_offset + i] != Octet::zero() {
-                    let scalar = self.A[j][col_offset + i].clone();
-                    self.fma_rows(row_offset + i, j, scalar);
-                }
-            }
+        let temp = self.i;
+        let size = self.u;
+        if !self.reduce_to_row_echelon(temp, temp, size) {
+            return false;
         }
 
         // Perform backwards elimination
-        for i in (0..self.u).rev() {
-            // Zero out all preceding elements in i'th column
-            for j in 0..i {
-                if self.A[row_offset + j][col_offset + i] != Octet::zero() {
-                    let scalar = self.A[row_offset + j][col_offset + i].clone();
-                    self.fma_rows(row_offset + i, row_offset + j, scalar);
-                }
-            }
-        }
+        self.backwards_elimination(temp, temp, size);
 
         return true;
     }
@@ -441,6 +408,56 @@ impl IntermediateSymbolDecoder {
                 let temp = self.A[j][l].clone();
                 if temp != Octet::zero() {
                     self.fma_rows(j, l, temp);
+                }
+            }
+        }
+    }
+
+    // Reduces the size x size submatrix, starting at row_offset and col_offset as the upper left
+    // corner, to row echelon form
+    fn reduce_to_row_echelon(&mut self, row_offset: usize, col_offset: usize, size: usize) -> bool {
+        for i in 0..size {
+            // Swap a row with leading coefficient i into place
+            for j in (row_offset + i)..self.A.len() {
+                if self.A[j][col_offset + i] != Octet::zero() {
+                    self.swap_rows(row_offset + i, j);
+                    break;
+                }
+            }
+
+            if self.A[row_offset + i][col_offset + i] == Octet::zero() {
+                // If all following rows are zero in this column, then matrix is singular
+                return false;
+            }
+
+            // Scale leading coefficient to 1
+            if self.A[row_offset + i][col_offset + i] != Octet::one() {
+                let element_inverse = Octet::one() / self.A[row_offset + i][col_offset + i].clone();
+                self.mul_row(row_offset + i, element_inverse);
+            }
+
+            // Zero out all following elements in i'th column
+            for j in (row_offset + i + 1)..self.A.len() {
+                if self.A[j][col_offset + i] != Octet::zero() {
+                    let scalar = self.A[j][col_offset + i].clone();
+                    self.fma_rows(row_offset + i, j, scalar);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Performs backwards elimination in a size x size submatrix, starting at
+    // row_offset and col_offset as the upper left corner of the submatrix
+    fn backwards_elimination(&mut self, row_offset: usize, col_offset: usize, size: usize) {
+        // Perform backwards elimination
+        for i in (0..size).rev() {
+            // Zero out all preceding elements in i'th column
+            for j in 0..i {
+                if self.A[row_offset + j][col_offset + i] != Octet::zero() {
+                    let scalar = self.A[row_offset + j][col_offset + i].clone();
+                    self.fma_rows(row_offset + i, row_offset + j, scalar);
                 }
             }
         }
