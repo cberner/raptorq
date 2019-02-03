@@ -77,7 +77,7 @@ impl Octet {
 
     pub fn one() -> Octet {
         Octet {
-            value: 0
+            value: 1
         }
     }
 
