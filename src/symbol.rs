@@ -149,7 +149,7 @@ mod tests {
         let elements = 4;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
+            data[i] = rand::thread_rng().gen_range(1, 255);
         }
         let symbol = Symbol::new(data);
         let symbol2 = symbol.clone();
