@@ -419,6 +419,32 @@ impl IntermediateSymbolDecoder {
     fn third_phase(&mut self) {
         // TODO: should only run this in debug mode
         self.third_phase_verify();
+
+        // A[0..i][..] = X * A[0..i][..]
+        let mut temp = self.A.clone();
+        for row in 0..self.i {
+            for col in 0..self.A[row].len() {
+                let mut element = Octet::zero();
+                for k in 0..self.i {
+                    element += &self.X[row][k] * &temp[k][col];
+                }
+                self.A[row][col] = element;
+            }
+        }
+
+        // Now apply the same operations to D.
+        // Note that X is lower triangular, so the row must be processed last to first
+        for row in (0..self.i).rev() {
+            self.D[self.d[row]] = self.D[self.d[row]].mul_scalar(&self.X[row][row]);
+
+            for col in 0..row {
+                let temp = self.D[self.d[col]].clone();
+                self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X[row][col]);
+            }
+        }
+
+        // TODO: should only run this in debug mode
+        self.third_phase_verify_end();
     }
 
     fn third_phase_verify(&self) {
@@ -435,6 +461,14 @@ impl IntermediateSymbolDecoder {
                 else {
                     assert_eq!(Octet::zero(), self.A[row][col]);
                 }
+            }
+        }
+    }
+
+    fn third_phase_verify_end(&self) {
+        for row in 0..self.i {
+            for col in 0..self.i {
+                assert_eq!(self.X[row][col], self.A[row][col]);
             }
         }
     }
