@@ -476,7 +476,34 @@ impl IntermediateSymbolDecoder {
     // Fourth phase (section 5.4.2.5)
     #[allow(non_snake_case)]
     fn fourth_phase(&mut self) {
+        for i in 0..self.i {
+            for j in 0..self.u {
+                let b = self.A[i][j + self.i].clone();
+                if b != Octet::zero() {
+                    let temp = self.i;
+                    self.fma_rows(temp + j, i, b);
+                }
+            }
+        }
+        // TODO: should only run this in debug mode
+        self.fourth_phase_verify();
+    }
 
+    fn fourth_phase_verify(&self) {
+        // Same assertion about X being equal to the upper left of A
+        self.third_phase_verify_end();
+        assert!(self.all_zeroes(0, self.i, self.L - self.u, self.L));
+        assert!(self.all_zeroes(self.L - self.u, self.L, 0, self.i));
+        for row in (self.L - self.u)..self.L {
+            for col in (self.L - self.u)..self.L {
+                if row == col {
+                    assert_eq!(Octet::one(), self.A[row][col]);
+                }
+                else {
+                    assert_eq!(Octet::zero(), self.A[row][col]);
+                }
+            }
+        }
     }
 
     // Fifth phase (section 5.4.2.6)
