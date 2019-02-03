@@ -356,9 +356,27 @@ impl IntermediateSymbolDecoder {
 
             self.i += 1;
             self.u += r - 1;
+            // TODO: should only run this in debug mode
+            self.first_phase_verify();
         }
 
         return true;
+    }
+
+    // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
+    fn first_phase_verify(&self) {
+        for row in 0..self.i {
+            for col in 0..self.i {
+                if row == col {
+                    assert_eq!(Octet::one(), self.A[row][col]);
+                }
+                else {
+                    assert_eq!(Octet::zero(), self.A[row][col]);
+                }
+            }
+        }
+        assert!(self.all_zeroes(0, self.i, self.i, self.A.len() - self.u));
+        assert!(self.all_zeroes(self.i, self.A.len(), 0, self.i));
     }
 
     // Second phase (section 5.4.2.3)
