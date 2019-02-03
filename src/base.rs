@@ -4,11 +4,16 @@ use rng::rand;
 use systematic_constants::num_intermediate_symbols;
 use systematic_constants::num_lt_symbols;
 use systematic_constants::num_pi_symbols;
+use systematic_constants::num_ldpc_symbols;
+use systematic_constants::num_hdpc_symbols;
 use systematic_constants::calculate_p1;
 use symbol::Symbol;
 use matrix::OctetMatrix;
 use std::collections::HashMap;
 use octet::Octet;
+use std::collections::HashSet;
+use petgraph::prelude::*;
+use petgraph::algo::condensation;
 
 // As defined in section 3.2
 #[derive(Clone)]
@@ -93,6 +98,7 @@ struct IntermediateSymbolDecoder {
     c: Vec<usize>,
     d: Vec<usize>,
     i: usize,
+    u: usize,
     L: usize,
     num_source_symbols: u32
 }
@@ -116,19 +122,238 @@ impl IntermediateSymbolDecoder {
             c,
             d,
             i: 0,
+            u: num_pi_symbols(num_source_symbols) as usize,
             L: num_intermediate_symbols(num_source_symbols) as usize,
             num_source_symbols
         }
+    }
 
+    // Returns true iff all elements in A between [start_row, end_row)
+    // and [start_column, end_column) are zero
+    fn all_zeroes(&self, start_row: usize, end_row: usize, start_column: usize, end_column: usize) -> bool {
+        for row in start_row..end_row {
+            for column in start_column..end_column {
+                if self.A[row][column] != Octet::zero() {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
     fn first_phase(&mut self) -> bool {
         // First phase (section 5.4.2.2)
-        let u = num_pi_symbols(self.num_source_symbols);
 
-        true
+        //                i                 u
+        //    +-----------+-----------------+---------+
+        //    |           |                 |         |
+        //    |     I     |    All Zeros    |         |
+        //    |           |                 |         |
+        //  i +-----------+-----------------+    U    |
+        //    |           |                 |         |
+        //    |           |                 |         |
+        //    | All Zeros |       V         |         |
+        //    |           |                 |         |
+        //    |           |                 |         |
+        //    +-----------+-----------------+---------+
+        // Figure 6: Submatrices of A in the First Phase
+
+        let S = num_ldpc_symbols(self.num_source_symbols);
+        let H = num_hdpc_symbols(self.num_source_symbols);
+
+        let mut hdpc_rows = vec![false; self.A.len()];
+        for row in S..(S + H) {
+            hdpc_rows[row as usize] = true;
+        }
+
+        while self.i + self.u < self.L {
+            if self.all_zeroes(self.i, self.L, self.i, self.L - self.u) {
+                return false;
+            }
+
+            // Calculate r
+            // "Let r be the minimum integer such that at least one row of A has
+            // exactly r nonzeros in V."
+            let mut r = self.L + 1;
+            for row in self.i..self.L {
+                let mut non_zero = 0;
+                for col in self.i..(self.L - self.u) {
+                    if self.A[row][col] != Octet::zero() {
+                        non_zero += 1;
+                    }
+                }
+                if non_zero < r {
+                    r = non_zero;
+                }
+            }
+
+            let mut chosen_row = None;
+            if r == 2 {
+                // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
+                let mut rows_with_two_ones = HashSet::new();
+                for row in self.i..self.L {
+                    let mut ones = 0;
+                    for col in self.i..(self.L - self.u) {
+                        if self.A[row][col] == Octet::one() {
+                            ones += 1;
+                        }
+                        if ones > r {
+                            break;
+                        }
+                    }
+                    if ones == r {
+                        rows_with_two_ones.insert(row);
+                    }
+                }
+
+                if rows_with_two_ones.len() > 0 {
+                    let mut g = Graph::new_undirected();
+                    let mut node_lookup = HashMap::new();
+                    for col in self.i..(self.L - self.u) {
+                        let node = g.add_node(col);
+                        node_lookup.insert(col, node);
+                    }
+
+                    for row in rows_with_two_ones.clone() {
+                        if hdpc_rows[row] {
+                            continue;
+                        }
+                        let mut ones = vec![];
+                        for col in self.i..(self.L - self.u) {
+                            // XXX: It's unclear exactly how to construct this graph. The RFC seems to have
+                            // a typo. It says, emphasis mine, "The following graph defined by the structure
+                            // of V is used in determining which row of A is chosen. The columns that
+                            // intersect V are the nodes in the graph, and the rows that have *exactly 2
+                            // nonzero* entries in V and are not HDPC rows are the edges of the graph that
+                            // connect the two columns (nodes) in the positions of *the two ones*."
+                            if self.A[row][col] == Octet::one() {
+                                ones.push(col);
+                            }
+                            if ones.len() == 2 {
+                                break;
+                            }
+                        }
+                        let node1 = node_lookup[&ones[0]];
+                        let node2 = node_lookup[&ones[1]];
+                        g.add_edge(node1, node2, row);
+                    }
+
+                    let connected_components = condensation(g.clone(), true);
+                    let mut row_to_component_size = HashMap::new();
+                    for index in connected_components.node_indices() {
+                        let cols = connected_components.node_weight(index).unwrap();
+                        for col in cols {
+                            for edge in g.edges(node_lookup[col]) {
+                                row_to_component_size.insert(edge.weight(), cols.len());
+                            }
+                        }
+                    }
+
+                    let mut chosen_component_size = 0;
+                    for row in rows_with_two_ones {
+                        if row_to_component_size[&row] > chosen_component_size {
+                            chosen_row = Some(row);
+                            chosen_component_size = row_to_component_size[&row];
+                        }
+                    }
+                }
+                else {
+                    // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
+                    for row in self.i..self.L {
+                        let mut non_zero = 0;
+                        for col in self.i..(self.L - self.u) {
+                            if self.A[row][col] != Octet::zero() {
+                                non_zero += 1;
+                            }
+                            if non_zero > r {
+                                break;
+                            }
+                        }
+                        if non_zero == r {
+                            chosen_row = Some(row);
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                // TODO XXX !!!!!!: need to sort by something called "original degree"
+                let mut chosen_hdpc = None;
+                let mut chosen_non_hdpc = None;
+                for row in self.i..self.L {
+                    let mut non_zero = 0;
+                    for col in self.i..(self.L - self.u) {
+                        if self.A[row][col] != Octet::zero() {
+                            non_zero += 1;
+                        }
+                        if non_zero > r {
+                            break;
+                        }
+                    }
+                    if non_zero == r {
+                        if hdpc_rows[row] {
+                            chosen_hdpc = Some(row);
+                        }
+                        else {
+                            chosen_non_hdpc = Some(row);
+                            break;
+                        }
+                    }
+                }
+                if chosen_non_hdpc != None {
+                    chosen_row = chosen_non_hdpc;
+                }
+                else {
+                    chosen_row = chosen_hdpc;
+                }
+            }
+
+            // See paragraph beginning: "After the row is chosen in this step..."
+            // Reorder rows
+            let temp = self.i;
+            let chosen_row = chosen_row.unwrap();
+            self.swap_rows(temp, chosen_row);
+            self.X.swap(temp, chosen_row);
+            hdpc_rows.swap(temp, chosen_row);
+            // Reorder columns
+            let mut swapped_columns = 0;
+            for col in self.i..(self.L - self.u) {
+                if self.A[self.i][col] != Octet::zero() {
+                    let dest;
+                    if swapped_columns == 0 {
+                        dest = self.i;
+                    }
+                    else {
+                        dest = self.L - self.u - swapped_columns;
+                    }
+                    self.swap_columns(dest, col);
+                    // Also apply to X
+                    for row in 0..self.X.len() {
+                        self.X[row].swap(dest, col);
+                    }
+                    swapped_columns += 1;
+                    if swapped_columns == r {
+                        break;
+                    }
+                }
+            }
+            // Zero out leading value in following rows
+            let temp = self.i;
+            for row in (self.i + 1)..self.A.len() {
+                if self.A[row][temp] != Octet::zero() {
+                    // Addition is equivalent to subtraction
+                    let beta = &self.A[row][temp] / &self.A[temp][temp];
+                    self.fma_rows(temp, row, beta);
+                }
+            }
+
+            self.i += 1;
+            self.u += r - 1;
+        }
+
+        return true;
     }
 
     // Second phase (section 5.4.2.3)

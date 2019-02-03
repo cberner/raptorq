@@ -1,3 +1,6 @@
+extern crate petgraph;
+extern crate primal;
+
 #[allow(dead_code)]
 mod systematic_constants;
 #[allow(dead_code)]

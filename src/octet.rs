@@ -178,6 +178,14 @@ impl Div for Octet {
     type Output = Octet;
 
     fn div(self, rhs: Octet) -> Octet {
+        &self / &rhs
+    }
+}
+
+impl<'a, 'b> Div<&'b Octet> for &'a Octet {
+    type Output = Octet;
+
+    fn div(self, rhs: &'b Octet) -> Octet {
         assert_ne!(0, rhs.value);
         // As defined in section 5.7.2, division is implemented via the tables above
         if self.value == 0 {
