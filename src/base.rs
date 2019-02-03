@@ -382,7 +382,9 @@ impl IntermediateSymbolDecoder {
     // Second phase (section 5.4.2.3)
     #[allow(non_snake_case)]
     fn second_phase(&mut self) -> bool {
+        // TODO: should only run this in debug mode
         self.second_phase_verify();
+
         let rows_to_discard = self.i..self.X.len();
         let cols_to_discard = self.i..self.X[0].len();
         self.X.drain(rows_to_discard);
@@ -415,7 +417,26 @@ impl IntermediateSymbolDecoder {
     // Third phase (section 5.4.2.4)
     #[allow(non_snake_case)]
     fn third_phase(&mut self) {
+        // TODO: should only run this in debug mode
+        self.third_phase_verify();
+    }
 
+    fn third_phase_verify(&self) {
+        for row in 0..self.A.len() {
+            for col in 0..self.A[row].len() {
+                if row < self.i && col >= self.A[row].len() - self.u {
+                    // element is in U_upper, which can have arbitrary values at this point
+                    continue;
+                }
+                // The rest of A should be identity matrix
+                if row == col {
+                    assert_eq!(Octet::one(), self.A[row][col]);
+                }
+                else {
+                    assert_eq!(Octet::zero(), self.A[row][col]);
+                }
+            }
+        }
     }
 
     // Fourth phase (section 5.4.2.5)
