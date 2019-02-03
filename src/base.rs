@@ -184,7 +184,9 @@ impl IntermediateSymbolDecoder {
                         non_zero += 1;
                     }
                 }
-                if non_zero < r {
+                // Take the minimum positive integer, as the spec seems to be wrong about selecting
+                // the minimum integer (if you do, the following code will fail in division by zero)
+                if non_zero > 0 && non_zero < r {
                     r = non_zero;
                 }
             }
@@ -253,6 +255,9 @@ impl IntermediateSymbolDecoder {
 
                     let mut chosen_component_size = 0;
                     for row in rows_with_two_ones {
+                        if hdpc_rows[row] {
+                            continue;
+                        }
                         if row_to_component_size[&row] > chosen_component_size {
                             chosen_row = Some(row);
                             chosen_component_size = row_to_component_size[&row];
@@ -319,7 +324,7 @@ impl IntermediateSymbolDecoder {
             hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
             let mut swapped_columns = 0;
-            for col in self.i..(self.L - self.u) {
+            for col in self.i..(self.A[self.i].len() - self.u) {
                 if self.A[self.i][col] != Octet::zero() {
                     let dest;
                     if swapped_columns == 0 {
