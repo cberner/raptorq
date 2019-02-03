@@ -382,6 +382,7 @@ impl IntermediateSymbolDecoder {
     // Second phase (section 5.4.2.3)
     #[allow(non_snake_case)]
     fn second_phase(&mut self) -> bool {
+        self.second_phase_verify();
         let rows_to_discard = self.i..self.X.len();
         let cols_to_discard = self.i..self.X[0].len();
         self.X.drain(rows_to_discard);
@@ -400,6 +401,15 @@ impl IntermediateSymbolDecoder {
         self.backwards_elimination(temp, temp, size);
 
         return true;
+    }
+
+    // Verifies that X is lower triangular. See section 5.4.2.3
+    fn second_phase_verify(&self) {
+        for row in 0..self.i {
+            for col in (row + 1)..self.i {
+                assert_eq!(Octet::zero(), self.X[row][col]);
+            }
+        }
     }
 
     // Third phase (section 5.4.2.4)
