@@ -490,6 +490,17 @@ impl IntermediateSymbolDecoder {
     }
 
     fn fourth_phase_verify(&self) {
+        //    ---------> i u <------
+        //  | +-----------+--------+
+        //  | |\          |        |
+        //  | |  \ Zeros  | Zeros  |
+        //  v |     \     |        |
+        //  i |  X     \  |        |
+        //  u +---------- +--------+
+        //  ^ |           |        |
+        //  | | All Zeros |   I    |
+        //  | |           |        |
+        //    +-----------+--------+
         // Same assertion about X being equal to the upper left of A
         self.third_phase_verify_end();
         assert!(self.all_zeroes(0, self.i, self.L - self.u, self.L));
@@ -509,15 +520,36 @@ impl IntermediateSymbolDecoder {
     // Fifth phase (section 5.4.2.6)
     #[allow(non_snake_case)]
     fn fifth_phase(&mut self) {
-        for j in 1..=self.i as usize {
+        // "For j from 1 to i". Note that A is 1-indexed in the spec, and ranges are inclusive,
+        // this is means [1, i], which is equal to [0, i)
+        for j in 0..self.i as usize {
             if self.A[j][j] != Octet::one() {
                 let temp = self.A[j][j].clone();
                 self.mul_row(j, Octet::one() / temp)
             }
-            for l in 1..j {
+            // "For l from 1 to j-1". This means the lower triangular columns, not including the
+            // diagonal, which is [0, j)
+            for l in 0..j {
                 let temp = self.A[j][l].clone();
                 if temp != Octet::zero() {
                     self.fma_rows(l, j, temp);
+                }
+            }
+        }
+        // TODO: should only run this in debug mode
+        self.fifth_phase_verify();
+    }
+
+    fn fifth_phase_verify(&self) {
+        assert_eq!(self.L, self.A.len());
+        for row in 0..self.L {
+            assert_eq!(self.L, self.A[row].len());
+            for col in 0..self.L {
+                if row == col {
+                    assert_eq!(Octet::one(), self.A[row][col]);
+                }
+                else {
+                    assert_eq!(Octet::zero(), self.A[row][col]);
                 }
             }
         }
