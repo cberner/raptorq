@@ -404,10 +404,10 @@ impl IntermediateSymbolDecoder {
                 let temp = self.A[j][j].clone();
                 self.mul_row(j, Octet::one() / temp)
             }
-            for l in 1..=j {
+            for l in 1..j {
                 let temp = self.A[j][l].clone();
                 if temp != Octet::zero() {
-                    self.fma_rows(j, l, temp);
+                    self.fma_rows(l, j, temp);
                 }
             }
         }
