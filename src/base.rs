@@ -421,7 +421,7 @@ impl IntermediateSymbolDecoder {
         self.third_phase_verify();
 
         // A[0..i][..] = X * A[0..i][..]
-        let mut temp = self.A.clone();
+        let temp = self.A.clone();
         for row in 0..self.i {
             for col in 0..self.A[row].len() {
                 let mut element = Octet::zero();
