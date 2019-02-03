@@ -146,11 +146,11 @@ impl IntermediateSymbolDecoder {
     fn first_phase(&mut self) -> bool {
         // First phase (section 5.4.2.2)
 
-        //                i                 u
-        //    +-----------+-----------------+---------+
-        //    |           |                 |         |
-        //    |     I     |    All Zeros    |         |
-        //    |           |                 |         |
+        //    ----------> i                 u <--------
+        //  | +-----------+-----------------+---------+
+        //  | |           |                 |         |
+        //  | |     I     |    All Zeros    |         |
+        //  v |           |                 |         |
         //  i +-----------+-----------------+    U    |
         //    |           |                 |         |
         //    |           |                 |         |
@@ -358,9 +358,60 @@ impl IntermediateSymbolDecoder {
 
     // Second phase (section 5.4.2.3)
     #[allow(non_snake_case)]
-    fn second_phase(&mut self) {
+    fn second_phase(&mut self) -> bool {
+        let rows_to_discard = self.i..self.X.len();
+        let cols_to_discard = self.i..self.X[0].len();
+        self.X.drain(rows_to_discard);
+        for row in 0..self.X.len() {
+            self.X[row].drain(cols_to_discard.clone());
+        }
 
+        // Convert U_lower to row echelon form
+        let col_offset = self.i;
+        let row_offset = self.i;
+        for i in 0..self.u {
+            // Swap a row with leading coefficient i into place
+            for j in (row_offset + i)..self.A.len() {
+                if self.A[j][col_offset + i] != Octet::zero() {
+                    self.swap_rows(row_offset + i, j);
+                    break;
+                }
+            }
+
+            if self.A[row_offset + i][col_offset + i] == Octet::zero() {
+                // If all following rows are zero in this column, then matrix is singular
+                return false;
+            }
+
+            // Scale leading coefficient to 1
+            if self.A[row_offset + i][col_offset + i] != Octet::one() {
+                let element_inverse = Octet::one() / self.A[row_offset + i][col_offset + i].clone();
+                self.mul_row(row_offset + i, element_inverse);
+            }
+
+            // Zero out all following elements in i'th column
+            for j in (row_offset + i + 1)..self.A.len() {
+                if self.A[j][col_offset + i] != Octet::zero() {
+                    let scalar = self.A[j][col_offset + i].clone();
+                    self.fma_rows(row_offset + i, j, scalar);
+                }
+            }
+        }
+
+        // Perform backwards elimination
+        for i in (0..self.u).rev() {
+            // Zero out all preceding elements in i'th column
+            for j in 0..i {
+                if self.A[row_offset + j][col_offset + i] != Octet::zero() {
+                    let scalar = self.A[row_offset + j][col_offset + i].clone();
+                    self.fma_rows(row_offset + i, row_offset + j, scalar);
+                }
+            }
+        }
+
+        return true;
     }
+
     // Third phase (section 5.4.2.4)
     #[allow(non_snake_case)]
     fn third_phase(&mut self) {
@@ -422,7 +473,11 @@ impl IntermediateSymbolDecoder {
         if !self.first_phase() {
             return None
         }
-        self.second_phase();
+
+        if !self.second_phase() {
+            return None;
+        }
+
         self.third_phase();
         self.fourth_phase();
         self.fifth_phase();
