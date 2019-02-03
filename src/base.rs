@@ -646,15 +646,6 @@ impl IntermediateSymbolDecoder {
         self.fourth_phase();
         self.fifth_phase();
 
-        // TODO: remove this part. It's only here because some phases aren't implemented yet
-        let size = self.A.len();
-        if !self.reduce_to_row_echelon(0, 0, size) {
-            return None;
-        }
-        // Perform backwards elimination
-        self.backwards_elimination(0, 0, size);
-        // TODO: end of todo
-
         // See end of section 5.4.2.1
         let mut index_mapping = HashMap::new();
         for i in 0..self.L {
