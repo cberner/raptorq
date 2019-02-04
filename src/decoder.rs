@@ -123,7 +123,7 @@ impl SourceBlockDecoder {
 
         let mut rebuilt = Symbol::zero(self.symbol_size as usize);
         for i in enc_indices(self.source_block_symbols, tuple) {
-            rebuilt = rebuilt + intermediate_symbols[i].clone();
+            rebuilt += &intermediate_symbols[i];
         }
         rebuilt
     }

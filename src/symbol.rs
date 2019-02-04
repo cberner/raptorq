@@ -1,6 +1,3 @@
-use std::ops::Add;
-use std::ops::Mul;
-use std::ops::Div;
 use octet::Octet;
 use std::ops::AddAssign;
 
@@ -52,20 +49,6 @@ impl Symbol {
     }
 }
 
-impl Add for Symbol {
-    type Output = Symbol;
-
-    fn add(self, other: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
-            result.push(self.value[i].clone() + other.value[i].clone());
-        }
-        Symbol {
-            value: result
-        }
-    }
-}
-
 impl<'a> AddAssign<&'a Symbol> for Symbol {
     fn add_assign(&mut self, other: &'a Symbol) {
         assert_eq!(self.value.len(), other.value.len());
@@ -74,91 +57,5 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
                 *self.value.get_unchecked_mut(i) += other.value.get_unchecked(i);
             }
         }
-    }
-}
-
-impl Mul for Symbol {
-    type Output = Symbol;
-
-    fn mul(self, other: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
-            result.push(self.value[i].clone() * other.value[i].clone())
-        }
-        Symbol {
-            value: result
-        }
-    }
-}
-
-impl Div for Symbol {
-    type Output = Symbol;
-
-    fn div(self, rhs: Symbol) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
-        for i in 0..self.value.len() {
-            result.push(self.value[i].clone() / rhs.value[i].clone())
-        }
-        Symbol {
-            value: result
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    extern crate rand;
-
-    use symbol::tests::rand::Rng;
-    use symbol::Symbol;
-
-    #[test]
-    fn addition() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol::new(data);
-        let symbol2 = symbol.clone();
-        // See section 5.7.2. u is its own additive inverse
-        assert_eq!(Symbol::zero(elements), symbol + symbol2);
-    }
-
-    #[test]
-    fn multiplication_identity() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-        let symbol = Symbol::new(data);
-        let one = Symbol::new(vec![1, 1, 1, 1]);
-        assert_eq!(symbol, symbol.clone() * one);
-    }
-
-    #[test]
-    fn multiplicative_inverse() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen_range(1, 255);
-        }
-        let symbol = Symbol::new(data);
-        let one = Symbol::new(vec![1, 1, 1, 1]);
-        assert_eq!(one.clone(), symbol.clone() * (one.clone() / symbol.clone()));
-    }
-
-    #[test]
-    fn division() {
-        let elements = 4;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen_range(1, 255);
-        }
-        let symbol = Symbol::new(data);
-        let symbol2 = symbol.clone();
-        let one = Symbol::new(vec![1, 1, 1, 1]);
-        assert_eq!(one, symbol / symbol2);
     }
 }

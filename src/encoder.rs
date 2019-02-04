@@ -105,21 +105,21 @@ fn enc(source_block_symbols: u32,
     let mut result = intermediate_symbols[b as usize].clone();
     for _ in 1..d {
         b = (b + a) % w;
-        result = result + intermediate_symbols[b as usize].clone();
+        result += &intermediate_symbols[b as usize];
     }
 
     while b1 >= p {
         b1 = (b1 + a1) % p1;
     }
 
-    result = result + intermediate_symbols[(w + b1) as usize].clone();
+    result += &intermediate_symbols[(w + b1) as usize];
 
     for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
         }
-        result = result + intermediate_symbols[(w + b1) as usize].clone();
+        result += &intermediate_symbols[(w + b1) as usize];
     }
 
     result
@@ -186,19 +186,20 @@ mod tests {
         for i in 0..B {
             let a = 1 + i / S;
             let b = i % S;
-            D[b] = D[b].clone() + C[i].clone();
+            D[b] += &C[i];
 
             let b = (b + a) % S;
-            D[b] = D[b].clone() + C[i].clone();
+            D[b] += &C[i];
 
             let b = (b + a) % S;
-            D[b] = D[b].clone() + C[i].clone();
+            D[b] += &C[i];
         }
 
         for i in 0..S {
             let a = i % P;
             let b = (i + 1) % P;
-            D[i] = D[i].clone() + C[W + a].clone() + C[W + b].clone();
+            D[i] += &C[W + a];
+            D[i] += &C[W + b];
         }
 
         for i in 0..S {
