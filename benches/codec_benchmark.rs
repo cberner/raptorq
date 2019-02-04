@@ -13,33 +13,6 @@ use raptorq::Symbol;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let octet1 = Octet::from(rand::thread_rng().gen_range(1, 255));
-    let octet2 = Octet::from(rand::thread_rng().gen_range(1, 255));
-
-    let octet1_add = octet1.clone();
-    let octet2_add = octet2.clone();
-    c.bench_function("Octet add", move |b| b.iter(|| {
-        octet1_add.clone() + octet2_add.clone()
-    }));
-
-    let octet1_add_ref = octet1.clone();
-    let octet2_add_ref = octet2.clone();
-    c.bench_function("Octet add by ref", move |b| b.iter(|| {
-        &octet1_add_ref + &octet2_add_ref
-    }));
-
-    let octet1_mul = octet1.clone();
-    let octet2_mul = octet2.clone();
-    c.bench_function("Octet mul", move |b| b.iter(|| {
-        octet1_mul.clone() * octet2_mul.clone()
-    }));
-
-    let octet1_mul_ref = octet1.clone();
-    let octet2_mul_ref = octet2.clone();
-    c.bench_function("Octet mul by ref", move |b| b.iter(|| {
-        &octet1_mul_ref * &octet2_mul_ref
-    }));
-
-
     let symbol_size = 512;
     let mut data1: Vec<u8> = vec![0; symbol_size];
     let mut data2: Vec<u8> = vec![0; symbol_size];
