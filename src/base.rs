@@ -101,7 +101,8 @@ pub struct IntermediateSymbolDecoder {
     u: usize,
     L: usize,
     num_source_symbols: u32,
-    debug_symbol_mul_ops: u32
+    debug_symbol_mul_ops: u32,
+    debug_symbol_add_ops: u32
 }
 
 impl IntermediateSymbolDecoder {
@@ -126,7 +127,8 @@ impl IntermediateSymbolDecoder {
             u: num_pi_symbols(num_source_symbols) as usize,
             L: num_intermediate_symbols(num_source_symbols) as usize,
             num_source_symbols,
-            debug_symbol_mul_ops: 0
+            debug_symbol_mul_ops: 0,
+            debug_symbol_add_ops: 0
         }
     }
 
@@ -444,11 +446,13 @@ impl IntermediateSymbolDecoder {
 
             for col in 0..row {
                 if self.X[row][col] == Octet::one() {
+                    self.debug_symbol_add_ops += 1;
                     let temp = self.D[self.d[col]].clone();
                     self.D[self.d[row]] += &temp;
                 }
                 else {
                     self.debug_symbol_mul_ops += 1;
+                    self.debug_symbol_add_ops += 1;
                     let temp = self.D[self.d[col]].clone();
                     self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X[row][col]);
                 }
@@ -621,6 +625,10 @@ impl IntermediateSymbolDecoder {
         self.debug_symbol_mul_ops
     }
 
+    pub fn get_symbol_add_ops(&self) -> u32 {
+        self.debug_symbol_add_ops
+    }
+
     // Helper operations to apply operations to A, also to D
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
@@ -632,10 +640,12 @@ impl IntermediateSymbolDecoder {
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
         if beta == Octet::one() {
+            self.debug_symbol_add_ops += 1;
             let temp = self.D[self.d[i]].clone();
             self.D[self.d[iprime]] += &temp;
         }
         else {
+            self.debug_symbol_add_ops += 1;
             self.debug_symbol_mul_ops += 1;
             let temp = self.D[self.d[i]].clone();
             self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
