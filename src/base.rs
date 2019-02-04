@@ -621,9 +621,15 @@ impl IntermediateSymbolDecoder {
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
-        self.debug_symbol_mul_ops += 1;
-        let temp = self.D[self.d[i]].clone();
-        self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
+        if beta == Octet::one() {
+            let temp = self.D[self.d[i]].clone();
+            self.D[self.d[iprime]] += &temp;
+        }
+        else {
+            self.debug_symbol_mul_ops += 1;
+            let temp = self.D[self.d[i]].clone();
+            self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
+        }
         for j in 0..self.L {
             self.A[iprime][j] += &self.A[i][j] * &beta;
         }

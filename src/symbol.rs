@@ -64,10 +64,13 @@ impl Add for Symbol {
     }
 }
 
-impl AddAssign for Symbol {
-    fn add_assign(&mut self, other: Symbol) {
+impl<'a> AddAssign<&'a Symbol> for Symbol {
+    fn add_assign(&mut self, other: &'a Symbol) {
+        assert_eq!(self.value.len(), other.value.len());
         for i in 0..self.value.len() {
-            self.value[i] += other.value[i].clone();
+            unsafe {
+                *self.value.get_unchecked_mut(i) += other.value.get_unchecked(i);
+            }
         }
     }
 }

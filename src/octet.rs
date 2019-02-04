@@ -131,6 +131,12 @@ impl AddAssign for Octet {
     }
 }
 
+impl<'a> AddAssign<&'a Octet> for Octet {
+    fn add_assign(&mut self, other: &'a Octet) {
+        self.value ^= other.value;
+    }
+}
+
 impl Sub for Octet {
     type Output = Octet;
 
