@@ -147,6 +147,7 @@ impl IntermediateSymbolDecoder {
 
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
+    #[inline(never)]
     fn first_phase(&mut self) -> bool {
         // First phase (section 5.4.2.2)
 
@@ -368,6 +369,7 @@ impl IntermediateSymbolDecoder {
     }
 
     // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
+    #[inline(never)]
     fn first_phase_verify(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
@@ -385,6 +387,7 @@ impl IntermediateSymbolDecoder {
 
     // Second phase (section 5.4.2.3)
     #[allow(non_snake_case)]
+    #[inline(never)]
     fn second_phase(&mut self) -> bool {
         // TODO: should only run this in debug mode
         self.second_phase_verify();
@@ -410,6 +413,7 @@ impl IntermediateSymbolDecoder {
     }
 
     // Verifies that X is lower triangular. See section 5.4.2.3
+    #[inline(never)]
     fn second_phase_verify(&self) {
         for row in 0..self.i {
             for col in (row + 1)..self.i {
@@ -420,6 +424,7 @@ impl IntermediateSymbolDecoder {
 
     // Third phase (section 5.4.2.4)
     #[allow(non_snake_case)]
+    #[inline(never)]
     fn third_phase(&mut self) {
         // TODO: should only run this in debug mode
         self.third_phase_verify();
@@ -466,6 +471,7 @@ impl IntermediateSymbolDecoder {
         self.third_phase_verify_end();
     }
 
+    #[inline(never)]
     fn third_phase_verify(&self) {
         for row in 0..self.A.len() {
             for col in 0..self.A[row].len() {
@@ -484,6 +490,7 @@ impl IntermediateSymbolDecoder {
         }
     }
 
+    #[inline(never)]
     fn third_phase_verify_end(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
@@ -494,6 +501,7 @@ impl IntermediateSymbolDecoder {
 
     // Fourth phase (section 5.4.2.5)
     #[allow(non_snake_case)]
+    #[inline(never)]
     fn fourth_phase(&mut self) {
         for i in 0..self.i {
             for j in 0..self.u {
@@ -508,6 +516,7 @@ impl IntermediateSymbolDecoder {
         self.fourth_phase_verify();
     }
 
+    #[inline(never)]
     fn fourth_phase_verify(&self) {
         //    ---------> i u <------
         //  | +-----------+--------+
@@ -538,6 +547,7 @@ impl IntermediateSymbolDecoder {
 
     // Fifth phase (section 5.4.2.6)
     #[allow(non_snake_case)]
+    #[inline(never)]
     fn fifth_phase(&mut self) {
         // "For j from 1 to i". Note that A is 1-indexed in the spec, and ranges are inclusive,
         // this is means [1, i], which is equal to [0, i)
@@ -559,6 +569,7 @@ impl IntermediateSymbolDecoder {
         self.fifth_phase_verify();
     }
 
+    #[inline(never)]
     fn fifth_phase_verify(&self) {
         assert_eq!(self.L, self.A.len());
         for row in 0..self.L {
@@ -576,6 +587,7 @@ impl IntermediateSymbolDecoder {
 
     // Reduces the size x size submatrix, starting at row_offset and col_offset as the upper left
     // corner, to row echelon form
+    #[inline(never)]
     fn reduce_to_row_echelon(&mut self, row_offset: usize, col_offset: usize, size: usize) -> bool {
         for i in 0..size {
             // Swap a row with leading coefficient i into place
@@ -611,6 +623,7 @@ impl IntermediateSymbolDecoder {
 
     // Performs backwards elimination in a size x size submatrix, starting at
     // row_offset and col_offset as the upper left corner of the submatrix
+    #[inline(never)]
     fn backwards_elimination(&mut self, row_offset: usize, col_offset: usize, size: usize) {
         // Perform backwards elimination
         for i in (0..size).rev() {
@@ -670,6 +683,7 @@ impl IntermediateSymbolDecoder {
         self.c.swap(j, jprime);
     }
 
+    #[inline(never)]
     pub fn execute(&mut self) -> Option<Vec<Symbol>> {
         if !self.first_phase() {
             return None
