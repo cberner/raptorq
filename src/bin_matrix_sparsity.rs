@@ -50,6 +50,10 @@ fn main() {
         let symbols = vec![Symbol::zero(1); a.width()];
         let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
         decoder.execute();
-        println!("Optimized decoder mul ops: {}, add ops: {}", decoder.get_symbol_mul_ops(), decoder.get_symbol_add_ops());
+        println!("Optimized decoder mul ops: {} ({:.1} per symbol), add ops: {} ({:.1} per symbol)",
+                 decoder.get_symbol_mul_ops(),
+                 decoder.get_symbol_mul_ops() as f64 / num_symbols as f64,
+                 decoder.get_symbol_add_ops(),
+                 decoder.get_symbol_add_ops() as f64 / num_symbols as f64);
     }
 }
