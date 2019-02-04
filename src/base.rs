@@ -437,11 +437,21 @@ impl IntermediateSymbolDecoder {
         // Now apply the same operations to D.
         // Note that X is lower triangular, so the row must be processed last to first
         for row in (0..self.i).rev() {
-            self.D[self.d[row]] = self.D[self.d[row]].mul_scalar(&self.X[row][row]);
+            if self.X[row][row] != Octet::one() {
+                self.debug_symbol_mul_ops += 1;
+                self.D[self.d[row]] = self.D[self.d[row]].mul_scalar(&self.X[row][row]);
+            }
 
             for col in 0..row {
-                let temp = self.D[self.d[col]].clone();
-                self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X[row][col]);
+                if self.X[row][col] == Octet::one() {
+                    let temp = self.D[self.d[col]].clone();
+                    self.D[self.d[row]] += &temp;
+                }
+                else {
+                    self.debug_symbol_mul_ops += 1;
+                    let temp = self.D[self.d[col]].clone();
+                    self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X[row][col]);
+                }
             }
         }
 
