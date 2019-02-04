@@ -445,6 +445,9 @@ impl IntermediateSymbolDecoder {
             }
 
             for col in 0..row {
+                if self.X[row][col] == Octet::zero() {
+                    continue;
+                }
                 if self.X[row][col] == Octet::one() {
                     self.debug_symbol_add_ops += 1;
                     let temp = self.D[self.d[col]].clone();

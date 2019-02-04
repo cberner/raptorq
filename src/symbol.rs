@@ -41,6 +41,10 @@ impl Symbol {
     }
 
     pub fn fused_addassign_mul_scalar(&mut self, other: &Symbol, scalar: &Octet) {
+        // TODO: enable these in debug only?
+        assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
+        assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
+
         assert_eq!(self.value.len(), other.value.len());
         for i in 0..self.value.len() {
             unsafe  {
