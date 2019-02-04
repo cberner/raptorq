@@ -125,6 +125,17 @@ impl Add for Octet {
     }
 }
 
+impl<'a, 'b> Add<&'b Octet> for &'a Octet {
+    type Output = Octet;
+
+    fn add(self, other: &'b Octet) -> Octet {
+        Octet {
+            // As defined in section 5.7.2, addition on octets is implemented as bitxor
+            value: self.value ^ other.value
+        }
+    }
+}
+
 impl AddAssign for Octet {
     fn add_assign(&mut self, other: Octet) {
         self.value ^= other.value;
