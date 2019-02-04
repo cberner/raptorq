@@ -19,6 +19,8 @@ mod base;
 use constraint_matrix::generate_constraint_matrix;
 use octet::Octet;
 use systematic_constants::extended_source_block_symbols;
+use symbol::Symbol;
+use base::IntermediateSymbolDecoder;
 
 fn main() {
     for elements in [10, 100, 1000, 10000].iter() {
@@ -44,5 +46,10 @@ fn main() {
             }
         }
         println!("Inverse density for {}x{}: {} of {}", inverse.height(), inverse.width(), density, inverse.height() * inverse.width());
+
+        let symbols = vec![Symbol::zero(1); a.width()];
+        let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
+        decoder.execute();
+        println!("Optimized decoder mul ops: {}", decoder.get_symbol_mul_ops());
     }
 }

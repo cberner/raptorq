@@ -91,7 +91,7 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 
 // See section 5.4.2.1
 #[allow(non_snake_case)]
-struct IntermediateSymbolDecoder {
+pub struct IntermediateSymbolDecoder {
     A: Vec<Vec<Octet>>,
     X: Vec<Vec<Octet>>,
     D: Vec<Symbol>,
@@ -100,11 +100,12 @@ struct IntermediateSymbolDecoder {
     i: usize,
     u: usize,
     L: usize,
-    num_source_symbols: u32
+    num_source_symbols: u32,
+    debug_symbol_mul_ops: u32
 }
 
 impl IntermediateSymbolDecoder {
-    fn new(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
+    pub fn new(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
         // TODO: implement for non-square matrices
         assert_eq!(matrix.width(), symbols.len());
         assert_eq!(matrix.height(), symbols.len());
@@ -124,7 +125,8 @@ impl IntermediateSymbolDecoder {
             i: 0,
             u: num_pi_symbols(num_source_symbols) as usize,
             L: num_intermediate_symbols(num_source_symbols) as usize,
-            num_source_symbols
+            num_source_symbols,
+            debug_symbol_mul_ops: 0
         }
     }
 
@@ -605,8 +607,13 @@ impl IntermediateSymbolDecoder {
         }
     }
 
+    pub fn get_symbol_mul_ops(&self) -> u32 {
+        self.debug_symbol_mul_ops
+    }
+
     // Helper operations to apply operations to A, also to D
     fn mul_row(&mut self, i: usize, beta: Octet) {
+        self.debug_symbol_mul_ops += 1;
         self.D[self.d[i]] = self.D[self.d[i]].mul_scalar(&beta);
         for j in 0..self.L {
             self.A[i][j] = &self.A[i][j] * &beta;
@@ -614,6 +621,7 @@ impl IntermediateSymbolDecoder {
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
+        self.debug_symbol_mul_ops += 1;
         let temp = self.D[self.d[i]].clone();
         self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
         for j in 0..self.L {
@@ -633,7 +641,7 @@ impl IntermediateSymbolDecoder {
         self.c.swap(j, jprime);
     }
 
-    fn execute(&mut self) -> Option<Vec<Symbol>> {
+    pub fn execute(&mut self) -> Option<Vec<Symbol>> {
         if !self.first_phase() {
             return None
         }
