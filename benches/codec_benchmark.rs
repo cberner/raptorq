@@ -8,6 +8,7 @@ use rand::Rng;
 use raptorq::SourceBlockEncoder;
 use raptorq::SourceBlockDecoder;
 use raptorq::Octet;
+use raptorq::Symbol;
 
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -36,6 +37,40 @@ fn criterion_benchmark(c: &mut Criterion) {
     let octet2_mul_ref = octet2.clone();
     c.bench_function("Octet mul by ref", move |b| b.iter(|| {
         &octet1_mul_ref * &octet2_mul_ref
+    }));
+
+
+    let symbol_size = 512;
+    let mut data1: Vec<u8> = vec![0; symbol_size];
+    let mut data2: Vec<u8> = vec![0; symbol_size];
+    for i in 0..symbol_size {
+        data1[i] = rand::thread_rng().gen_range(1, 255);
+        data2[i] = rand::thread_rng().gen_range(1, 255);
+    }
+    let symbol1 = Symbol::new(data1);
+    let symbol2 = Symbol::new(data2);
+
+    let symbol1_mul_scalar = symbol1.clone();
+    let octet1_mul_scalar = octet1.clone();
+    c.bench_function("Symbol mul_scalar()", move |b| b.iter(|| {
+        symbol1_mul_scalar.mul_scalar(&octet1_mul_scalar)
+    }));
+
+    let symbol1_addassign = symbol1.clone();
+    let symbol2_addassign = symbol2.clone();
+    c.bench_function("Symbol +=", move |b| b.iter(|| {
+        let mut temp = symbol1_addassign.clone();
+        temp += &symbol2_addassign;
+        temp
+    }));
+
+    let symbol1_fma = symbol1.clone();
+    let symbol2_fma = symbol2.clone();
+    let octet1_fma = octet1.clone();
+    c.bench_function("Symbol FMA", move |b| b.iter(|| {
+        let mut temp = symbol1_fma.clone();
+        temp.fused_addassign_mul_scalar(&symbol2_fma, &octet1_fma);
+        temp
     }));
 
 
