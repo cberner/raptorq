@@ -446,7 +446,7 @@ impl IntermediateSymbolDecoder {
         for row in (0..self.i).rev() {
             if self.X[row][row] != Octet::one() {
                 self.debug_symbol_mul_ops += 1;
-                self.D[self.d[row]] = self.D[self.d[row]].mul_scalar(&self.X[row][row]);
+                self.D[self.d[row]].mulassign_scalar(&self.X[row][row]);
             }
 
             for col in 0..row {
@@ -648,7 +648,7 @@ impl IntermediateSymbolDecoder {
     // Helper operations to apply operations to A, also to D
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
-        self.D[self.d[i]] = self.D[self.d[i]].mul_scalar(&beta);
+        self.D[self.d[i]].mulassign_scalar(&beta);
         for j in 0..self.L {
             self.A[i][j] = &self.A[i][j] * &beta;
         }

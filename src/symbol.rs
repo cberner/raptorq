@@ -30,13 +30,11 @@ impl Symbol {
         self.value.iter().map(|octet| octet.clone().into()).collect()
     }
 
-    pub fn mul_scalar(&self, scalar: &Octet) -> Symbol {
-        let mut result = Vec::with_capacity(self.value.len());
+    pub fn mulassign_scalar(&mut self, scalar: &Octet) {
         for i in 0..self.value.len() {
-            result.push(self.value[i].clone() * scalar.clone());
-        }
-        Symbol {
-            value: result
+            unsafe {
+                *self.value.get_unchecked_mut(i) = self.value.get_unchecked(i) * scalar;
+            }
         }
     }
 

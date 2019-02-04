@@ -52,8 +52,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let symbol1_mul_scalar = symbol1.clone();
     let octet1_mul_scalar = octet1.clone();
-    c.bench_function("Symbol mul_scalar()", move |b| b.iter(|| {
-        symbol1_mul_scalar.mul_scalar(&octet1_mul_scalar)
+    c.bench_function("Symbol mulassign_scalar()", move |b| b.iter(|| {
+        let mut temp = symbol1_mul_scalar.clone();
+        temp.mulassign_scalar(&octet1_mul_scalar);
+        temp
     }));
 
     let symbol1_addassign = symbol1.clone();
