@@ -4,19 +4,19 @@ use std::ops::AddAssign;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
-    value: Vec<Octet>
+    value: Vec<u8>
 }
 
 impl Symbol {
     pub fn new(value: Vec<u8>) -> Symbol {
         Symbol {
-            value: value.iter().map(|&x| Octet::from(x)).collect()
+            value
         }
     }
 
     pub fn zero(size: usize) -> Symbol {
         Symbol {
-            value: vec![Octet::zero(); size]
+            value: vec![0; size]
         }
     }
 
@@ -25,7 +25,7 @@ impl Symbol {
     }
 
     pub fn bytes(&self) -> Vec<u8> {
-        self.value.iter().map(|octet| octet.clone().into()).collect()
+        self.value.clone()
     }
 
     pub fn mulassign_scalar(&mut self, scalar: &Octet) {
@@ -35,7 +35,7 @@ impl Symbol {
         let scalar_index = (scalar.byte() as usize) << 8;
         for i in 0..self.value.len() {
             unsafe {
-                *self.value.get_unchecked_mut(i) = Octet::from(*OCTET_MUL.get_unchecked(scalar_index + self.value.get_unchecked(i).byte() as usize));
+                *self.value.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index + *self.value.get_unchecked(i) as usize);
             }
         }
     }
@@ -45,10 +45,15 @@ impl Symbol {
         assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
         assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
 
+        unsafe {
+            assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
+        }
+
         assert_eq!(self.value.len(), other.value.len());
+        let scalar_index = (scalar.byte() as usize) << 8;
         for i in 0..self.value.len() {
             unsafe  {
-                self.value.get_unchecked_mut(i).fma(other.value.get_unchecked(i), &scalar);
+                *self.value.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index + *other.value.get_unchecked(i) as usize);
             }
         }
     }
@@ -67,7 +72,7 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
         let remainder = self.value.len() % 8;
         for i in (self.value.len() - remainder)..self.value.len() {
             unsafe {
-                *self.value.get_unchecked_mut(i) += other.value.get_unchecked(i);
+                *self.value.get_unchecked_mut(i) ^= other.value.get_unchecked(i);
             }
         }
     }
