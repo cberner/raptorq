@@ -727,6 +727,7 @@ mod tests {
     use systematic_constants::extended_source_block_symbols;
     use constraint_matrix::generate_constraint_matrix;
     use base::fused_inverse_mul_symbols;
+    use octet::Octet;
 
     fn identity(size: usize) -> OctetMatrix {
         let mut result = OctetMatrix::new(size, size);
@@ -746,6 +747,8 @@ mod tests {
 
     #[test]
     fn inverse() {
+        Octet::static_init();
+
         for &source_symbols in [5, 20, 30, 50, 100].iter() {
             let symbols = extended_source_block_symbols(source_symbols);
             let a = generate_constraint_matrix(source_symbols, 0..symbols);

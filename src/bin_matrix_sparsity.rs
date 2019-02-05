@@ -1,5 +1,6 @@
 extern crate petgraph;
 extern crate primal;
+extern crate raptorq;
 
 #[allow(dead_code)]
 mod systematic_constants;
@@ -23,6 +24,8 @@ use symbol::Symbol;
 use base::IntermediateSymbolDecoder;
 
 fn main() {
+    Octet::static_init();
+
     for elements in [10, 100, 1000, 10000].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let a = generate_constraint_matrix(num_symbols, 0..num_symbols);

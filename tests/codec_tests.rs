@@ -6,9 +6,12 @@ mod codec_tests {
     use rand::Rng;
     use raptorq::SourceBlockEncoder;
     use raptorq::SourceBlockDecoder;
+    use raptorq::Octet;
 
     #[test]
     fn round_trip() {
+        Octet::static_init();
+
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -30,6 +33,8 @@ mod codec_tests {
 
     #[test]
     fn repair() {
+        Octet::static_init();
+
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {

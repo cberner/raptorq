@@ -12,6 +12,8 @@ use raptorq::Symbol;
 
 
 fn criterion_benchmark(c: &mut Criterion) {
+    Octet::static_init();
+
     let octet1 = Octet::from(rand::thread_rng().gen_range(1, 255));
     let symbol_size = 512;
     let mut data1: Vec<u8> = vec![0; symbol_size];

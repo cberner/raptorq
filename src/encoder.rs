@@ -138,6 +138,7 @@ mod tests {
     use systematic_constants::num_ldpc_symbols;
     use systematic_constants::num_lt_symbols;
     use systematic_constants::num_pi_symbols;
+    use Octet;
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
@@ -157,6 +158,8 @@ mod tests {
 
     #[test]
     fn enc_constraint() {
+        Octet::static_init();
+
         let extended_source_symbols = gen_test_symbols();
         let intermediate_symbols = gen_intermediate_symbols(extended_source_symbols.clone(), SYMBOL_SIZE);
 
@@ -171,6 +174,8 @@ mod tests {
     #[allow(non_snake_case)]
     #[test]
     fn ldpc_constraint() {
+        Octet::static_init();
+
         let C = gen_intermediate_symbols(gen_test_symbols(), SYMBOL_SIZE);
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;

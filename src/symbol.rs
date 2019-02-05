@@ -1,4 +1,5 @@
 use octet::Octet;
+use octet::OCTET_MUL;
 use std::ops::AddAssign;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -28,9 +29,13 @@ impl Symbol {
     }
 
     pub fn mulassign_scalar(&mut self, scalar: &Octet) {
+        unsafe {
+            assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
+        }
+        let scalar_index = (scalar.byte() as usize) << 8;
         for i in 0..self.value.len() {
             unsafe {
-                *self.value.get_unchecked_mut(i) = self.value.get_unchecked(i) * scalar;
+                *self.value.get_unchecked_mut(i) = Octet::from(*OCTET_MUL.get_unchecked(scalar_index + self.value.get_unchecked(i).byte() as usize));
             }
         }
     }

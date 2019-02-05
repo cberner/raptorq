@@ -63,6 +63,8 @@ const OCT_LOG: [u8; 256] = [
    79, 174, 213, 233, 230, 231, 173, 232, 116, 214, 244, 234, 168, 80,
    88, 175];
 
+pub static mut OCTET_MUL: [u8; 256*256] = [0; 256*256];
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Octet {
     value: u8
@@ -85,6 +87,28 @@ impl Octet {
         Octet {
             value: OCT_EXP[i as usize]
         }
+    }
+
+    // TODO: rather awful hack. This should be replaced with something more user friendly
+    pub fn static_init() {
+        for x in 0..256 {
+            for y in 0..256 {
+                if x == 0 || y == 0 {
+                    continue;
+                }
+                else {
+                    let log_u = OCT_LOG[x as usize] as usize;
+                    let log_v = OCT_LOG[y as usize] as usize;
+                    unsafe {
+                        OCTET_MUL[x << 8 | y] = OCT_EXP[log_u + log_v];
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn byte(&self) -> u8 {
+        self.value
     }
 
     pub fn fma(&mut self, other1: &Octet, other2: &Octet) {
