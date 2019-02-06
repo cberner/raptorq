@@ -59,8 +59,8 @@ impl Symbol {
     }
 }
 
-impl<'a> AddAssign<&'a Symbol> for Symbol {
-    fn add_assign(&mut self, other: &'a Symbol) {
+impl<'a> Symbol {
+    fn add_assign_fallback(&mut self, other: &'a Symbol) {
         assert_eq!(self.value.len(), other.value.len());
         let self_ptr = self.value.as_mut_ptr() as *mut u64;
         let other_ptr = other.value.as_ptr() as *const u64;
@@ -76,6 +76,54 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
             }
         }
     }
+
+    fn add_assign_avx2(&mut self, other: &'a Symbol) {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+
+        assert_eq!(self.value.len(), other.value.len());
+        let self_avx_ptr = self.value.as_mut_ptr() as *mut __m256i;
+        let other_avx_ptr = other.value.as_ptr() as *const __m256i;
+        for i in 0..(self.value.len() / 32) {
+            unsafe {
+                // TODO: can we use the aligned load and store instructions?
+                let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+                let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
+                let result = _mm256_xor_si256(self_vec, other_vec);
+                _mm256_storeu_si256(self_avx_ptr.add(i), result);
+            }
+        }
+
+        // TODO: handling this tail reduces perf by ~8%. Should look into specialized implementations
+        // for Symbols that are 256bit aligned
+        let remainder = self.value.len() % 32;
+        let self_ptr = self.value.as_mut_ptr() as *mut u64;
+        let other_ptr = other.value.as_ptr() as *const u64;
+        for i in ((self.value.len() - remainder) / 8)..(self.value.len() / 8) {
+            unsafe {
+                *self_ptr.add(i) ^= *other_ptr.add(i);
+            }
+        }
+
+        let remainder = self.value.len() % 8;
+        for i in (self.value.len() - remainder)..self.value.len() {
+            unsafe {
+                *self.value.get_unchecked_mut(i) ^= other.value.get_unchecked(i);
+            }
+        }
+    }
+}
+
+
+impl<'a> AddAssign<&'a Symbol> for Symbol {
+    fn add_assign(&mut self, other: &'a Symbol) {
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+        return self.add_assign_avx2(other);
+
+        self.add_assign_fallback(other);
+    }
 }
 
 #[cfg(test)]
@@ -87,7 +135,7 @@ mod tests {
 
     #[test]
     fn add_assign() {
-        let symbol_size = 17;
+        let symbol_size = 41;
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut data2: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];

@@ -5,7 +5,10 @@ release:
 	cargo build --release
 
 test:
-	cargo test
+	RUSTFLAGS='-C target-feature=+avx2' cargo test
+
+bench:
+	RUSTFLAGS='-C target-feature=+avx2' cargo bench
 
 profile:
 	RUSTFLAGS=-Cforce-frame-pointers cargo bench --no-run
