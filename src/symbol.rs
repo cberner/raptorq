@@ -88,7 +88,6 @@ impl<'a> Symbol {
         let other_avx_ptr = other.value.as_ptr() as *const __m256i;
         for i in 0..(self.value.len() / 32) {
             unsafe {
-                // TODO: can we use the aligned load and store instructions?
                 let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
                 let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
                 let result = _mm256_xor_si256(self_vec, other_vec);
@@ -96,8 +95,6 @@ impl<'a> Symbol {
             }
         }
 
-        // TODO: handling this tail reduces perf by ~8%. Should look into specialized implementations
-        // for Symbols that are 256bit aligned
         let remainder = self.value.len() % 32;
         let self_ptr = self.value.as_mut_ptr() as *mut u64;
         let other_ptr = other.value.as_ptr() as *const u64;
