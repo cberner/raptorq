@@ -65,6 +65,11 @@ const OCT_LOG: [u8; 256] = [
 
 pub static mut OCTET_MUL: [u8; 256*256] = [0; 256*256];
 
+// See "Screaming Fast Galois Field Arithmetic Using Intel SIMD Instructions" by Plank et al.
+// Further adapted to AVX2
+pub static mut OCTET_MUL_HI_BITS: [[u8; 32]; 256] = [[0; 32]; 256];
+pub static mut OCTET_MUL_LOW_BITS: [[u8; 32]; 256] = [[0; 32]; 256];
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Octet {
     value: u8
@@ -101,6 +106,23 @@ impl Octet {
                     let log_v = OCT_LOG[y as usize] as usize;
                     unsafe {
                         OCTET_MUL[x << 8 | y] = OCT_EXP[log_u + log_v];
+                    }
+                }
+            }
+
+            for y in 0..16 {
+                if x == 0 || y == 0 {
+                    continue;
+                }
+                else {
+                    let log_u = OCT_LOG[x as usize] as usize;
+                    let log_hi_bits = OCT_LOG[(y << 4) as usize] as usize;
+                    let log_low_bits = OCT_LOG[y as usize] as usize;
+                    unsafe {
+                        OCTET_MUL_HI_BITS[x as usize][y as usize] = OCT_EXP[log_u + log_hi_bits];
+                        OCTET_MUL_LOW_BITS[x as usize][y as usize] = OCT_EXP[log_u + log_low_bits];
+                        OCTET_MUL_HI_BITS[x as usize][(y + 16) as usize] = OCT_EXP[log_u + log_hi_bits];
+                        OCTET_MUL_LOW_BITS[x as usize][(y + 16) as usize] = OCT_EXP[log_u + log_low_bits];
                     }
                 }
             }
