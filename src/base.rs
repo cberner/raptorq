@@ -359,7 +359,7 @@ impl IntermediateSymbolDecoder {
 
             self.i += 1;
             self.u += r - 1;
-            // TODO: should only run this in debug mode
+            #[cfg(debug_assertions)]
             self.first_phase_verify();
         }
 
@@ -387,7 +387,7 @@ impl IntermediateSymbolDecoder {
     #[allow(non_snake_case)]
     #[inline(never)]
     fn second_phase(&mut self) -> bool {
-        // TODO: should only run this in debug mode
+        #[cfg(debug_assertions)]
         self.second_phase_verify();
 
         self.X.resize(self.i, self.i);
@@ -419,7 +419,7 @@ impl IntermediateSymbolDecoder {
     #[allow(non_snake_case)]
     #[inline(never)]
     fn third_phase(&mut self) {
-        // TODO: should only run this in debug mode
+        #[cfg(debug_assertions)]
         self.third_phase_verify();
 
         // A[0..i][..] = X * A[0..i][..]
@@ -460,7 +460,7 @@ impl IntermediateSymbolDecoder {
             }
         }
 
-        // TODO: should only run this in debug mode
+        #[cfg(debug_assertions)]
         self.third_phase_verify_end();
     }
 
@@ -505,7 +505,7 @@ impl IntermediateSymbolDecoder {
                 }
             }
         }
-        // TODO: should only run this in debug mode
+        #[cfg(debug_assertions)]
         self.fourth_phase_verify();
     }
 
@@ -523,6 +523,7 @@ impl IntermediateSymbolDecoder {
         //  | |           |        |
         //    +-----------+--------+
         // Same assertion about X being equal to the upper left of A
+        #[cfg(debug_assertions)]
         self.third_phase_verify_end();
         assert!(self.all_zeroes(0, self.i, self.L - self.u, self.L));
         assert!(self.all_zeroes(self.L - self.u, self.L, 0, self.i));
@@ -558,7 +559,7 @@ impl IntermediateSymbolDecoder {
                 }
             }
         }
-        // TODO: should only run this in debug mode
+        #[cfg(debug_assertions)]
         self.fifth_phase_verify();
     }
 
