@@ -34,7 +34,7 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
         for j in 0..=(Kprime + S - 2) {
             if i == rand((j + 1) as u32, 6, H as u32) as usize ||
                 i == ((rand((j + 1) as u32, 6, H as u32) + rand((j + 1) as u32, 7, (H - 1) as u32) + 1) % (H as u32)) as usize {
-                matrix.set::<Octet>(i, j, 1.into());
+                matrix.set(i, j, 1.into());
             }
         }
         matrix.set(i, Kprime + S - 1, Octet::alpha(i as u8));
@@ -100,25 +100,25 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
         let a = 1 + i / S;
 
         let b = i % S;
-        matrix.set::<Octet>(b, i, 1.into());
+        matrix.set(b, i, 1.into());
 
         let b = (b + a) % S;
-        matrix.set::<Octet>(b, i, 1.into());
+        matrix.set(b, i, 1.into());
 
         let b = (b + a) % S;
-        matrix.set::<Octet>(b, i, 1.into());
+        matrix.set(b, i, 1.into());
     }
 
     // I_S
     for i in 0..S {
-        matrix.set::<Octet>(i as usize, i + B as usize, 1.into());
+        matrix.set(i as usize, i + B as usize, 1.into());
     }
 
     // G_LDPC,2
     // See section 5.3.3.3
     for i in 0..S {
-        matrix.set::<Octet>(i, (i % P) + W, 1.into());
-        matrix.set::<Octet>(i, ((i + 1) % P) + W, 1.into());
+        matrix.set(i, (i % P) + W, 1.into());
+        matrix.set(i, ((i + 1) % P) + W, 1.into());
     }
 
     // G_HDPC
@@ -131,7 +131,7 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
 
     // I_H
     for i in 0..H {
-        matrix.set::<Octet>(i + S as usize, i + (Kprime + S) as usize, 1.into());
+        matrix.set(i + S as usize, i + (Kprime + S) as usize, 1.into());
     }
 
     // G_ENC
@@ -141,7 +141,7 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
         let tuple = intermediate_tuple(Kprime as u32, i);
 
         for j in enc_indices(Kprime as u32, tuple) {
-            matrix.set::<Octet>(row as usize + S + H, j, 1.into());
+            matrix.set(row as usize + S + H, j, 1.into());
         }
         row += 1;
     }

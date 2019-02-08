@@ -732,7 +732,7 @@ mod tests {
     fn identity(size: usize) -> OctetMatrix {
         let mut result = OctetMatrix::new(size, size);
         for i in 0..size {
-            result.set(i, i, 1);
+            result.set(i, i, Octet::one());
         }
         result
     }

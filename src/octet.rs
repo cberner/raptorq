@@ -76,6 +76,12 @@ pub struct Octet {
 }
 
 impl Octet {
+    pub fn new(value: u8) -> Octet {
+        Octet {
+            value
+        }
+    }
+
     pub fn zero() -> Octet {
         Octet {
             value: 0

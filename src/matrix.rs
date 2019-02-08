@@ -44,9 +44,8 @@ impl OctetMatrix {
         result
     }
 
-    // TODO: can probably remove the parameter T, and just take an Octet
-    pub fn set<T:Into<Octet>>(&mut self, i: usize, j: usize, value: T) {
-        self.elements[i][j] = value.into();
+    pub fn set(&mut self, i: usize, j: usize, value: Octet) {
+        self.elements[i][j] = value;
     }
 
     pub fn height(&self) -> usize {
@@ -167,11 +166,12 @@ mod tests {
     use matrix::tests::rand::Rng;
     use matrix::OctetMatrix;
     use symbol::Symbol;
+    use octet::Octet;
 
     fn identity(size: usize) -> OctetMatrix {
         let mut result = OctetMatrix::new(size, size);
         for i in 0..size {
-            result.set(i, i, 1);
+            result.set(i, i, Octet::one());
         }
         result
     }
@@ -182,7 +182,7 @@ mod tests {
         let mut a = OctetMatrix::new(4, 5);
         for i in 0..4 {
             for j in 0..5 {
-                a.set::<u8>(i, j, rand::thread_rng().gen());
+                a.set(i, j, Octet::new(rand::thread_rng().gen()));
             }
         }
         assert_eq!(a.clone(), identity * a.clone());
@@ -204,7 +204,7 @@ mod tests {
         let mut a = OctetMatrix::new(4, 4);
         for i in 0..4 {
             for j in 0..4 {
-                a.set::<u8>(i, j, rand::thread_rng().gen());
+                a.set(i, j, Octet::new(rand::thread_rng().gen()));
             }
         }
         // Statistically improbable that the random matrix, a, is the identity
@@ -217,17 +217,17 @@ mod tests {
         assert_eq!(identity, identity.clone() * identity.clone().inverse().unwrap());
 
         let mut a = OctetMatrix::new(3, 3);
-        a.set(0, 0, 1);
-        a.set(0, 1, 2);
-        a.set(0, 2, 3);
+        a.set(0, 0, Octet::new(1));
+        a.set(0, 1, Octet::new(2));
+        a.set(0, 2, Octet::new(3));
 
-        a.set(1, 0, 4);
-        a.set(1, 1, 5);
-        a.set(1, 2, 6);
+        a.set(1, 0, Octet::new(4));
+        a.set(1, 1, Octet::new(5));
+        a.set(1, 2, Octet::new(6));
 
-        a.set(2, 0, 7);
-        a.set(2, 1, 8);
-        a.set(2, 2, 9);
+        a.set(2, 0, Octet::new(7));
+        a.set(2, 1, Octet::new(8));
+        a.set(2, 2, Octet::new(9));
         assert_eq!(identity, a.clone() * a.clone().inverse().unwrap());
     }
 }
