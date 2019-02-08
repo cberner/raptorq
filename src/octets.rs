@@ -144,7 +144,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut Vec<u8>, other: &Vec<u8>, scalar:
 }
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
-fn add_assign_fallback<'a>(octets: &mut Vec<u8>, other: &'a Vec<u8>) {
+fn add_assign_fallback(octets: &mut Vec<u8>, other: &Vec<u8>) {
     assert_eq!(octets.len(), other.len());
     let self_ptr = octets.as_mut_ptr() as *mut u64;
     let other_ptr = other.as_ptr() as *const u64;
@@ -162,7 +162,7 @@ fn add_assign_fallback<'a>(octets: &mut Vec<u8>, other: &'a Vec<u8>) {
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn add_assign_avx2<'a>(octets: &mut Vec<u8>, other: &'a Vec<u8>) {
+fn add_assign_avx2(octets: &mut Vec<u8>, other: &Vec<u8>) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
