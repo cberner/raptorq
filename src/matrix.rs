@@ -6,14 +6,14 @@ use symbol::Symbol;
 pub struct OctetMatrix {
     height: usize,
     width: usize,
-    elements: Vec<Vec<Octet>>
+    elements: Vec<Vec<u8>>
 }
 
 impl OctetMatrix {
     pub fn new(height: usize, width: usize) -> OctetMatrix {
-        let mut elements: Vec<Vec<Octet>> = vec![];
+        let mut elements: Vec<Vec<u8>> = vec![];
         for _ in 0..height {
-            elements.push(vec![Octet::zero(); width]);
+            elements.push(vec![0; width]);
         }
         OctetMatrix {
             height,
@@ -29,14 +29,14 @@ impl OctetMatrix {
         for i in 0..self.height {
             let mut symbol = Symbol::zero(symbols[0].len());
             for j in 0..self.width {
-                if self.elements[i][j] == Octet::zero() {
+                if self.elements[i][j] == 0 {
                     continue;
                 }
-                if self.elements[i][j] == Octet::one() {
+                if self.elements[i][j] == 1 {
                    symbol += &symbols[j];
                 }
                 else {
-                    symbol.fused_addassign_mul_scalar(&symbols[j], &self.elements[i][j]);
+                    symbol.fused_addassign_mul_scalar(&symbols[j], &Octet::new(self.elements[i][j]));
                 }
             }
             result.push(symbol);
@@ -45,7 +45,7 @@ impl OctetMatrix {
     }
 
     pub fn set(&mut self, i: usize, j: usize, value: Octet) {
-        self.elements[i][j] = value;
+        self.elements[i][j] = value.byte();
     }
 
     pub fn height(&self) -> usize {
@@ -57,7 +57,7 @@ impl OctetMatrix {
     }
 
     pub fn get(&self, i: usize, j: usize) -> Octet {
-        self.elements[i][j].clone()
+        Octet::new(self.elements[i][j])
     }
 
     pub fn swap_rows(&mut self, i: usize, j:usize) {
@@ -90,7 +90,13 @@ impl OctetMatrix {
         assert_eq!(self.height, self.width);
 
         // Extend with identity on right side
-        let mut intermediate = self.elements.clone();
+        let mut intermediate = vec![];
+        for i in 0..self.height {
+            intermediate.push(vec![]);
+            for j in 0..self.width {
+                intermediate[i].push(Octet::new(self.elements[i][j]));
+            }
+        }
         for i in 0..self.height {
             for _ in 0..self.width {
                 intermediate[i].push(Octet::zero());
@@ -169,7 +175,7 @@ impl Mul for OctetMatrix {
             for j in 0..rhs.width {
                 let mut element = Octet::zero();
                 for k in 0..self.width {
-                    element = element + self.elements[i][k].clone() * rhs.elements[k][j].clone();
+                    element = element + self.get(i, k) * rhs.get(k, j);
                 }
                 result.set(i, j, element);
             }
