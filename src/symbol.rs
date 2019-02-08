@@ -30,6 +30,7 @@ impl Symbol {
         self.value.clone()
     }
 
+    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     fn mulassign_scalar_fallback(&mut self, scalar: &Octet) {
         let scalar_index = (scalar.byte() as usize) << 8;
         for i in 0..self.value.len() {
@@ -49,7 +50,7 @@ impl Symbol {
         let hi_mask;
         unsafe {
             low_mask =_mm256_set1_epi8(0x0F);
-            hi_mask = _mm256_set1_epi8(0xF0);
+            hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
         }
         let self_avx_ptr = self.value.as_mut_ptr() as *mut __m256i;
         let low_table;
@@ -88,9 +89,11 @@ impl Symbol {
         #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
         return self.mulassign_scalar_avx2(scalar);
 
-        self.mulassign_scalar_fallback(scalar);
+        #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
+        return self.mulassign_scalar_fallback(scalar);
     }
 
+    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     fn fused_addassign_mul_scalar_fallback(&mut self, other: &Symbol, scalar: &Octet) {
         let scalar_index = (scalar.byte() as usize) << 8;
         for i in 0..self.value.len() {
@@ -110,7 +113,7 @@ impl Symbol {
         let hi_mask;
         unsafe {
             low_mask =_mm256_set1_epi8(0x0F);
-            hi_mask = _mm256_set1_epi8(0xF0);
+            hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
         }
         let self_avx_ptr = self.value.as_mut_ptr() as *mut __m256i;
         let other_avx_ptr = other.value.as_ptr() as *const __m256i;
@@ -161,11 +164,13 @@ impl Symbol {
         #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
         return self.fused_addassign_mul_scalar_avx2(other, scalar);
 
-        self.fused_addassign_mul_scalar_fallback(other, scalar);
+        #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
+        return self.fused_addassign_mul_scalar_fallback(other, scalar);
     }
 }
 
 impl<'a> Symbol {
+    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     fn add_assign_fallback(&mut self, other: &'a Symbol) {
         assert_eq!(self.value.len(), other.value.len());
         let self_ptr = self.value.as_mut_ptr() as *mut u64;
@@ -225,7 +230,8 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
         #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
         return self.add_assign_avx2(other);
 
-        self.add_assign_fallback(other);
+        #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
+        return self.add_assign_fallback(other);
     }
 }
 
