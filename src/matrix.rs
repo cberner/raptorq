@@ -64,6 +64,29 @@ impl OctetMatrix {
         self.elements[i][j].clone()
     }
 
+    pub fn swap_rows(&mut self, i: usize, j:usize) {
+        self.elements.swap(i, j);
+    }
+
+    pub fn swap_columns(&mut self, i: usize, j:usize) {
+        for row in 0..self.elements.len() {
+            self.elements[row].swap(i, j);
+        }
+    }
+
+    pub fn resize(&mut self, new_height: usize, new_width: usize) {
+        assert!(new_height <= self.height);
+        assert!(new_width <= self.width);
+        let rows_to_discard = new_height..self.height;
+        let cols_to_discard = new_width..self.width;
+        self.elements.drain(rows_to_discard);
+        for row in 0..self.elements.len() {
+            self.elements[row].drain(cols_to_discard.clone());
+        }
+        self.height = new_height;
+        self.width = new_width;
+    }
+
     pub fn inverse(&self) -> Option<OctetMatrix> {
         // Calculate inverse using Gauss-Jordan elimination
 

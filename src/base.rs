@@ -93,7 +93,7 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 #[allow(non_snake_case)]
 pub struct IntermediateSymbolDecoder {
     A: Vec<Vec<Octet>>,
-    X: Vec<Vec<Octet>>,
+    X: OctetMatrix,
     D: Vec<Symbol>,
     c: Vec<usize>,
     d: Vec<usize>,
@@ -119,7 +119,7 @@ impl IntermediateSymbolDecoder {
 
         IntermediateSymbolDecoder {
             A: matrix.elements(),
-            X: matrix.elements(),
+            X: matrix.clone(),
             D: symbols.clone(),
             c,
             d,
@@ -325,7 +325,7 @@ impl IntermediateSymbolDecoder {
             let temp = self.i;
             let chosen_row = chosen_row.unwrap();
             self.swap_rows(temp, chosen_row);
-            self.X.swap(temp, chosen_row);
+            self.X.swap_rows(temp, chosen_row);
             hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
             let mut swapped_columns = 0;
@@ -340,9 +340,7 @@ impl IntermediateSymbolDecoder {
                     }
                     self.swap_columns(dest, col);
                     // Also apply to X
-                    for row in 0..self.X.len() {
-                        self.X[row].swap(dest, col);
-                    }
+                    self.X.swap_columns(dest, col);
                     swapped_columns += 1;
                     if swapped_columns == r {
                         break;
@@ -392,12 +390,7 @@ impl IntermediateSymbolDecoder {
         // TODO: should only run this in debug mode
         self.second_phase_verify();
 
-        let rows_to_discard = self.i..self.X.len();
-        let cols_to_discard = self.i..self.X[0].len();
-        self.X.drain(rows_to_discard);
-        for row in 0..self.X.len() {
-            self.X[row].drain(cols_to_discard.clone());
-        }
+        self.X.resize(self.i, self.i);
 
         // Convert U_lower to row echelon form
         let temp = self.i;
@@ -417,7 +410,7 @@ impl IntermediateSymbolDecoder {
     fn second_phase_verify(&self) {
         for row in 0..self.i {
             for col in (row + 1)..self.i {
-                assert_eq!(Octet::zero(), self.X[row][col]);
+                assert_eq!(Octet::zero(), self.X.get(row, col));
             }
         }
     }
@@ -435,7 +428,7 @@ impl IntermediateSymbolDecoder {
             for col in 0..self.A[row].len() {
                 let mut element = Octet::zero();
                 for k in 0..self.i {
-                    element += &self.X[row][k] * &temp[k][col];
+                    element += &self.X.get(row, k) * &temp[k][col];
                 }
                 self.A[row][col] = element;
             }
@@ -444,16 +437,16 @@ impl IntermediateSymbolDecoder {
         // Now apply the same operations to D.
         // Note that X is lower triangular, so the row must be processed last to first
         for row in (0..self.i).rev() {
-            if self.X[row][row] != Octet::one() {
+            if self.X.get(row, row) != Octet::one() {
                 self.debug_symbol_mul_ops += 1;
-                self.D[self.d[row]].mulassign_scalar(&self.X[row][row]);
+                self.D[self.d[row]].mulassign_scalar(&self.X.get(row, row));
             }
 
             for col in 0..row {
-                if self.X[row][col] == Octet::zero() {
+                if self.X.get(row, col) == Octet::zero() {
                     continue;
                 }
-                if self.X[row][col] == Octet::one() {
+                if self.X.get(row, col) == Octet::one() {
                     self.debug_symbol_add_ops += 1;
                     let temp = self.D[self.d[col]].clone();
                     self.D[self.d[row]] += &temp;
@@ -462,7 +455,7 @@ impl IntermediateSymbolDecoder {
                     self.debug_symbol_mul_ops += 1;
                     self.debug_symbol_add_ops += 1;
                     let temp = self.D[self.d[col]].clone();
-                    self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X[row][col]);
+                    self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X.get(row, col));
                 }
             }
         }
@@ -494,7 +487,7 @@ impl IntermediateSymbolDecoder {
     fn third_phase_verify_end(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
-                assert_eq!(self.X[row][col], self.A[row][col]);
+                assert_eq!(self.X.get(row, col), self.A[row][col]);
             }
         }
     }
