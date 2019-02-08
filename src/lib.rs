@@ -4,6 +4,7 @@ extern crate primal;
 mod systematic_constants;
 mod rng;
 mod octet;
+mod octets;
 mod symbol;
 mod matrix;
 mod constraint_matrix;
