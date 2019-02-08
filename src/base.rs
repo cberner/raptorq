@@ -92,7 +92,7 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 // See section 5.4.2.1
 #[allow(non_snake_case)]
 pub struct IntermediateSymbolDecoder {
-    A: Vec<Vec<Octet>>,
+    A: OctetMatrix,
     X: OctetMatrix,
     D: Vec<Symbol>,
     c: Vec<usize>,
@@ -118,7 +118,7 @@ impl IntermediateSymbolDecoder {
         }
 
         IntermediateSymbolDecoder {
-            A: matrix.elements(),
+            A: matrix.clone(),
             X: matrix.clone(),
             D: symbols.clone(),
             c,
@@ -137,7 +137,7 @@ impl IntermediateSymbolDecoder {
     fn all_zeroes(&self, start_row: usize, end_row: usize, start_column: usize, end_column: usize) -> bool {
         for row in start_row..end_row {
             for column in start_column..end_column {
-                if self.A[row][column] != Octet::zero() {
+                if self.A.get(row, column) != Octet::zero() {
                     return false;
                 }
             }
@@ -168,7 +168,7 @@ impl IntermediateSymbolDecoder {
         let S = num_ldpc_symbols(self.num_source_symbols);
         let H = num_hdpc_symbols(self.num_source_symbols);
 
-        let mut hdpc_rows = vec![false; self.A.len()];
+        let mut hdpc_rows = vec![false; self.A.height()];
         for row in S..(S + H) {
             hdpc_rows[row as usize] = true;
         }
@@ -185,7 +185,7 @@ impl IntermediateSymbolDecoder {
             for row in self.i..self.L {
                 let mut non_zero = 0;
                 for col in self.i..(self.L - self.u) {
-                    if self.A[row][col] != Octet::zero() {
+                    if self.A.get(row, col) != Octet::zero() {
                         non_zero += 1;
                     }
                 }
@@ -203,7 +203,7 @@ impl IntermediateSymbolDecoder {
                 for row in self.i..self.L {
                     let mut ones = 0;
                     for col in self.i..(self.L - self.u) {
-                        if self.A[row][col] == Octet::one() {
+                        if self.A.get(row, col) == Octet::one() {
                             ones += 1;
                         }
                         if ones > r {
@@ -235,7 +235,7 @@ impl IntermediateSymbolDecoder {
                             // intersect V are the nodes in the graph, and the rows that have *exactly 2
                             // nonzero* entries in V and are not HDPC rows are the edges of the graph that
                             // connect the two columns (nodes) in the positions of *the two ones*."
-                            if self.A[row][col] == Octet::one() {
+                            if self.A.get(row, col) == Octet::one() {
                                 ones.push(col);
                             }
                             if ones.len() == 2 {
@@ -274,7 +274,7 @@ impl IntermediateSymbolDecoder {
                     for row in self.i..self.L {
                         let mut non_zero = 0;
                         for col in self.i..(self.L - self.u) {
-                            if self.A[row][col] != Octet::zero() {
+                            if self.A.get(row, col) != Octet::zero() {
                                 non_zero += 1;
                             }
                             if non_zero > r {
@@ -295,7 +295,7 @@ impl IntermediateSymbolDecoder {
                 for row in self.i..self.L {
                     let mut non_zero = 0;
                     for col in self.i..(self.L - self.u) {
-                        if self.A[row][col] != Octet::zero() {
+                        if self.A.get(row, col) != Octet::zero() {
                             non_zero += 1;
                         }
                         if non_zero > r {
@@ -329,8 +329,8 @@ impl IntermediateSymbolDecoder {
             hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
             let mut swapped_columns = 0;
-            for col in self.i..(self.A[self.i].len() - self.u) {
-                if self.A[self.i][col] != Octet::zero() {
+            for col in self.i..(self.A.width() - self.u) {
+                if self.A.get(self.i, col) != Octet::zero() {
                     let dest;
                     if swapped_columns == 0 {
                         dest = self.i;
@@ -349,10 +349,10 @@ impl IntermediateSymbolDecoder {
             }
             // Zero out leading value in following rows
             let temp = self.i;
-            for row in (self.i + 1)..self.A.len() {
-                if self.A[row][temp] != Octet::zero() {
+            for row in (self.i + 1)..self.A.height() {
+                if self.A.get(row, temp) != Octet::zero() {
                     // Addition is equivalent to subtraction
-                    let beta = &self.A[row][temp] / &self.A[temp][temp];
+                    let beta = &self.A.get(row, temp) / &self.A.get(temp, temp);
                     self.fma_rows(temp, row, beta);
                 }
             }
@@ -372,15 +372,15 @@ impl IntermediateSymbolDecoder {
         for row in 0..self.i {
             for col in 0..self.i {
                 if row == col {
-                    assert_eq!(Octet::one(), self.A[row][col]);
+                    assert_eq!(Octet::one(), self.A.get(row, col));
                 }
                 else {
-                    assert_eq!(Octet::zero(), self.A[row][col]);
+                    assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
         }
-        assert!(self.all_zeroes(0, self.i, self.i, self.A.len() - self.u));
-        assert!(self.all_zeroes(self.i, self.A.len(), 0, self.i));
+        assert!(self.all_zeroes(0, self.i, self.i, self.A.height() - self.u));
+        assert!(self.all_zeroes(self.i, self.A.height(), 0, self.i));
     }
 
     // Second phase (section 5.4.2.3)
@@ -425,12 +425,12 @@ impl IntermediateSymbolDecoder {
         // A[0..i][..] = X * A[0..i][..]
         let temp = self.A.clone();
         for row in 0..self.i {
-            for col in 0..self.A[row].len() {
+            for col in 0..self.A.width() {
                 let mut element = Octet::zero();
                 for k in 0..self.i {
-                    element += &self.X.get(row, k) * &temp[k][col];
+                    element += &self.X.get(row, k) * &temp.get(k, col);
                 }
-                self.A[row][col] = element;
+                self.A.set(row, col, element);
             }
         }
 
@@ -466,18 +466,18 @@ impl IntermediateSymbolDecoder {
 
     #[inline(never)]
     fn third_phase_verify(&self) {
-        for row in 0..self.A.len() {
-            for col in 0..self.A[row].len() {
-                if row < self.i && col >= self.A[row].len() - self.u {
+        for row in 0..self.A.height() {
+            for col in 0..self.A.width() {
+                if row < self.i && col >= self.A.width() - self.u {
                     // element is in U_upper, which can have arbitrary values at this point
                     continue;
                 }
                 // The rest of A should be identity matrix
                 if row == col {
-                    assert_eq!(Octet::one(), self.A[row][col]);
+                    assert_eq!(Octet::one(), self.A.get(row, col));
                 }
                 else {
-                    assert_eq!(Octet::zero(), self.A[row][col]);
+                    assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
         }
@@ -487,7 +487,7 @@ impl IntermediateSymbolDecoder {
     fn third_phase_verify_end(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
-                assert_eq!(self.X.get(row, col), self.A[row][col]);
+                assert_eq!(self.X.get(row, col), self.A.get(row, col));
             }
         }
     }
@@ -498,7 +498,7 @@ impl IntermediateSymbolDecoder {
     fn fourth_phase(&mut self) {
         for i in 0..self.i {
             for j in 0..self.u {
-                let b = self.A[i][j + self.i].clone();
+                let b = self.A.get(i, j + self.i);
                 if b != Octet::zero() {
                     let temp = self.i;
                     self.fma_rows(temp + j, i, b);
@@ -529,10 +529,10 @@ impl IntermediateSymbolDecoder {
         for row in (self.L - self.u)..self.L {
             for col in (self.L - self.u)..self.L {
                 if row == col {
-                    assert_eq!(Octet::one(), self.A[row][col]);
+                    assert_eq!(Octet::one(), self.A.get(row, col));
                 }
                 else {
-                    assert_eq!(Octet::zero(), self.A[row][col]);
+                    assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
         }
@@ -545,14 +545,14 @@ impl IntermediateSymbolDecoder {
         // "For j from 1 to i". Note that A is 1-indexed in the spec, and ranges are inclusive,
         // this is means [1, i], which is equal to [0, i)
         for j in 0..self.i as usize {
-            if self.A[j][j] != Octet::one() {
-                let temp = self.A[j][j].clone();
+            if self.A.get(j, j) != Octet::one() {
+                let temp = self.A.get(j, j);
                 self.mul_row(j, Octet::one() / temp)
             }
             // "For l from 1 to j-1". This means the lower triangular columns, not including the
             // diagonal, which is [0, j)
             for l in 0..j {
-                let temp = self.A[j][l].clone();
+                let temp = self.A.get(j, l);
                 if temp != Octet::zero() {
                     self.fma_rows(l, j, temp);
                 }
@@ -564,15 +564,15 @@ impl IntermediateSymbolDecoder {
 
     #[inline(never)]
     fn fifth_phase_verify(&self) {
-        assert_eq!(self.L, self.A.len());
+        assert_eq!(self.L, self.A.height());
         for row in 0..self.L {
-            assert_eq!(self.L, self.A[row].len());
+            assert_eq!(self.L, self.A.width());
             for col in 0..self.L {
                 if row == col {
-                    assert_eq!(Octet::one(), self.A[row][col]);
+                    assert_eq!(Octet::one(), self.A.get(row, col));
                 }
                 else {
-                    assert_eq!(Octet::zero(), self.A[row][col]);
+                    assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
         }
@@ -584,28 +584,28 @@ impl IntermediateSymbolDecoder {
     fn reduce_to_row_echelon(&mut self, row_offset: usize, col_offset: usize, size: usize) -> bool {
         for i in 0..size {
             // Swap a row with leading coefficient i into place
-            for j in (row_offset + i)..self.A.len() {
-                if self.A[j][col_offset + i] != Octet::zero() {
+            for j in (row_offset + i)..self.A.height() {
+                if self.A.get(j, col_offset + i) != Octet::zero() {
                     self.swap_rows(row_offset + i, j);
                     break;
                 }
             }
 
-            if self.A[row_offset + i][col_offset + i] == Octet::zero() {
+            if self.A.get(row_offset + i, col_offset + i) == Octet::zero() {
                 // If all following rows are zero in this column, then matrix is singular
                 return false;
             }
 
             // Scale leading coefficient to 1
-            if self.A[row_offset + i][col_offset + i] != Octet::one() {
-                let element_inverse = Octet::one() / self.A[row_offset + i][col_offset + i].clone();
+            if self.A.get(row_offset + i, col_offset + i) != Octet::one() {
+                let element_inverse = Octet::one() / self.A.get(row_offset + i, col_offset + i);
                 self.mul_row(row_offset + i, element_inverse);
             }
 
             // Zero out all following elements in i'th column
-            for j in (row_offset + i + 1)..self.A.len() {
-                if self.A[j][col_offset + i] != Octet::zero() {
-                    let scalar = self.A[j][col_offset + i].clone();
+            for j in (row_offset + i + 1)..self.A.height() {
+                if self.A.get(j, col_offset + i) != Octet::zero() {
+                    let scalar = self.A.get(j, col_offset + i);
                     self.fma_rows(row_offset + i, j, scalar);
                 }
             }
@@ -622,8 +622,8 @@ impl IntermediateSymbolDecoder {
         for i in (0..size).rev() {
             // Zero out all preceding elements in i'th column
             for j in 0..i {
-                if self.A[row_offset + j][col_offset + i] != Octet::zero() {
-                    let scalar = self.A[row_offset + j][col_offset + i].clone();
+                if self.A.get(row_offset + j, col_offset + i) != Octet::zero() {
+                    let scalar = self.A.get(row_offset + j, col_offset + i);
                     self.fma_rows(row_offset + i, row_offset + j, scalar);
                 }
             }
@@ -643,7 +643,8 @@ impl IntermediateSymbolDecoder {
         self.debug_symbol_mul_ops += 1;
         self.D[self.d[i]].mulassign_scalar(&beta);
         for j in 0..self.L {
-            self.A[i][j] = &self.A[i][j] * &beta;
+            let temp = &self.A.get(i, j) * &beta;
+            self.A.set(i, j, temp);
         }
     }
 
@@ -660,19 +661,18 @@ impl IntermediateSymbolDecoder {
             self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
         }
         for j in 0..self.L {
-            self.A[iprime][j] += &self.A[i][j] * &beta;
+            let temp = self.A.get(iprime, j) + &self.A.get(i, j) * &beta;
+            self.A.set(iprime, j, temp);
         }
     }
 
     fn swap_rows(&mut self, i: usize, iprime: usize) {
-        self.A.swap(i, iprime);
+        self.A.swap_rows(i, iprime);
         self.d.swap(i, iprime);
     }
 
     fn swap_columns(&mut self, j: usize, jprime: usize) {
-        for i in 0..self.A.len() {
-            self.A[i].swap(j, jprime);
-        }
+        self.A.swap_columns(j, jprime);
         self.c.swap(j, jprime);
     }
 
