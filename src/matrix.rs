@@ -13,7 +13,7 @@ impl OctetMatrix {
     pub fn new(height: usize, width: usize) -> OctetMatrix {
         let mut elements: Vec<Vec<Octet>> = vec![];
         for _ in 0..height {
-            elements.push(vec![0.into(); width]);
+            elements.push(vec![Octet::zero(); width]);
         }
         OctetMatrix {
             height,
@@ -74,9 +74,9 @@ impl OctetMatrix {
         let mut intermediate = self.elements.clone();
         for i in 0..self.height {
             for _ in 0..self.width {
-                intermediate[i].push(0.into());
+                intermediate[i].push(Octet::zero());
             }
-            intermediate[i][self.width + i] = 1.into();
+            intermediate[i][self.width + i] = Octet::one();
         }
 
         // Convert to row echelon form
@@ -95,8 +95,8 @@ impl OctetMatrix {
             }
 
             // Scale leading coefficient to 1
-            if intermediate[i][i] != 1.into() {
-                let element_inverse = Octet::from(1) / intermediate[i][i].clone();
+            if intermediate[i][i] != Octet::one() {
+                let element_inverse = Octet::one() / intermediate[i][i].clone();
                 for j in i..(2*self.width) {
                     intermediate[i][j] = intermediate[i][j].clone() * element_inverse.clone();
                 }

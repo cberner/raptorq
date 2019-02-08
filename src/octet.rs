@@ -152,20 +152,6 @@ impl Octet {
     }
 }
 
-impl From<u8> for Octet {
-    fn from(value: u8) -> Octet {
-        Octet {
-            value
-        }
-    }
-}
-
-impl Into<u8> for Octet {
-    fn into(self) -> u8 {
-        self.value
-    }
-}
-
 impl Add for Octet {
     type Output = Octet;
 
@@ -340,8 +326,8 @@ mod tests {
         let mut fma_result = Octet::zero();
         for i in 0..255 {
             for j in 0..255 {
-                result += Octet::from(i) * Octet::from(j);
-                fma_result.fma(&Octet::from(i), &Octet::from(j));
+                result += Octet::new(i) * Octet::new(j);
+                fma_result.fma(&Octet::new(i), &Octet::new(j));
                 assert_eq!(result, fma_result);
             }
         }
