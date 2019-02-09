@@ -266,6 +266,25 @@ mod tests {
     use octet::Octet;
     use octet::OCT_LOG;
     use octet::OCT_EXP;
+    use octet::OCTET_MUL_LOW_BITS;
+    use octet::OCTET_MUL_HI_BITS;
+
+    #[test]
+    fn multiplication_tables() {
+        Octet::static_init();
+        for i in 0..=255 {
+            for j in 0..=255 {
+                let expected = Octet::new(i) * Octet::new(j);
+                let low;
+                let hi;
+                unsafe {
+                    low = OCTET_MUL_LOW_BITS[i as usize][(j & 0x0F) as usize];
+                    hi = OCTET_MUL_HI_BITS[i as usize][((j & 0xF0) >> 4) as usize];
+                }
+                assert_eq!(low ^ hi, expected.byte());
+            }
+        }
+    }
 
     #[test]
     fn addition() {
