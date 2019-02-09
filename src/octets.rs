@@ -40,7 +40,7 @@ fn mulassign_scalar_avx2(octets: &mut Vec<u8>, scalar: &Octet) {
             let low = _mm256_and_si256(self_vec, low_mask);
             let low_result = _mm256_shuffle_epi8(low_table, low);
             let hi = _mm256_and_si256(self_vec, hi_mask);
-            let hi = _mm256_bsrli_epi128(hi, 4);
+            let hi = _mm256_srli_epi64(hi, 4);
             let hi_result = _mm256_shuffle_epi8(hi_table, hi);
             let result = _mm256_xor_si256(hi_result, low_result);
             _mm256_storeu_si256(self_avx_ptr.add(i), result);
@@ -106,7 +106,7 @@ fn fused_addassign_mul_scalar_avx2(octets: &mut Vec<u8>, other: &Vec<u8>, scalar
             let low = _mm256_and_si256(other_vec, low_mask);
             let low_result = _mm256_shuffle_epi8(low_table, low);
             let hi = _mm256_and_si256(other_vec, hi_mask);
-            let hi = _mm256_bsrli_epi128(hi, 4);
+            let hi = _mm256_srli_epi64(hi, 4);
             let hi_result = _mm256_shuffle_epi8(hi_table, hi);
             let other_vec = _mm256_xor_si256(hi_result, low_result);
 
@@ -203,4 +203,48 @@ pub fn add_assign(octets: &mut Vec<u8>, other: &Vec<u8>) {
 
     #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     return add_assign_fallback(octets, other);
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate rand;
+
+    use octets::tests::rand::Rng;
+    use octet::Octet;
+    use octets::fused_addassign_mul_scalar;
+    use octets::mulassign_scalar;
+
+    #[test]
+    fn mul_assign() {
+        let size = 41;
+        let scalar = Octet::new(rand::thread_rng().gen_range(1, 255));
+        let mut data1: Vec<u8> = vec![0; size];
+        let mut expected: Vec<u8> = vec![0; size];
+        for i in 0..size {
+            data1[i] = rand::thread_rng().gen();
+            expected[i] = (&Octet::new(data1[i]) * &scalar).byte();
+        }
+
+        mulassign_scalar(&mut data1, &scalar);
+
+        assert_eq!(expected, data1);
+    }
+
+    #[test]
+    fn fma() {
+        let size = 41;
+        let scalar = Octet::new(rand::thread_rng().gen_range(1, 255));
+        let mut data1: Vec<u8> = vec![0; size];
+        let mut data2: Vec<u8> = vec![0; size];
+        let mut expected: Vec<u8> = vec![0; size];
+        for i in 0..size {
+            data1[i] = rand::thread_rng().gen();
+            data2[i] = rand::thread_rng().gen();
+            expected[i] = (Octet::new(data1[i]) + &Octet::new(data2[i]) * &scalar).byte();
+        }
+
+        fused_addassign_mul_scalar(&mut data1, &data2, &scalar);
+
+        assert_eq!(expected, data1);
+    }
 }
