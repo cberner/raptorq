@@ -3,7 +3,6 @@ use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
 use symbol::Symbol;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetMatrix {
@@ -75,11 +74,13 @@ impl OctetMatrix {
 
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
-    // Returns (rows with two 1s, a row with two values > 1, mapping from row number to number of non-zero values)
-    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, start_col: usize, end_col: usize) -> (Vec<usize>, Option<usize>, HashMap<usize, u32>) {
+    // Returns (rows with two 1s, a row with two values > 1,
+    // mapping from row number (offset by start_row) to number of non-zero values, "r" minimum positive number of non-zero values a row has)
+    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, start_col: usize, end_col: usize) -> (Vec<usize>, Option<usize>, Vec<u32>, Option<u32>) {
         let mut rows_with_two_ones = vec![];
         let mut row_with_two_greater_than_one = None;
-        let mut non_zeros = HashMap::new();
+        let mut non_zeros = vec![0; end_row - start_row];
+        let mut r = std::u32::MAX;
         for row in start_row..end_row {
             let mut non_zero = 0;
             let mut ones = 0;
@@ -92,7 +93,10 @@ impl OctetMatrix {
                 }
             }
             if non_zero > 0 {
-                non_zeros.insert(row, non_zero);
+                non_zeros[row - start_row] = non_zero;
+                if non_zero < r {
+                    r = non_zero;
+                }
             }
             if non_zero == 2 {
                 if ones == 2 {
@@ -104,7 +108,12 @@ impl OctetMatrix {
             }
         }
 
-        (rows_with_two_ones, row_with_two_greater_than_one, non_zeros)
+        if r < std::u32::MAX {
+            (rows_with_two_ones, row_with_two_greater_than_one, non_zeros, Some(r))
+        }
+        else {
+            (rows_with_two_ones, row_with_two_greater_than_one, non_zeros, None)
+        }
     }
 
     // other must be a rows x rows matrix

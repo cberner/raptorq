@@ -173,17 +173,16 @@ impl IntermediateSymbolDecoder {
         }
 
         while self.i + self.u < self.L {
-            let (rows_with_two_ones, row_with_two_greater_than_one, non_zero_counts) =
-                self.A.first_phase_selection(self.i, self.L, self.i, self.L - self.u);
-
-            if non_zero_counts.len() == 0 {
-                return false;
-            }
-
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let r = *non_zero_counts.values().into_iter().min().unwrap() as usize;
+            let (rows_with_two_ones, row_with_two_greater_than_one, non_zero_counts, r) =
+                self.A.first_phase_selection(self.i, self.L, self.i, self.L - self.u);
+
+            if r == None {
+                return false;
+            }
+            let r = r.unwrap() as usize;
 
             let mut chosen_row = None;
             if r == 2 {
@@ -252,8 +251,8 @@ impl IntermediateSymbolDecoder {
                 let mut chosen_hdpc = None;
                 let mut chosen_non_hdpc = None;
                 for row in self.i..self.L {
-                    let non_zero = non_zero_counts.get(&row);
-                    if *non_zero.unwrap_or(&0) == r as u32 {
+                    let non_zero = non_zero_counts[row - self.i];
+                    if non_zero == r as u32 {
                         if hdpc_rows[row] {
                             chosen_hdpc = Some(row);
                         }
