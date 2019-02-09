@@ -3,6 +3,7 @@ use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
 use symbol::Symbol;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetMatrix {
@@ -70,6 +71,40 @@ impl OctetMatrix {
         for row in 0..self.elements.len() {
             self.elements[row].swap(i, j);
         }
+    }
+
+    // Helper method for decoder phase 1
+    // selects from [start_row, end_row) reading [start_col, end_col)
+    // Returns (rows with two 1s, a row with two values > 1, mapping from row number to number of non-zero values)
+    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, start_col: usize, end_col: usize) -> (Vec<usize>, Option<usize>, HashMap<usize, u32>) {
+        let mut rows_with_two_ones = vec![];
+        let mut row_with_two_greater_than_one = None;
+        let mut non_zeros = HashMap::new();
+        for row in start_row..end_row {
+            let mut non_zero = 0;
+            let mut ones = 0;
+            for col in start_col..end_col {
+                if self.elements[row][col] != 0 {
+                    non_zero += 1;
+                }
+                if self.elements[row][col] != 1 {
+                    ones += 1;
+                }
+            }
+            if non_zero > 0 {
+                non_zeros.insert(row, non_zero);
+            }
+            if non_zero == 2 {
+                if ones == 2 {
+                    rows_with_two_ones.push(row);
+                }
+                else {
+                    row_with_two_greater_than_one = Some(row);
+                }
+            }
+        }
+
+        (rows_with_two_ones, row_with_two_greater_than_one, non_zeros)
     }
 
     // other must be a rows x rows matrix

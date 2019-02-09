@@ -11,7 +11,6 @@ use symbol::Symbol;
 use matrix::OctetMatrix;
 use std::collections::HashMap;
 use octet::Octet;
-use std::collections::HashSet;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
 
@@ -174,47 +173,21 @@ impl IntermediateSymbolDecoder {
         }
 
         while self.i + self.u < self.L {
-            if self.all_zeroes(self.i, self.L, self.i, self.L - self.u) {
+            let (rows_with_two_ones, row_with_two_greater_than_one, non_zero_counts) =
+                self.A.first_phase_selection(self.i, self.L, self.i, self.L - self.u);
+
+            if non_zero_counts.len() == 0 {
                 return false;
             }
 
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let mut r = self.L + 1;
-            for row in self.i..self.L {
-                let mut non_zero = 0;
-                for col in self.i..(self.L - self.u) {
-                    if self.A.get(row, col) != Octet::zero() {
-                        non_zero += 1;
-                    }
-                }
-                // Take the minimum positive integer, as the spec seems to be wrong about selecting
-                // the minimum integer (if you do, the following code will fail in division by zero)
-                if non_zero > 0 && non_zero < r {
-                    r = non_zero;
-                }
-            }
+            let r = *non_zero_counts.values().into_iter().min().unwrap() as usize;
 
             let mut chosen_row = None;
             if r == 2 {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
-                let mut rows_with_two_ones = HashSet::new();
-                for row in self.i..self.L {
-                    let mut ones = 0;
-                    for col in self.i..(self.L - self.u) {
-                        if self.A.get(row, col) == Octet::one() {
-                            ones += 1;
-                        }
-                        if ones > r {
-                            break;
-                        }
-                    }
-                    if ones == r {
-                        rows_with_two_ones.insert(row);
-                    }
-                }
-
                 if rows_with_two_ones.len() > 0 {
                     let mut g = Graph::new_undirected();
                     let mut node_lookup = HashMap::new();
@@ -271,21 +244,7 @@ impl IntermediateSymbolDecoder {
                 }
                 else {
                     // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
-                    for row in self.i..self.L {
-                        let mut non_zero = 0;
-                        for col in self.i..(self.L - self.u) {
-                            if self.A.get(row, col) != Octet::zero() {
-                                non_zero += 1;
-                            }
-                            if non_zero > r {
-                                break;
-                            }
-                        }
-                        if non_zero == r {
-                            chosen_row = Some(row);
-                            break;
-                        }
-                    }
+                    chosen_row = row_with_two_greater_than_one;
                 }
             }
             else {
@@ -293,16 +252,8 @@ impl IntermediateSymbolDecoder {
                 let mut chosen_hdpc = None;
                 let mut chosen_non_hdpc = None;
                 for row in self.i..self.L {
-                    let mut non_zero = 0;
-                    for col in self.i..(self.L - self.u) {
-                        if self.A.get(row, col) != Octet::zero() {
-                            non_zero += 1;
-                        }
-                        if non_zero > r {
-                            break;
-                        }
-                    }
-                    if non_zero == r {
+                    let non_zero = non_zero_counts.get(&row);
+                    if *non_zero.unwrap_or(&0) == r as u32 {
                         if hdpc_rows[row] {
                             chosen_hdpc = Some(row);
                         }
