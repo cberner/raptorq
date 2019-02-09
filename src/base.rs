@@ -661,10 +661,7 @@ impl IntermediateSymbolDecoder {
             let temp = self.D[self.d[i]].clone();
             self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
         }
-        for j in 0..self.L {
-            let temp = self.A.get(iprime, j) + &self.A.get(i, j) * &beta;
-            self.A.set(iprime, j, temp);
-        }
+        self.A.fma_rows(iprime, i, &beta);
     }
 
     fn swap_rows(&mut self, i: usize, iprime: usize) {

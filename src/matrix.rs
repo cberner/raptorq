@@ -1,5 +1,7 @@
 use std::ops::Mul;
 use octet::Octet;
+use octets::fused_addassign_mul_scalar;
+use octets::add_assign;
 use symbol::Symbol;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +69,17 @@ impl OctetMatrix {
     pub fn swap_columns(&mut self, i: usize, j:usize) {
         for row in 0..self.elements.len() {
             self.elements[row].swap(i, j);
+        }
+    }
+
+    pub fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
+        // TODO: find a way to remove this clone()?
+        let temp = self.elements[multiplicand].clone();
+        if *scalar == Octet::one() {
+            add_assign(&mut self.elements[dest], &temp);
+        }
+        else {
+            fused_addassign_mul_scalar(&mut self.elements[dest], &temp, scalar);
         }
     }
 
