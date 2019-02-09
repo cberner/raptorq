@@ -72,6 +72,29 @@ impl OctetMatrix {
         }
     }
 
+    // other must be a rows x rows matrix
+    // sets self[0..rows][0..cols] = X * self[0..rows][0..cols]
+    pub fn mul_assign_submatrix(&mut self, other: &OctetMatrix, rows: usize, cols: usize) {
+        assert_eq!(rows, other.height());
+        assert_eq!(rows, other.width());
+        assert!(rows <= self.height());
+        assert!(cols <= self.width());
+        let temp = self.clone();
+        for row in 0..rows {
+            for col in 0..cols {
+                let mut element = Octet::zero();
+                for k in 0..rows {
+                    unsafe {
+                        element += Octet::new(*other.elements.get_unchecked(row).get_unchecked(k)) * Octet::new(*temp.elements.get_unchecked(k).get_unchecked(col));
+                    }
+                }
+                unsafe {
+                    *self.elements.get_unchecked_mut(row).get_unchecked_mut(col) = element.byte();
+                }
+            }
+        }
+    }
+
     pub fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
         // TODO: find a way to remove this clone()?
         let temp = self.elements[multiplicand].clone();

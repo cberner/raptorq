@@ -423,16 +423,8 @@ impl IntermediateSymbolDecoder {
         self.third_phase_verify();
 
         // A[0..i][..] = X * A[0..i][..]
-        let temp = self.A.clone();
-        for row in 0..self.i {
-            for col in 0..self.A.width() {
-                let mut element = Octet::zero();
-                for k in 0..self.i {
-                    element += &self.X.get(row, k) * &temp.get(k, col);
-                }
-                self.A.set(row, col, element);
-            }
-        }
+        let width = self.A.width();
+        self.A.mul_assign_submatrix(&self.X, self.i, width);
 
         // Now apply the same operations to D.
         // Note that X is lower triangular, so the row must be processed last to first
