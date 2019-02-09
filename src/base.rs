@@ -318,6 +318,7 @@ impl IntermediateSymbolDecoder {
 
     // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn first_phase_verify(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
@@ -357,6 +358,7 @@ impl IntermediateSymbolDecoder {
 
     // Verifies that X is lower triangular. See section 5.4.2.3
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn second_phase_verify(&self) {
         for row in 0..self.i {
             for col in (row + 1)..self.i {
@@ -407,6 +409,7 @@ impl IntermediateSymbolDecoder {
     }
 
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn third_phase_verify(&self) {
         for row in 0..self.A.height() {
             for col in 0..self.A.width() {
@@ -426,6 +429,7 @@ impl IntermediateSymbolDecoder {
     }
 
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn third_phase_verify_end(&self) {
         for row in 0..self.i {
             for col in 0..self.i {
@@ -452,6 +456,7 @@ impl IntermediateSymbolDecoder {
     }
 
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn fourth_phase_verify(&self) {
         //    ---------> i u <------
         //  | +-----------+--------+
@@ -506,6 +511,7 @@ impl IntermediateSymbolDecoder {
     }
 
     #[inline(never)]
+    #[cfg(debug_assertions)]
     fn fifth_phase_verify(&self) {
         assert_eq!(self.L, self.A.height());
         for row in 0..self.L {
