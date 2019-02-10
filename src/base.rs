@@ -205,6 +205,30 @@ impl IntermediateSymbolDecoder {
         chosen_row
     }
 
+    // Performs the column swapping substep of first phase, after the row has been chosen
+    #[inline(never)]
+    fn first_phase_swap_columns_substep(&mut self, r: usize) {
+        let mut swapped_columns = 0;
+        for col in self.i..(self.A.width() - self.u) {
+            if self.A.get(self.i, col) != Octet::zero() {
+                let dest;
+                if swapped_columns == 0 {
+                    dest = self.i;
+                }
+                else {
+                    dest = self.L - self.u - swapped_columns;
+                }
+                self.swap_columns(dest, col);
+                // Also apply to X
+                self.X.swap_columns(dest, col);
+                swapped_columns += 1;
+                if swapped_columns == r {
+                    break;
+                }
+            }
+        }
+    }
+
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
     #[inline(never)]
@@ -245,7 +269,7 @@ impl IntermediateSymbolDecoder {
             }
             let r = r.unwrap() as usize;
 
-            let mut chosen_row = None;
+            let mut chosen_row;
             if r == 2 {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
                 if rows_with_two_ones.len() > 0 {
@@ -288,25 +312,7 @@ impl IntermediateSymbolDecoder {
             self.X.swap_rows(temp, chosen_row);
             hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
-            let mut swapped_columns = 0;
-            for col in self.i..(self.A.width() - self.u) {
-                if self.A.get(self.i, col) != Octet::zero() {
-                    let dest;
-                    if swapped_columns == 0 {
-                        dest = self.i;
-                    }
-                    else {
-                        dest = self.L - self.u - swapped_columns;
-                    }
-                    self.swap_columns(dest, col);
-                    // Also apply to X
-                    self.X.swap_columns(dest, col);
-                    swapped_columns += 1;
-                    if swapped_columns == r {
-                        break;
-                    }
-                }
-            }
+            self.first_phase_swap_columns_substep(r);
             // Zero out leading value in following rows
             let temp = self.i;
             for row in (self.i + 1)..self.A.height() {
