@@ -11,6 +11,7 @@ use symbol::Symbol;
 use matrix::OctetMatrix;
 use std::collections::HashMap;
 use octet::Octet;
+use arraymap::ArrayMap;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
 
@@ -189,7 +190,7 @@ impl IntermediateSymbolDecoder {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
                 if rows_with_two_ones.len() > 0 {
                     let mut g = Graph::new_undirected();
-                    let mut node_lookup = HashMap::new();
+                    let mut node_lookup = ArrayMap::new(self.i, self.L - self.u);
                     for col in self.i..(self.L - self.u) {
                         let node = g.add_node(col);
                         node_lookup.insert(col, node);
@@ -214,18 +215,18 @@ impl IntermediateSymbolDecoder {
                                 break;
                             }
                         }
-                        let node1 = node_lookup[&ones[0]];
-                        let node2 = node_lookup[&ones[1]];
+                        let node1 = node_lookup.get(ones[0]);
+                        let node2 = node_lookup.get(ones[1]);
                         g.add_edge(node1, node2, row);
                     }
 
                     let connected_components = condensation(g.clone(), true);
-                    let mut row_to_component_size = HashMap::new();
+                    let mut row_to_component_size = ArrayMap::new(self.i, self.L);
                     for index in connected_components.node_indices() {
                         let cols = connected_components.node_weight(index).unwrap();
                         for col in cols {
-                            for edge in g.edges(node_lookup[col]) {
-                                row_to_component_size.insert(edge.weight(), cols.len());
+                            for edge in g.edges(node_lookup.get(*col)) {
+                                row_to_component_size.insert(*edge.weight(), cols.len());
                             }
                         }
                     }
@@ -235,9 +236,9 @@ impl IntermediateSymbolDecoder {
                         if hdpc_rows[row] {
                             continue;
                         }
-                        if row_to_component_size[&row] > chosen_component_size {
+                        if row_to_component_size.get(row) > chosen_component_size {
                             chosen_row = Some(row);
-                            chosen_component_size = row_to_component_size[&row];
+                            chosen_component_size = row_to_component_size.get(row);
                         }
                     }
                 }
