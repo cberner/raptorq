@@ -145,6 +145,66 @@ impl IntermediateSymbolDecoder {
         return true;
     }
 
+    #[inline(never)]
+    fn first_phase_graph_substep(&self, rows_with_two_ones: &Vec<usize>, hdpc_rows: &Vec<bool>) -> usize {
+        let mut g = Graph::new_undirected();
+        let mut node_lookup = ArrayMap::new(self.i, self.L - self.u);
+        for col in self.i..(self.L - self.u) {
+            let node = g.add_node(col);
+            node_lookup.insert(col, node);
+        }
+
+        for row in rows_with_two_ones.clone() {
+            if hdpc_rows[row] {
+                continue;
+            }
+            let mut ones = vec![];
+            for col in self.i..(self.L - self.u) {
+                // XXX: It's unclear exactly how to construct this graph. The RFC seems to have
+                // a typo. It says, emphasis mine, "The following graph defined by the structure
+                // of V is used in determining which row of A is chosen. The columns that
+                // intersect V are the nodes in the graph, and the rows that have *exactly 2
+                // nonzero* entries in V and are not HDPC rows are the edges of the graph that
+                // connect the two columns (nodes) in the positions of *the two ones*."
+                if self.A.get(row, col) == Octet::one() {
+                    ones.push(col);
+                }
+                if ones.len() == 2 {
+                    break;
+                }
+            }
+            let node1 = node_lookup.get(ones[0]);
+            let node2 = node_lookup.get(ones[1]);
+            g.add_edge(node1, node2, row);
+        }
+
+        let connected_components = condensation(g.clone(), true);
+        let mut row_to_component_size = ArrayMap::new(self.i, self.L);
+        for index in connected_components.node_indices() {
+            let cols = connected_components.node_weight(index).unwrap();
+            for col in cols {
+                for edge in g.edges(node_lookup.get(*col)) {
+                    row_to_component_size.insert(*edge.weight(), cols.len());
+                }
+            }
+        }
+
+        let mut chosen_component_size = 0;
+        let mut chosen_row= self.L + 1;
+        for row in rows_with_two_ones {
+            let row = *row;
+            if hdpc_rows[row] {
+                continue;
+            }
+            if row_to_component_size.get(row) > chosen_component_size {
+                chosen_row = row;
+                chosen_component_size = row_to_component_size.get(row);
+            }
+        }
+        assert_ne!(chosen_row, self.L + 1);
+        chosen_row
+    }
+
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
     #[inline(never)]
@@ -189,58 +249,7 @@ impl IntermediateSymbolDecoder {
             if r == 2 {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
                 if rows_with_two_ones.len() > 0 {
-                    let mut g = Graph::new_undirected();
-                    let mut node_lookup = ArrayMap::new(self.i, self.L - self.u);
-                    for col in self.i..(self.L - self.u) {
-                        let node = g.add_node(col);
-                        node_lookup.insert(col, node);
-                    }
-
-                    for row in rows_with_two_ones.clone() {
-                        if hdpc_rows[row] {
-                            continue;
-                        }
-                        let mut ones = vec![];
-                        for col in self.i..(self.L - self.u) {
-                            // XXX: It's unclear exactly how to construct this graph. The RFC seems to have
-                            // a typo. It says, emphasis mine, "The following graph defined by the structure
-                            // of V is used in determining which row of A is chosen. The columns that
-                            // intersect V are the nodes in the graph, and the rows that have *exactly 2
-                            // nonzero* entries in V and are not HDPC rows are the edges of the graph that
-                            // connect the two columns (nodes) in the positions of *the two ones*."
-                            if self.A.get(row, col) == Octet::one() {
-                                ones.push(col);
-                            }
-                            if ones.len() == 2 {
-                                break;
-                            }
-                        }
-                        let node1 = node_lookup.get(ones[0]);
-                        let node2 = node_lookup.get(ones[1]);
-                        g.add_edge(node1, node2, row);
-                    }
-
-                    let connected_components = condensation(g.clone(), true);
-                    let mut row_to_component_size = ArrayMap::new(self.i, self.L);
-                    for index in connected_components.node_indices() {
-                        let cols = connected_components.node_weight(index).unwrap();
-                        for col in cols {
-                            for edge in g.edges(node_lookup.get(*col)) {
-                                row_to_component_size.insert(*edge.weight(), cols.len());
-                            }
-                        }
-                    }
-
-                    let mut chosen_component_size = 0;
-                    for row in rows_with_two_ones {
-                        if hdpc_rows[row] {
-                            continue;
-                        }
-                        if row_to_component_size.get(row) > chosen_component_size {
-                            chosen_row = Some(row);
-                            chosen_component_size = row_to_component_size.get(row);
-                        }
-                    }
+                    chosen_row = Some(self.first_phase_graph_substep(&rows_with_two_ones, &hdpc_rows));
                 }
                 else {
                     // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
