@@ -117,25 +117,27 @@ impl OctetMatrix {
     }
 
     // other must be a rows x rows matrix
-    // sets self[0..rows][0..cols] = X * self[0..rows][0..cols]
-    pub fn mul_assign_submatrix(&mut self, other: &OctetMatrix, rows: usize, cols: usize) {
+    // sets self[0..rows][..] = X * self[0..rows][..]
+    pub fn mul_assign_submatrix(&mut self, other: &OctetMatrix, rows: usize) {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
-        assert!(cols <= self.width());
         let temp = self.clone();
         for row in 0..rows {
-            for col in 0..cols {
-                let mut element = Octet::zero();
-                for k in 0..rows {
-                    unsafe {
-                        element += Octet::new(*other.elements.get_unchecked(row).get_unchecked(k)) * Octet::new(*temp.elements.get_unchecked(k).get_unchecked(col));
-                    }
+            let mut elements = vec![0; self.width];
+            for i in 0..rows {
+                let scalar = other.get(row, i);
+                if scalar == Octet::zero() {
+                    continue;
                 }
-                unsafe {
-                    *self.elements.get_unchecked_mut(row).get_unchecked_mut(col) = element.byte();
+                if scalar == Octet::one() {
+                    add_assign(&mut elements, &temp.elements[i]);
+                }
+                else {
+                    fused_addassign_mul_scalar(&mut elements, &temp.elements[i], &scalar);
                 }
             }
+            self.elements[row] = elements;
         }
     }
 

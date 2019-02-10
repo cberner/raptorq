@@ -375,8 +375,7 @@ impl IntermediateSymbolDecoder {
         self.third_phase_verify();
 
         // A[0..i][..] = X * A[0..i][..]
-        let width = self.A.width();
-        self.A.mul_assign_submatrix(&self.X, self.i, width);
+        self.A.mul_assign_submatrix(&self.X, self.i);
 
         // Now apply the same operations to D.
         // Note that X is lower triangular, so the row must be processed last to first
