@@ -2,6 +2,7 @@ extern crate petgraph;
 extern crate primal;
 extern crate raptorq;
 
+mod arraymap;
 mod octets;
 #[allow(dead_code)]
 mod systematic_constants;

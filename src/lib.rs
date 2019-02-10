@@ -1,6 +1,7 @@
 extern crate petgraph;
 extern crate primal;
 
+mod arraymap;
 mod systematic_constants;
 mod rng;
 mod octet;

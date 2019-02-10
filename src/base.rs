@@ -251,7 +251,7 @@ impl IntermediateSymbolDecoder {
                 let mut chosen_hdpc = None;
                 let mut chosen_non_hdpc = None;
                 for row in self.i..self.L {
-                    let non_zero = non_zero_counts[row - self.i];
+                    let non_zero = non_zero_counts.get(row);
                     if non_zero == r as u32 {
                         if hdpc_rows[row] {
                             chosen_hdpc = Some(row);
