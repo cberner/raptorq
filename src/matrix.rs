@@ -88,7 +88,7 @@ impl OctetMatrix {
                 if self.elements[row][col] != 0 {
                     non_zero += 1;
                 }
-                if self.elements[row][col] != 1 {
+                if self.elements[row][col] == 1 {
                     ones += 1;
                 }
             }
