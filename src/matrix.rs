@@ -254,13 +254,18 @@ impl Mul for OctetMatrix {
     fn mul(self, rhs: OctetMatrix) -> OctetMatrix {
         assert_eq!(self.width, rhs.height);
         let mut result = OctetMatrix::new(self.height, rhs.width);
-        for i in 0..self.height {
-            for j in 0..rhs.width {
-                let mut element = Octet::zero();
-                for k in 0..self.width {
-                    element = element + self.get(i, k) * rhs.get(k, j);
+        for row in 0..self.height {
+            for i in 0..self.width {
+                let scalar = self.get(row, i);
+                if scalar == Octet::zero() {
+                    continue;
                 }
-                result.set(i, j, element);
+                if scalar == Octet::one() {
+                    add_assign(&mut result.elements[row], &rhs.elements[i]);
+                }
+                else {
+                    fused_addassign_mul_scalar(&mut result.elements[row], &rhs.elements[i], &scalar);
+                }
             }
         }
         result
@@ -321,6 +326,7 @@ mod tests {
 
     #[test]
     fn inverse() {
+        Octet::static_init();
         let identity = identity(3);
         assert_eq!(identity, identity.clone() * identity.clone().inverse().unwrap());
 
