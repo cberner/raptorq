@@ -9,10 +9,19 @@ use raptorq::SourceBlockEncoder;
 use raptorq::SourceBlockDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
+use raptorq::extended_source_block_symbols;
+use raptorq::generate_constraint_matrix;
 
 
 fn criterion_benchmark(c: &mut Criterion) {
     Octet::static_init();
+
+    let num_symbols = extended_source_block_symbols(100);
+    let a = generate_constraint_matrix(num_symbols, 0..num_symbols);
+    let cloned = a.clone();
+    c.bench_function("First phase selection", move |b| b.iter(|| {
+        cloned.first_phase_selection(0, num_symbols as usize, 0, num_symbols as usize);
+    }));
 
     let octet1 = Octet::new(rand::thread_rng().gen_range(1, 255));
     let symbol_size = 512;

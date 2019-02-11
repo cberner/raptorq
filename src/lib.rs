@@ -18,3 +18,5 @@ pub use octet::Octet;
 pub use symbol::Symbol;
 pub use encoder::SourceBlockEncoder;
 pub use decoder::SourceBlockDecoder;
+pub use constraint_matrix::generate_constraint_matrix;
+pub use systematic_constants::extended_source_block_symbols;
