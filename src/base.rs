@@ -9,7 +9,6 @@ use systematic_constants::num_hdpc_symbols;
 use systematic_constants::calculate_p1;
 use symbol::Symbol;
 use matrix::OctetMatrix;
-use std::collections::HashMap;
 use octet::Octet;
 use arraymap::ArrayMap;
 use petgraph::prelude::*;
@@ -652,13 +651,13 @@ impl IntermediateSymbolDecoder {
         self.fifth_phase();
 
         // See end of section 5.4.2.1
-        let mut index_mapping = HashMap::new();
+        let mut index_mapping = ArrayMap::new(0, self.L);
         for i in 0..self.L {
             index_mapping.insert(self.c[i], self.d[i]);
         }
         let mut result = vec![];
         for i in 0..self.L {
-            result.push(self.D[index_mapping[&i]].clone());
+            result.push(self.D[index_mapping.get(i)].clone());
         }
         Some(result)
     }
