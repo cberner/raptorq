@@ -205,6 +205,107 @@ pub fn add_assign(octets: &mut Vec<u8>, other: &Vec<u8>) {
     return add_assign_fallback(octets, other);
 }
 
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+#[inline(never)]
+fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (u32, u32) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let avx_ones;
+    let avx_zeros;
+    unsafe {
+        avx_ones =_mm256_set1_epi8(1);
+        avx_zeros = _mm256_set1_epi8(0);
+    }
+    let avx_ptr = octets.as_ptr() as *const __m256i;
+
+    let mut ones = 0;
+    let mut non_zeros = 0;
+    for i in 0..(octets.len() / 32) {
+        unsafe {
+            let vec = _mm256_loadu_si256(avx_ptr.add(i));
+            let compared_ones = _mm256_cmpeq_epi8(vec, avx_ones);
+            ones += _mm256_extract_epi64(compared_ones, 0).count_ones() / 8;
+            ones += _mm256_extract_epi64(compared_ones, 1).count_ones() / 8;
+            ones += _mm256_extract_epi64(compared_ones, 2).count_ones() / 8;
+            ones += _mm256_extract_epi64(compared_ones, 3).count_ones() / 8;
+
+            let compared_zeros = _mm256_cmpeq_epi8(vec, avx_zeros);
+            non_zeros += 32;
+            non_zeros -= _mm256_extract_epi64(compared_zeros, 0).count_ones() / 8;
+            non_zeros -= _mm256_extract_epi64(compared_zeros, 1).count_ones() / 8;
+            non_zeros -= _mm256_extract_epi64(compared_zeros, 2).count_ones() / 8;
+            non_zeros -= _mm256_extract_epi64(compared_zeros, 3).count_ones() / 8;
+        }
+    }
+
+    let mut remainder = octets.len() % 32;
+    if remainder >= 16 {
+        remainder -= 16;
+        let avx_ones;
+        let avx_zeros;
+        unsafe {
+            avx_ones =_mm_set1_epi8(1);
+            avx_zeros = _mm_set1_epi8(0);
+        }
+        let avx_ptr;
+        unsafe {
+            avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32) as *const __m128i;
+        }
+
+        unsafe {
+            let vec = _mm_lddqu_si128(avx_ptr);
+            let compared_ones = _mm_cmpeq_epi8(vec, avx_ones);
+            ones += _mm_extract_epi64(compared_ones, 0).count_ones() / 8;
+            ones += _mm_extract_epi64(compared_ones, 1).count_ones() / 8;
+
+            let compared_zeros = _mm_cmpeq_epi8(vec, avx_zeros);
+            non_zeros += 16;
+            non_zeros -= _mm_extract_epi64(compared_zeros, 0).count_ones() / 8;
+            non_zeros -= _mm_extract_epi64(compared_zeros, 1).count_ones() / 8;
+        }
+    }
+
+    for i in (octets.len() - remainder)..octets.len() {
+        let value;
+        unsafe {
+            value = octets.get_unchecked(i);
+        }
+        if *value == 1 {
+            ones += 1;
+        }
+        if *value != 0 {
+            non_zeros += 1;
+        }
+    }
+    (ones, non_zeros)
+}
+
+#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
+fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (u32, u32) {
+    let mut ones = 0;
+    let mut non_zeros = 0;
+    for value in octets.iter() {
+        if *value == 1 {
+            ones += 1;
+        }
+        if *value != 0 {
+            non_zeros += 1;
+        }
+    }
+    (ones, non_zeros)
+}
+
+pub fn count_ones_and_nonzeros(octets: &[u8]) -> (u32, u32) {
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+    return count_ones_and_nonzeros_avx2(octets);
+
+    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
+    return count_ones_and_nonzeros_fallback(octets);
+}
+
 #[cfg(test)]
 mod tests {
     extern crate rand;

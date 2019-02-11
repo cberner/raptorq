@@ -3,6 +3,7 @@ use arraymap::ArrayMap;
 use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
+use octets::count_ones_and_nonzeros;
 use symbol::Symbol;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -83,16 +84,7 @@ impl OctetMatrix {
         let mut non_zeros = ArrayMap::with_default(start_row, end_row, 0);
         let mut r = std::u32::MAX;
         for row in start_row..end_row {
-            let mut non_zero = 0;
-            let mut ones = 0;
-            for col in start_col..end_col {
-                if self.elements[row][col] != 0 {
-                    non_zero += 1;
-                }
-                if self.elements[row][col] == 1 {
-                    ones += 1;
-                }
-            }
+            let (ones, non_zero) = count_ones_and_nonzeros(&self.elements[row][start_col..end_col]);
             if non_zero > 0 {
                 non_zeros.insert(row, non_zero);
                 if non_zero < r {
