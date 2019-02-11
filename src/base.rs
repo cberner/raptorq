@@ -268,7 +268,7 @@ impl IntermediateSymbolDecoder {
             }
             let r = r.unwrap() as usize;
 
-            let mut chosen_row;
+            let chosen_row;
             if r == 2 {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
                 if rows_with_two_ones.len() > 0 {
@@ -593,10 +593,12 @@ impl IntermediateSymbolDecoder {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_symbol_mul_ops(&self) -> u32 {
         self.debug_symbol_mul_ops
     }
 
+    #[allow(dead_code)]
     pub fn get_symbol_add_ops(&self) -> u32 {
         self.debug_symbol_add_ops
     }
@@ -681,6 +683,7 @@ mod tests {
     use constraint_matrix::generate_constraint_matrix;
     use base::fused_inverse_mul_symbols;
     use octet::Octet;
+    use base::IntermediateSymbolDecoder;
 
     fn identity(size: usize) -> OctetMatrix {
         let mut result = OctetMatrix::new(size, size);
@@ -713,6 +716,20 @@ mod tests {
                 rand_symbols.push(rand_symbol(8));
             }
             assert_eq!(a.clone().inverse().unwrap().mul_symbols(&rand_symbols), fused_inverse_mul_symbols(&a, &rand_symbols, source_symbols).unwrap());
+        }
+    }
+
+    #[test]
+    fn operations_per_symbol() {
+        Octet::static_init();
+        for elements in [10, 100].iter() {
+            let num_symbols = extended_source_block_symbols(*elements);
+            let a = generate_constraint_matrix(num_symbols, 0..num_symbols);
+            let symbols = vec![Symbol::zero(1); a.width()];
+            let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
+            decoder.execute();
+            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < 30.0);
+            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < 50.0);
         }
     }
 }

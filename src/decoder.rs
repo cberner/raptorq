@@ -12,7 +12,6 @@ use constraint_matrix::enc_indices;
 pub struct SourceBlockDecoder {
     source_block_id: u8,
     symbol_size: u16,
-    block_length: u64,
     source_block_symbols: u32,
     source_symbols: Vec<Option<Symbol>>,
     repair_packets: Vec<EncodingPacket>,
@@ -30,7 +29,6 @@ impl SourceBlockDecoder {
         SourceBlockDecoder {
             source_block_id,
             symbol_size,
-            block_length,
             source_block_symbols: source_symbols,
             source_symbols: vec![None; source_symbols as usize],
             repair_packets: vec![],

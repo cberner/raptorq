@@ -14,7 +14,6 @@ use base::fused_inverse_mul_symbols;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
-    symbol_size: u16,
     source_symbols: Vec<Symbol>,
     intermediate_symbols: Vec<Symbol>
 }
@@ -28,7 +27,6 @@ impl SourceBlockEncoder {
         let intermediate_symbols = gen_intermediate_symbols(extend_source_block(source_symbols.clone(), symbol_size as usize), symbol_size as usize);
         SourceBlockEncoder {
             source_block_id,
-            symbol_size,
             source_symbols,
             intermediate_symbols
         }
