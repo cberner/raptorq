@@ -255,6 +255,8 @@ impl IntermediateSymbolDecoder {
         for row in S..(S + H) {
             hdpc_rows[row as usize] = true;
         }
+        // Original degree is the degree of each row before processing begins
+        let (_, _, original_degree, _) = self.A.first_phase_selection(0, self.L, 0, self.L);
 
         while self.i + self.u < self.L {
             // Calculate r
@@ -282,18 +284,23 @@ impl IntermediateSymbolDecoder {
                 }
             }
             else {
-                // TODO XXX !!!!!!: need to sort by something called "original degree"
                 let mut chosen_hdpc = None;
+                let mut chosen_hdpc_original_degree = (self.L + 1) as u32;
                 let mut chosen_non_hdpc = None;
+                let mut chosen_non_hdpc_original_degree = (self.L + 1) as u32;
                 for row in self.i..self.L {
                     let non_zero = non_zero_counts.get(row);
+                    let row_original_degree = original_degree.get(row);
                     if non_zero == r as u32 {
                         if hdpc_rows[row] {
-                            chosen_hdpc = Some(row);
+                            if row_original_degree < chosen_hdpc_original_degree {
+                                chosen_hdpc = Some(row);
+                                chosen_hdpc_original_degree = row_original_degree;
+                            }
                         }
-                        else {
+                        else if row_original_degree < chosen_non_hdpc_original_degree {
                             chosen_non_hdpc = Some(row);
-                            break;
+                            chosen_non_hdpc_original_degree = row_original_degree;
                         }
                     }
                 }
