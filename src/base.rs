@@ -159,12 +159,12 @@ impl IntermediateSymbolDecoder {
             }
             let mut ones = vec![];
             for col in self.i..(self.L - self.u) {
-                // XXX: It's unclear exactly how to construct this graph. The RFC seems to have
-                // a typo. It says, emphasis mine, "The following graph defined by the structure
-                // of V is used in determining which row of A is chosen. The columns that
-                // intersect V are the nodes in the graph, and the rows that have *exactly 2
-                // nonzero* entries in V and are not HDPC rows are the edges of the graph that
-                // connect the two columns (nodes) in the positions of *the two ones*."
+                // "The following graph defined by the structure of V is used in determining which
+                // row of A is chosen. The columns that intersect V are the nodes in the graph,
+                // and the rows that have exactly 2 nonzero entries in V and are not HDPC rows
+                // are the edges of the graph that connect the two columns (nodes) in the positions
+                // of the two ones."
+                // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
                 if self.A.get(row, col) == Octet::one() {
                     ones.push(col);
                 }
@@ -272,6 +272,8 @@ impl IntermediateSymbolDecoder {
             if r == 2 {
                 // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
                 if rows_with_two_ones.len() > 0 {
+                    #[cfg(debug_assertions)]
+                    self.first_phase_graph_substep_verify(self.i, self.L, &hdpc_rows, &rows_with_two_ones, &non_zero_counts);
                     chosen_row = Some(self.first_phase_graph_substep(&rows_with_two_ones, &hdpc_rows));
                 }
                 else {
@@ -329,6 +331,17 @@ impl IntermediateSymbolDecoder {
         }
 
         return true;
+    }
+
+    // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
+    #[inline(never)]
+    #[cfg(debug_assertions)]
+    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, hdpc_rows: &Vec<bool>, rows_with_two_ones: &Vec<usize>, non_zeros: &ArrayMap<u32>) {
+        for row in start_row..end_row {
+            if non_zeros.get(row) == 2 {
+                assert!(rows_with_two_ones.contains(&row) || hdpc_rows[row]);
+            }
+        }
     }
 
     // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
