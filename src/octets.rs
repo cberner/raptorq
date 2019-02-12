@@ -1,6 +1,8 @@
 use octet::Octet;
 use octet::OCTET_MUL;
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
 use octet::OCTET_MUL_LOW_BITS;
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
 use octet::OCTET_MUL_HI_BITS;
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]

@@ -133,6 +133,7 @@ impl IntermediateSymbolDecoder {
 
     // Returns true iff all elements in A between [start_row, end_row)
     // and [start_column, end_column) are zero
+    #[cfg(debug_assertions)]
     fn all_zeroes(&self, start_row: usize, end_row: usize, start_column: usize, end_column: usize) -> bool {
         for row in start_row..end_row {
             for column in start_column..end_column {
