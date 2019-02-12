@@ -10,6 +10,7 @@ use systematic_constants::calculate_p1;
 use symbol::Symbol;
 use matrix::OctetMatrix;
 use octet::Octet;
+use octets::count_ones_and_nonzeros;
 use arraymap::ArrayMap;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
@@ -86,6 +87,106 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
     let b1 = rand(internal_symbol_id, 5, P1);
 
     (d, a, b, d1, a1, b1)
+}
+
+struct FirstPhaseRowSelectionStats {
+    non_zeros_per_row: ArrayMap<usize>,
+    ones_per_row: ArrayMap<usize>,
+    start_col: usize,
+    end_col: usize
+}
+
+impl FirstPhaseRowSelectionStats {
+    pub fn new(matrix: &OctetMatrix) -> FirstPhaseRowSelectionStats {
+        let mut result = FirstPhaseRowSelectionStats {
+            non_zeros_per_row: ArrayMap::new(0, matrix.height()),
+            ones_per_row: ArrayMap::new(0, matrix.height()),
+            start_col: 0,
+            end_col: matrix.width()
+        };
+
+        for i in 0..matrix.height() {
+            result.recompute_row(i, matrix);
+        }
+
+        result
+    }
+
+    pub fn swap_rows(&mut self, i: usize, j: usize) {
+        self.non_zeros_per_row.swap(i, j);
+        self.ones_per_row.swap(i, j);
+    }
+
+    // Recompute all stored statistics for the given row
+    pub fn recompute_row(&mut self, row: usize, matrix: &OctetMatrix) {
+        let (ones, non_zero) = count_ones_and_nonzeros(&matrix.get_row(row)[self.start_col..self.end_col]);
+        self.non_zeros_per_row.insert(row, non_zero);
+        self.ones_per_row.insert(row, ones);
+    }
+
+    // Set the valid columns, and recalculate statistics
+    pub fn resize(&mut self, start_row: usize, end_row: usize, start_col: usize, end_col: usize, matrix: &OctetMatrix) {
+        // Only shrinking is supported
+        assert!(start_col > self.start_col);
+        assert!(end_col <= self.end_col);
+
+        for row in start_row..end_row {
+            for col in self.start_col..start_col {
+                if matrix.get(row, col) == Octet::one() {
+                    let old = self.ones_per_row.get(row);
+                    self.ones_per_row.insert(row, old - 1);
+                }
+                if matrix.get(row, col) != Octet::zero() {
+                    let old = self.non_zeros_per_row.get(row);
+                    self.non_zeros_per_row.insert(row, old - 1);
+                }
+            }
+
+            for col in end_col..self.end_col {
+                if matrix.get(row, col) == Octet::one() {
+                    let old = self.ones_per_row.get(row);
+                    self.ones_per_row.insert(row, old - 1);
+                }
+                if matrix.get(row, col) != Octet::zero() {
+                    let old = self.non_zeros_per_row.get(row);
+                    self.non_zeros_per_row.insert(row, old - 1);
+                }
+            }
+        }
+
+        self.start_col = start_col;
+        self.end_col = end_col;
+    }
+
+    // Helper method for decoder phase 1
+    // selects from [start_row, end_row) reading [start_col, end_col)
+    // Returns (rows with two 1s, a row with two values > 1,
+    // mapping from row number to number of non-zero values, "r" minimum positive number of non-zero values a row has)
+    pub fn first_phase_selection(&self, start_row: usize, end_row: usize) -> (Vec<usize>, Option<usize>, ArrayMap<usize>, Option<usize>) {
+        let mut rows_with_two_ones = vec![];
+        let mut row_with_two_greater_than_one = None;
+        let mut r = std::usize::MAX;
+        for row in start_row..end_row {
+            let non_zero = self.non_zeros_per_row.get(row);
+            let ones = self.ones_per_row.get(row);
+            if non_zero > 0 && non_zero < r {
+                r = non_zero;
+            }
+            if non_zero == 2 && ones != 2 {
+                row_with_two_greater_than_one = Some(row);
+            }
+            if ones == 2 {
+                rows_with_two_ones.push(row);
+            }
+        }
+
+        if r < std::usize::MAX {
+            (rows_with_two_ones, row_with_two_greater_than_one, self.non_zeros_per_row.clone(), Some(r))
+        }
+        else {
+            (rows_with_two_ones, row_with_two_greater_than_one, self.non_zeros_per_row.clone(), None)
+        }
+    }
 }
 
 // See section 5.4.2.1
@@ -256,20 +357,24 @@ impl IntermediateSymbolDecoder {
         for row in S..(S + H) {
             hdpc_rows[row as usize] = true;
         }
+
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A);
+
         // Original degree is the degree of each row before processing begins
-        let (_, _, original_degree, _) = self.A.first_phase_selection(0, self.L, 0, self.L);
+        let (_, _, original_degree, _) = selection_helper.first_phase_selection(0, self.L);
+
 
         while self.i + self.u < self.L {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
             let (rows_with_two_ones, row_with_two_greater_than_one, non_zero_counts, r) =
-                self.A.first_phase_selection(self.i, self.L, self.i, self.L - self.u);
+                selection_helper.first_phase_selection(self.i, self.L);
 
             if r == None {
                 return false;
             }
-            let r = r.unwrap() as usize;
+            let r = r.unwrap();
 
             let chosen_row;
             if r == 2 {
@@ -286,13 +391,13 @@ impl IntermediateSymbolDecoder {
             }
             else {
                 let mut chosen_hdpc = None;
-                let mut chosen_hdpc_original_degree = (self.L + 1) as u32;
+                let mut chosen_hdpc_original_degree = self.L + 1;
                 let mut chosen_non_hdpc = None;
-                let mut chosen_non_hdpc_original_degree = (self.L + 1) as u32;
+                let mut chosen_non_hdpc_original_degree = self.L + 1;
                 for row in self.i..self.L {
                     let non_zero = non_zero_counts.get(row);
                     let row_original_degree = original_degree.get(row);
-                    if non_zero == r as u32 {
+                    if non_zero == r {
                         if hdpc_rows[row] {
                             if row_original_degree < chosen_hdpc_original_degree {
                                 chosen_hdpc = Some(row);
@@ -319,6 +424,7 @@ impl IntermediateSymbolDecoder {
             let chosen_row = chosen_row.unwrap();
             self.swap_rows(temp, chosen_row);
             self.X.swap_rows(temp, chosen_row);
+            selection_helper.swap_rows(temp, chosen_row);
             hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
             self.first_phase_swap_columns_substep(r);
@@ -329,11 +435,13 @@ impl IntermediateSymbolDecoder {
                     // Addition is equivalent to subtraction
                     let beta = &self.A.get(row, temp) / &self.A.get(temp, temp);
                     self.fma_rows(temp, row, beta);
+                    selection_helper.recompute_row(row, &self.A);
                 }
             }
 
             self.i += 1;
             self.u += r - 1;
+            selection_helper.resize(self.i, self.L, self.i, self.L - self.u, &self.A);
             #[cfg(debug_assertions)]
             self.first_phase_verify();
         }
@@ -344,7 +452,7 @@ impl IntermediateSymbolDecoder {
     // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
     #[inline(never)]
     #[cfg(debug_assertions)]
-    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, hdpc_rows: &Vec<bool>, rows_with_two_ones: &Vec<usize>, non_zeros: &ArrayMap<u32>) {
+    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, hdpc_rows: &Vec<bool>, rows_with_two_ones: &Vec<usize>, non_zeros: &ArrayMap<usize>) {
         for row in start_row..end_row {
             if non_zeros.get(row) == 2 {
                 assert!(rows_with_two_ones.contains(&row) || hdpc_rows[row]);

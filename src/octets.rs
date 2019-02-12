@@ -209,7 +209,7 @@ pub fn add_assign(octets: &mut Vec<u8>, other: &Vec<u8>) {
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
 #[inline(never)]
-fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (u32, u32) {
+fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -282,11 +282,11 @@ fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (u32, u32) {
             non_zeros += 1;
         }
     }
-    (ones, non_zeros)
+    (ones as usize, non_zeros as usize)
 }
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
-fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (u32, u32) {
+fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (usize, usize) {
     let mut ones = 0;
     let mut non_zeros = 0;
     for value in octets.iter() {
@@ -300,7 +300,7 @@ fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (u32, u32) {
     (ones, non_zeros)
 }
 
-pub fn count_ones_and_nonzeros(octets: &[u8]) -> (u32, u32) {
+pub fn count_ones_and_nonzeros(octets: &[u8]) -> (usize, usize) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
     return count_ones_and_nonzeros_avx2(octets);
 

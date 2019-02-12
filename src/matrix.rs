@@ -1,9 +1,7 @@
 use std::ops::Mul;
-use arraymap::ArrayMap;
 use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
-use octets::count_ones_and_nonzeros;
 use symbol::Symbol;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -60,6 +58,10 @@ impl OctetMatrix {
         self.width
     }
 
+    pub fn get_row(&self, i: usize) -> &Vec<u8> {
+        &self.elements[i]
+    }
+
     pub fn get(&self, i: usize, j: usize) -> Octet {
         Octet::new(self.elements[i][j])
     }
@@ -71,41 +73,6 @@ impl OctetMatrix {
     pub fn swap_columns(&mut self, i: usize, j:usize) {
         for row in 0..self.elements.len() {
             self.elements[row].swap(i, j);
-        }
-    }
-
-    // Helper method for decoder phase 1
-    // selects from [start_row, end_row) reading [start_col, end_col)
-    // Returns (rows with two 1s, a row with two values > 1,
-    // mapping from row number to number of non-zero values, "r" minimum positive number of non-zero values a row has)
-    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, start_col: usize, end_col: usize) -> (Vec<usize>, Option<usize>, ArrayMap<u32>, Option<u32>) {
-        let mut rows_with_two_ones = vec![];
-        let mut row_with_two_greater_than_one = None;
-        let mut non_zeros = ArrayMap::with_default(start_row, end_row, 0);
-        let mut r = std::u32::MAX;
-        for row in start_row..end_row {
-            let (ones, non_zero) = count_ones_and_nonzeros(&self.elements[row][start_col..end_col]);
-            if non_zero > 0 {
-                non_zeros.insert(row, non_zero);
-                if non_zero < r {
-                    r = non_zero;
-                }
-            }
-            if non_zero == 2 {
-                if ones == 2 {
-                    rows_with_two_ones.push(row);
-                }
-                else {
-                    row_with_two_greater_than_one = Some(row);
-                }
-            }
-        }
-
-        if r < std::u32::MAX {
-            (rows_with_two_ones, row_with_two_greater_than_one, non_zeros, Some(r))
-        }
-        else {
-            (rows_with_two_ones, row_with_two_greater_than_one, non_zeros, None)
         }
     }
 
