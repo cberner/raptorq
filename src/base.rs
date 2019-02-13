@@ -336,6 +336,36 @@ impl IntermediateSymbolDecoder {
         }
     }
 
+    #[inline(never)]
+    fn first_phase_original_degree_substep(&self, original_degree: &ArrayMap<usize>, non_zero_counts: &ArrayMap<usize>, hdpc_rows: &Vec<bool>, r: usize) -> usize {
+        let mut chosen_hdpc = None;
+        let mut chosen_hdpc_original_degree = self.L + 1;
+        let mut chosen_non_hdpc = None;
+        let mut chosen_non_hdpc_original_degree = self.L + 1;
+        for row in self.i..self.L {
+            let non_zero = non_zero_counts.get(row);
+            let row_original_degree = original_degree.get(row);
+            if non_zero == r {
+                if hdpc_rows[row] {
+                    if row_original_degree < chosen_hdpc_original_degree {
+                        chosen_hdpc = Some(row);
+                        chosen_hdpc_original_degree = row_original_degree;
+                    }
+                }
+                else if row_original_degree < chosen_non_hdpc_original_degree {
+                    chosen_non_hdpc = Some(row);
+                    chosen_non_hdpc_original_degree = row_original_degree;
+                }
+            }
+        }
+        if chosen_non_hdpc != None {
+            return chosen_non_hdpc.unwrap();
+        }
+        else {
+            return chosen_hdpc.unwrap();
+        }
+    }
+
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
     #[inline(never)]
@@ -396,32 +426,7 @@ impl IntermediateSymbolDecoder {
                 }
             }
             else {
-                let mut chosen_hdpc = None;
-                let mut chosen_hdpc_original_degree = self.L + 1;
-                let mut chosen_non_hdpc = None;
-                let mut chosen_non_hdpc_original_degree = self.L + 1;
-                for row in self.i..self.L {
-                    let non_zero = non_zero_counts.get(row);
-                    let row_original_degree = original_degree.get(row);
-                    if non_zero == r {
-                        if hdpc_rows[row] {
-                            if row_original_degree < chosen_hdpc_original_degree {
-                                chosen_hdpc = Some(row);
-                                chosen_hdpc_original_degree = row_original_degree;
-                            }
-                        }
-                        else if row_original_degree < chosen_non_hdpc_original_degree {
-                            chosen_non_hdpc = Some(row);
-                            chosen_non_hdpc_original_degree = row_original_degree;
-                        }
-                    }
-                }
-                if chosen_non_hdpc != None {
-                    chosen_row = chosen_non_hdpc;
-                }
-                else {
-                    chosen_row = chosen_hdpc;
-                }
+                chosen_row = Some(self.first_phase_original_degree_substep(&original_degree, &non_zero_counts, &hdpc_rows, r));
             }
 
             // See paragraph beginning: "After the row is chosen in this step..."
