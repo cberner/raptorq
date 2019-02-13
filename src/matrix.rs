@@ -115,11 +115,9 @@ impl OctetMatrix {
     pub fn resize(&mut self, new_height: usize, new_width: usize) {
         assert!(new_height <= self.height);
         assert!(new_width <= self.width);
-        let rows_to_discard = new_height..self.height;
-        let cols_to_discard = new_width..self.width;
-        self.elements.drain(rows_to_discard);
+        self.elements.truncate(new_height);
         for row in 0..self.elements.len() {
-            self.elements[row].drain(cols_to_discard.clone());
+            self.elements[row].truncate(new_width);
         }
         self.height = new_height;
         self.width = new_width;
