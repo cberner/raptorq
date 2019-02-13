@@ -9,8 +9,6 @@ use raptorq::SourceBlockEncoder;
 use raptorq::SourceBlockDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
-use raptorq::extended_source_block_symbols;
-use raptorq::generate_constraint_matrix;
 
 
 fn criterion_benchmark(c: &mut Criterion) {
