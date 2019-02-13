@@ -51,7 +51,7 @@ impl SourceBlockEncoder {
             let tuple = intermediate_tuple(self.source_symbols.len() as u32, start_encoding_symbol_id + i);
             result.push(EncodingPacket {
                 payload_id: PayloadId::new(self.source_block_id, start_encoding_symbol_id + i).unwrap(),
-                symbol: enc(self.source_symbols.len() as u32, self.intermediate_symbols.clone(), tuple)
+                symbol: enc(self.source_symbols.len() as u32, &self.intermediate_symbols, tuple)
             });
         }
         result
@@ -87,7 +87,7 @@ fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>, symbol_size: usi
 
 // Enc[] function, as defined in section 5.3.5.3
 fn enc(source_block_symbols: u32,
-       intermediate_symbols: Vec<Symbol>,
+       intermediate_symbols: &Vec<Symbol>,
        source_tuple: (u32, u32, u32, u32, u32, u32)) -> Symbol {
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
@@ -164,7 +164,7 @@ mod tests {
         // See section 5.3.3.4.1, item 1.
         for i in 0..extended_source_symbols.len() {
             let tuple = intermediate_tuple(NUM_SYMBOLS, i as u32);
-            let encoded = enc(NUM_SYMBOLS, intermediate_symbols.clone(), tuple);
+            let encoded = enc(NUM_SYMBOLS, &intermediate_symbols, tuple);
             assert_eq!(extended_source_symbols[i].clone(), encoded);
         }
     }

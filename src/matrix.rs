@@ -3,6 +3,7 @@ use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
 use symbol::Symbol;
+use util::get_both_indices;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetMatrix {
@@ -102,13 +103,14 @@ impl OctetMatrix {
     }
 
     pub fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
-        // TODO: find a way to remove this clone()?
-        let temp = self.elements[multiplicand].clone();
+        assert_ne!(dest, multiplicand);
+        let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, multiplicand);
+
         if *scalar == Octet::one() {
-            add_assign(&mut self.elements[dest], &temp);
+            add_assign(dest_row, temp_row);
         }
         else {
-            fused_addassign_mul_scalar(&mut self.elements[dest], &temp, scalar);
+            fused_addassign_mul_scalar(dest_row, temp_row, scalar);
         }
     }
 

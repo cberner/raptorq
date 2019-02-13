@@ -26,8 +26,8 @@ impl Symbol {
         self.value.len()
     }
 
-    pub fn bytes(&self) -> Vec<u8> {
-        self.value.clone()
+    pub fn bytes(&self) -> &Vec<u8> {
+        &self.value
     }
 
     pub fn mulassign_scalar(&mut self, scalar: &Octet) {
@@ -67,6 +67,6 @@ mod tests {
         let symbol2 = Symbol::new(data2);
 
         symbol1 += &symbol2;
-        assert_eq!(result, symbol1.bytes());
+        assert_eq!(result, *symbol1.bytes());
     }
 }

@@ -12,6 +12,7 @@ use matrix::OctetMatrix;
 use octet::Octet;
 use octets::count_ones_and_nonzeros;
 use arraymap::ArrayMap;
+use util::get_both_indices;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
 
@@ -261,8 +262,8 @@ impl IntermediateSymbolDecoder {
             node_lookup.insert(col, node);
         }
 
-        for row in rows_with_two_ones.clone() {
-            if hdpc_rows[row] {
+        for row in rows_with_two_ones.iter() {
+            if hdpc_rows[*row] {
                 continue;
             }
             let mut ones = vec![];
@@ -273,7 +274,7 @@ impl IntermediateSymbolDecoder {
                 // are the edges of the graph that connect the two columns (nodes) in the positions
                 // of the two ones."
                 // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
-                if self.A.get(row, col) == Octet::one() {
+                if self.A.get(*row, col) == Octet::one() {
                     ones.push(col);
                 }
                 if ones.len() == 2 {
@@ -282,7 +283,7 @@ impl IntermediateSymbolDecoder {
             }
             let node1 = node_lookup.get(ones[0]);
             let node2 = node_lookup.get(ones[1]);
-            g.add_edge(node1, node2, row);
+            g.add_edge(node1, node2, *row);
         }
 
         let connected_components = condensation(g.clone(), true);
@@ -548,14 +549,14 @@ impl IntermediateSymbolDecoder {
                 }
                 if self.X.get(row, col) == Octet::one() {
                     self.debug_symbol_add_ops += 1;
-                    let temp = self.D[self.d[col]].clone();
-                    self.D[self.d[row]] += &temp;
+                    let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
+                    *dest += temp;
                 }
                 else {
                     self.debug_symbol_mul_ops += 1;
                     self.debug_symbol_add_ops += 1;
-                    let temp = self.D[self.d[col]].clone();
-                    self.D[self.d[row]].fused_addassign_mul_scalar(&temp, &self.X.get(row, col));
+                    let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
+                    dest.fused_addassign_mul_scalar(temp, &self.X.get(row, col));
                 }
             }
         }
@@ -785,14 +786,14 @@ impl IntermediateSymbolDecoder {
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
         if beta == Octet::one() {
             self.debug_symbol_add_ops += 1;
-            let temp = self.D[self.d[i]].clone();
-            self.D[self.d[iprime]] += &temp;
+            let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
+            *dest += temp;
         }
         else {
             self.debug_symbol_add_ops += 1;
             self.debug_symbol_mul_ops += 1;
-            let temp = self.D[self.d[i]].clone();
-            self.D[self.d[iprime]].fused_addassign_mul_scalar(&temp, &beta);
+            let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
+            dest.fused_addassign_mul_scalar(&temp, &beta);
         }
         self.A.fma_rows(iprime, i, &beta);
     }
