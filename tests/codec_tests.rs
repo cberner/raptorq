@@ -18,7 +18,7 @@ mod codec_tests {
             data[i] = rand::thread_rng().gen();
         }
 
-        let encoder = SourceBlockEncoder::new(1, 8, data.clone());
+        let encoder = SourceBlockEncoder::new(1, 8, &data);
 
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
 
@@ -41,7 +41,7 @@ mod codec_tests {
             data[i] = rand::thread_rng().gen();
         }
 
-        let encoder = SourceBlockEncoder::new(1, 8, data.clone());
+        let encoder = SourceBlockEncoder::new(1, 8, &data);
 
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
 

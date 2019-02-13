@@ -60,13 +60,13 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let encode_data = data.clone();
     c.bench_function("encode 10KB", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, encode_data.clone());
+        let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
         return encoder.all_source_packets();
     }));
 
     let roundtrip_data = data.clone();
     c.bench_function("roundtrip 10KB", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, roundtrip_data.clone());
+        let encoder = SourceBlockEncoder::new(1, symbol_size, &roundtrip_data);
         let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
         let mut result = None;
         for packet in encoder.all_source_packets() {
@@ -77,7 +77,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let repair_data = data.clone();
     c.bench_function("roundtrip repair 10KB", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, repair_data.clone());
+        let encoder = SourceBlockEncoder::new(1, symbol_size, &repair_data);
         let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
         let mut result = None;
         for packet in encoder.repair_packets(0, (elements / symbol_size as usize) as u32) {

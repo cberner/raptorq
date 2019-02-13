@@ -19,7 +19,7 @@ pub struct SourceBlockEncoder {
 }
 
 impl SourceBlockEncoder {
-    pub fn new(source_block_id: u8, symbol_size: u16, data: Vec<u8>) -> SourceBlockEncoder {
+    pub fn new(source_block_id: u8, symbol_size: u16, data: &Vec<u8>) -> SourceBlockEncoder {
         assert_eq!(data.len() % symbol_size as usize, 0);
         let source_symbols: Vec<Symbol> = data.chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))

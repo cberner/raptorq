@@ -8,10 +8,10 @@ authors = ["Christopher Berner <christopherberner@gmail.com>"]
 [dependencies]
 primal = "0.2"
 petgraph = "0.4"
+rand = "0.6"
 
 [dev-dependencies]
 criterion = "0.2"
-rand = "0.6"
 
 [[bench]]
 name = "codec_benchmark"
@@ -20,6 +20,11 @@ harness = false
 [[bin]]
 name = "matrix_sparsity"
 path = "src/bin_matrix_sparsity.rs"
+test = false
+
+[[bin]]
+name = "encode_benchmark"
+path = "src/bin_encode_benchmark.rs"
 test = false
 
 [profile.release]
