@@ -60,5 +60,8 @@ fn main() {
                  decoder.get_symbol_mul_ops() as f64 / num_symbols as f64,
                  decoder.get_symbol_add_ops(),
                  decoder.get_symbol_add_ops() as f64 / num_symbols as f64);
+        println!("By phase mul ops: {:?}, add ops: {:?}",
+                 decoder.get_symbol_mul_ops_by_phase(),
+                 decoder.get_symbol_add_ops_by_phase());
     }
 }

@@ -202,7 +202,9 @@ pub struct IntermediateSymbolDecoder {
     L: usize,
     num_source_symbols: u32,
     debug_symbol_mul_ops: u32,
-    debug_symbol_add_ops: u32
+    debug_symbol_add_ops: u32,
+    debug_symbol_mul_ops_by_phase: Vec<u32>,
+    debug_symbol_add_ops_by_phase: Vec<u32>
 }
 
 impl IntermediateSymbolDecoder {
@@ -228,7 +230,9 @@ impl IntermediateSymbolDecoder {
             L: num_intermediate_symbols(num_source_symbols) as usize,
             num_source_symbols,
             debug_symbol_mul_ops: 0,
-            debug_symbol_add_ops: 0
+            debug_symbol_add_ops: 0,
+            debug_symbol_mul_ops_by_phase: vec![0; 5],
+            debug_symbol_add_ops_by_phase: vec![0; 5]
         }
     }
 
@@ -446,6 +450,7 @@ impl IntermediateSymbolDecoder {
             self.first_phase_verify();
         }
 
+        self.record_symbol_ops(0);
         return true;
     }
 
@@ -497,6 +502,7 @@ impl IntermediateSymbolDecoder {
         // Perform backwards elimination
         self.backwards_elimination(temp, temp, size);
 
+        self.record_symbol_ops(1);
         return true;
     }
 
@@ -547,6 +553,8 @@ impl IntermediateSymbolDecoder {
             }
         }
 
+        self.record_symbol_ops(2);
+
         #[cfg(debug_assertions)]
         self.third_phase_verify_end();
     }
@@ -594,6 +602,9 @@ impl IntermediateSymbolDecoder {
                 }
             }
         }
+
+        self.record_symbol_ops(3);
+
         #[cfg(debug_assertions)]
         self.fourth_phase_verify();
     }
@@ -649,6 +660,9 @@ impl IntermediateSymbolDecoder {
                 }
             }
         }
+
+        self.record_symbol_ops(4);
+
         #[cfg(debug_assertions)]
         self.fifth_phase_verify();
     }
@@ -667,6 +681,15 @@ impl IntermediateSymbolDecoder {
                     assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
+        }
+    }
+
+    fn record_symbol_ops(&mut self, phase: usize) {
+        self.debug_symbol_add_ops_by_phase[phase] = self.debug_symbol_add_ops;
+        self.debug_symbol_mul_ops_by_phase[phase] = self.debug_symbol_mul_ops;
+        for i in 0..phase {
+            self.debug_symbol_add_ops_by_phase[phase] -= self.debug_symbol_add_ops_by_phase[i];
+            self.debug_symbol_mul_ops_by_phase[phase] -= self.debug_symbol_mul_ops_by_phase[i];
         }
     }
 
@@ -730,6 +753,16 @@ impl IntermediateSymbolDecoder {
     #[allow(dead_code)]
     pub fn get_symbol_add_ops(&self) -> u32 {
         self.debug_symbol_add_ops
+    }
+
+    #[allow(dead_code)]
+    pub fn get_symbol_mul_ops_by_phase(&self) -> Vec<u32> {
+        self.debug_symbol_mul_ops_by_phase.clone()
+    }
+
+    #[allow(dead_code)]
+    pub fn get_symbol_add_ops_by_phase(&self) -> Vec<u32> {
+        self.debug_symbol_add_ops_by_phase.clone()
     }
 
     // Helper operations to apply operations to A, also to D
