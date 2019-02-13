@@ -97,6 +97,7 @@ struct FirstPhaseRowSelectionStats {
 }
 
 impl FirstPhaseRowSelectionStats {
+    #[inline(never)]
     pub fn new(matrix: &OctetMatrix) -> FirstPhaseRowSelectionStats {
         let mut result = FirstPhaseRowSelectionStats {
             non_zeros_per_row: ArrayMap::new(0, matrix.height()),
@@ -125,6 +126,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     // Set the valid columns, and recalculate statistics
+    #[inline(never)]
     pub fn resize(&mut self, start_row: usize, end_row: usize, start_col: usize, end_col: usize, matrix: &OctetMatrix) {
         // Only shrinking is supported
         assert!(start_col > self.start_col);
