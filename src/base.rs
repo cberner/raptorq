@@ -215,8 +215,8 @@ impl IntermediateSymbolDecoder {
         // TODO: implement for non-square matrices
         assert_eq!(matrix.width(), symbols.len());
         assert_eq!(matrix.height(), symbols.len());
-        let mut c = vec![];
-        let mut d = vec![];
+        let mut c = Vec::with_capacity(matrix.width());
+        let mut d = Vec::with_capacity(matrix.width());
         for i in 0..matrix.width() {
             c.push(i);
             d.push(i);
@@ -266,7 +266,7 @@ impl IntermediateSymbolDecoder {
             if hdpc_rows[*row] {
                 continue;
             }
-            let mut ones = vec![];
+            let mut ones = Vec::with_capacity(2);
             for col in self.i..(self.L - self.u) {
                 // "The following graph defined by the structure of V is used in determining which
                 // row of A is chosen. The columns that intersect V are the nodes in the graph,
@@ -827,7 +827,7 @@ impl IntermediateSymbolDecoder {
         for i in 0..self.L {
             index_mapping.insert(self.c[i], self.d[i]);
         }
-        let mut result = vec![];
+        let mut result = Vec::with_capacity(self.L);
         for i in 0..self.L {
             result.push(self.D[index_mapping.get(i)].clone());
         }

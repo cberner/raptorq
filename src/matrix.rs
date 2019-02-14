@@ -13,7 +13,7 @@ pub struct OctetMatrix {
 
 impl OctetMatrix {
     pub fn new(height: usize, width: usize) -> OctetMatrix {
-        let mut elements: Vec<Vec<u8>> = vec![];
+        let mut elements: Vec<Vec<u8>> = Vec::with_capacity(height);
         for _ in 0..height {
             elements.push(vec![0; width]);
         }
