@@ -844,50 +844,11 @@ pub fn fused_inverse_mul_symbols(matrix: &OctetMatrix, symbols: &Vec<Symbol>, nu
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
-    use base::tests::rand::Rng;
     use symbol::Symbol;
-    use matrix::OctetMatrix;
     use systematic_constants::extended_source_block_symbols;
     use constraint_matrix::generate_constraint_matrix;
-    use base::fused_inverse_mul_symbols;
     use octet::Octet;
     use base::IntermediateSymbolDecoder;
-
-    fn identity(size: usize) -> OctetMatrix {
-        let mut result = OctetMatrix::new(size, size);
-        for i in 0..size {
-            result.set(i, i, Octet::one());
-        }
-        result
-    }
-
-    fn rand_symbol(symbol_size: usize) -> Symbol {
-        let mut data: Vec<u8> = vec![0; symbol_size];
-        for i in 0..symbol_size {
-            data[i] = rand::thread_rng().gen();
-        }
-        Symbol::new(data)
-    }
-
-    #[test]
-    fn inverse() {
-        Octet::static_init();
-
-        for &source_symbols in [5, 20, 30, 50, 100].iter() {
-            let symbols = extended_source_block_symbols(source_symbols);
-            let a = generate_constraint_matrix(source_symbols, 0..symbols);
-            let identity = identity(a.height());
-            assert_eq!(identity, a.clone() * a.inverse().unwrap());
-
-            let mut rand_symbols = vec![];
-            for _ in 0..a.width() {
-                rand_symbols.push(rand_symbol(8));
-            }
-            assert_eq!(a.clone().inverse().unwrap().mul_symbols(&rand_symbols), fused_inverse_mul_symbols(&a, &rand_symbols, source_symbols).unwrap());
-        }
-    }
 
     #[test]
     fn operations_per_symbol() {

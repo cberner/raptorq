@@ -2,7 +2,6 @@ use std::ops::Mul;
 use octet::Octet;
 use octets::fused_addassign_mul_scalar;
 use octets::add_assign;
-use symbol::Symbol;
 use util::get_both_indices;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -23,28 +22,6 @@ impl OctetMatrix {
             width,
             elements
         }
-    }
-
-    pub fn mul_symbols(&self, symbols: &Vec<Symbol>) -> Vec<Symbol> {
-        assert_eq!(self.width, symbols.len());
-        assert_ne!(0, symbols.len());
-        let mut result: Vec<Symbol> = vec![];
-        for i in 0..self.height {
-            let mut symbol = Symbol::zero(symbols[0].len());
-            for j in 0..self.width {
-                if self.elements[i][j] == 0 {
-                    continue;
-                }
-                if self.elements[i][j] == 1 {
-                   symbol += &symbols[j];
-                }
-                else {
-                    symbol.fused_addassign_mul_scalar(&symbols[j], &Octet::new(self.elements[i][j]));
-                }
-            }
-            result.push(symbol);
-        }
-        result
     }
 
     pub fn set(&mut self, i: usize, j: usize, value: Octet) {
@@ -124,87 +101,6 @@ impl OctetMatrix {
         self.height = new_height;
         self.width = new_width;
     }
-
-    pub fn inverse(&self) -> Option<OctetMatrix> {
-        // Calculate inverse using Gauss-Jordan elimination
-
-        // Only implemented for square matrices
-        assert_eq!(self.height, self.width);
-
-        // Extend with identity on right side
-        let mut intermediate = vec![];
-        for i in 0..self.height {
-            intermediate.push(vec![]);
-            for j in 0..self.width {
-                intermediate[i].push(Octet::new(self.elements[i][j]));
-            }
-        }
-        for i in 0..self.height {
-            for _ in 0..self.width {
-                intermediate[i].push(Octet::zero());
-            }
-            intermediate[i][self.width + i] = Octet::one();
-        }
-
-        // Convert to row echelon form
-        for i in 0..self.width {
-            // Swap a row with leading coefficient i into place
-            for j in i..self.height {
-                if intermediate[j][i] != Octet::zero() {
-                    intermediate.swap(i, j);
-                    break;
-                }
-            }
-
-            if intermediate[i][i] == Octet::zero() {
-                // If all following rows are zero in this column, then matrix is singular
-                return None
-            }
-
-            // Scale leading coefficient to 1
-            if intermediate[i][i] != Octet::one() {
-                let element_inverse = Octet::one() / intermediate[i][i].clone();
-                for j in i..(2*self.width) {
-                    intermediate[i][j] = intermediate[i][j].clone() * element_inverse.clone();
-                }
-            }
-
-            // Zero out all following elements in i'th column
-            for j in (i + 1)..self.height {
-                if intermediate[j][i] != Octet::zero() {
-                    let scalar = intermediate[j][i].clone();
-                    // Multiply and subtract i'th row from j'th row
-                    for k in i..(2*self.width) {
-                        intermediate[j][k] = intermediate[j][k].clone() - scalar.clone() * intermediate[i][k].clone();
-                    }
-                }
-            }
-        }
-
-        // Perform backwards elimination
-        for i in (0..self.width).rev() {
-            // Zero out all preceding elements in i'th column
-            for j in 0..i {
-                if intermediate[j][i] != Octet::zero() {
-                    let scalar = intermediate[j][i].clone();
-                    // Multiply and subtract i'th row from j'th row
-                    for k in i..(2*self.width) {
-                        intermediate[j][k] = intermediate[j][k].clone() - scalar.clone() * intermediate[i][k].clone();
-                    }
-                }
-            }
-        }
-
-        // Return inverse
-        let mut result = OctetMatrix::new(self.height, self.width);
-        for row in 0..self.height {
-            for column in 0..self.width {
-                result.set(row, column, intermediate[row][column + self.width].clone());
-            }
-        }
-
-        Some(result)
-    }
 }
 
 impl Mul for OctetMatrix {
@@ -237,7 +133,6 @@ mod tests {
 
     use matrix::tests::rand::Rng;
     use matrix::OctetMatrix;
-    use symbol::Symbol;
     use octet::Octet;
 
     fn identity(size: usize) -> OctetMatrix {
@@ -258,49 +153,5 @@ mod tests {
             }
         }
         assert_eq!(a.clone(), identity * a.clone());
-    }
-
-    #[test]
-    fn mul_symbol() {
-        let identity = identity(4);
-        let mut symbols: Vec<Symbol> = vec![];
-        for _ in 0..4 {
-            let mut data = vec![];
-            for _ in 0..3 {
-                data.push(rand::thread_rng().gen());
-            }
-            symbols.push(Symbol::new(data));
-        }
-        assert_eq!(symbols.clone(), identity.mul_symbols(&symbols));
-
-        let mut a = OctetMatrix::new(4, 4);
-        for i in 0..4 {
-            for j in 0..4 {
-                a.set(i, j, Octet::new(rand::thread_rng().gen()));
-            }
-        }
-        // Statistically improbable that the random matrix, a, is the identity
-        assert_ne!(symbols.clone(), a.mul_symbols(&symbols));
-    }
-
-    #[test]
-    fn inverse() {
-        Octet::static_init();
-        let identity = identity(3);
-        assert_eq!(identity, identity.clone() * identity.clone().inverse().unwrap());
-
-        let mut a = OctetMatrix::new(3, 3);
-        a.set(0, 0, Octet::new(1));
-        a.set(0, 1, Octet::new(2));
-        a.set(0, 2, Octet::new(3));
-
-        a.set(1, 0, Octet::new(4));
-        a.set(1, 1, Octet::new(5));
-        a.set(1, 2, Octet::new(6));
-
-        a.set(2, 0, Octet::new(7));
-        a.set(2, 1, Octet::new(8));
-        a.set(2, 2, Octet::new(9));
-        assert_eq!(identity, a.clone() * a.clone().inverse().unwrap());
     }
 }

@@ -42,17 +42,6 @@ fn main() {
         }
         println!("Original density for {}x{}: {} of {}", a.height(), a.width(), density, a.height() * a.width());
 
-        let inverse = a.inverse().unwrap();
-        let mut density = 0;
-        for i in 0..inverse.height() {
-            for j in 0..inverse.width() {
-                if inverse.get(i, j) != Octet::zero() {
-                    density += 1;
-                }
-            }
-        }
-        println!("Inverse density for {}x{}: {} of {}", inverse.height(), inverse.width(), density, inverse.height() * inverse.width());
-
         let symbols = vec![Symbol::zero(1); a.width()];
         let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
         decoder.execute();
