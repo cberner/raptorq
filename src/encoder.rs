@@ -24,7 +24,7 @@ impl SourceBlockEncoder {
         let source_symbols: Vec<Symbol> = data.chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
-        let intermediate_symbols = gen_intermediate_symbols(extend_source_block(source_symbols.clone(), symbol_size as usize), symbol_size as usize);
+        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, symbol_size as usize);
         SourceBlockEncoder {
             source_block_id,
             source_symbols,
@@ -58,31 +58,29 @@ impl SourceBlockEncoder {
     }
 }
 
-// Extend the source block with padding. See section 5.3.2
-fn extend_source_block(mut source_block: Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
-    assert_ne!(0, source_block.len());
-    let symbols = source_block.len() as u32;
-    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
-    for _ in 0..(extended_source_symbols - symbols) {
-        source_block.push(Symbol::zero(symbol_size));
-    }
-    source_block
-}
-
 // See section 5.3.3.4
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols(extended_source_block: Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
-    let L = num_intermediate_symbols(extended_source_block.len() as u32);
-    let S = num_ldpc_symbols(extended_source_block.len() as u32);
-    let H = num_hdpc_symbols(extended_source_block.len() as u32);
+fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
+    let L = num_intermediate_symbols(source_block.len() as u32);
+    let S = num_ldpc_symbols(source_block.len() as u32);
+    let H = num_hdpc_symbols(source_block.len() as u32);
+    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
 
-    let mut D = vec![Symbol::zero(symbol_size); L as usize];
-    for i in 0..extended_source_block.len() {
-        D[(S + H) as usize + i] = extended_source_block[i].clone();
+    let mut D = Vec::with_capacity(L as usize);
+    for _ in 0..(S + H) {
+        D.push(Symbol::zero(symbol_size));
     }
+    for i in 0..source_block.len() {
+        D.push(source_block[i].clone());
+    }
+    // Extend the source block with padding. See section 5.3.2
+    for _ in 0..(extended_source_symbols as usize - source_block.len()) {
+        D.push(Symbol::zero(symbol_size));
+    }
+    assert_eq!(D.len(), L as usize);
 
-    let A = generate_constraint_matrix(extended_source_block.len() as u32, 0..extended_source_block.len() as u32);
-    fused_inverse_mul_symbols(&A, &D, extended_source_block.len() as u32).unwrap()
+    let A = generate_constraint_matrix(extended_source_symbols, 0..extended_source_symbols);
+    fused_inverse_mul_symbols(&A, &D, extended_source_symbols).unwrap()
 }
 
 // Enc[] function, as defined in section 5.3.5.3
@@ -129,7 +127,6 @@ mod tests {
 
     use symbol::Symbol;
     use encoder::tests::rand::Rng;
-    use encoder::extend_source_block;
     use encoder::enc;
     use base::intermediate_tuple;
     use encoder::gen_intermediate_symbols;
@@ -150,22 +147,21 @@ mod tests {
             }
             source_block.push(Symbol::new(data));
         }
-
-        extend_source_block(source_block, SYMBOL_SIZE)
+        source_block
     }
 
     #[test]
     fn enc_constraint() {
         Octet::static_init();
 
-        let extended_source_symbols = gen_test_symbols();
-        let intermediate_symbols = gen_intermediate_symbols(extended_source_symbols.clone(), SYMBOL_SIZE);
+        let source_symbols = gen_test_symbols();
+        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE);
 
         // See section 5.3.3.4.1, item 1.
-        for i in 0..extended_source_symbols.len() {
+        for i in 0..source_symbols.len() {
             let tuple = intermediate_tuple(NUM_SYMBOLS, i as u32);
             let encoded = enc(NUM_SYMBOLS, &intermediate_symbols, tuple);
-            assert_eq!(extended_source_symbols[i].clone(), encoded);
+            assert_eq!(source_symbols[i], encoded);
         }
     }
 
@@ -174,7 +170,7 @@ mod tests {
     fn ldpc_constraint() {
         Octet::static_init();
 
-        let C = gen_intermediate_symbols(gen_test_symbols(), SYMBOL_SIZE);
+        let C = gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE);
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;
         let W = num_lt_symbols(NUM_SYMBOLS) as usize;
@@ -206,7 +202,7 @@ mod tests {
         }
 
         for i in 0..S {
-            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i].clone());
+            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
         }
     }
 }
