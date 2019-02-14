@@ -17,9 +17,8 @@ fn main() {
     }
 
     let mut junk = 0;
-    let encode_data = data.clone();
     for _ in 0..5000 {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
+        let encoder = SourceBlockEncoder::new(1, symbol_size, &data);
         let packets = encoder.repair_packets(0, 1);
         junk += packets[0].symbol.bytes()[0] as u32;
     }

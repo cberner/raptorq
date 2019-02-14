@@ -84,7 +84,7 @@ impl SourceBlockDecoder {
             }
 
             // TODO: support extra repair symbols, that would make matrix non-square
-            for repair_packet in self.repair_packets.clone() {
+            for repair_packet in self.repair_packets.iter() {
                 if encoded_indices.len() as u32 == num_extended_symbols {
                     break;
                 }
@@ -106,7 +106,7 @@ impl SourceBlockDecoder {
                     result.extend(self.source_symbols[i].clone().unwrap().bytes())
                 }
                 else {
-                    let rebuilt = self.rebuild_source_symbol(intermediate_symbols.clone(), i as u32);
+                    let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
                     result.extend(rebuilt.bytes());
                 }
             }
@@ -116,7 +116,7 @@ impl SourceBlockDecoder {
         None
     }
 
-    fn rebuild_source_symbol(&self, intermediate_symbols: Vec<Symbol>, source_symbol_id: u32) -> Symbol {
+    fn rebuild_source_symbol(&self, intermediate_symbols: &Vec<Symbol>, source_symbol_id: u32) -> Symbol {
         let tuple = intermediate_tuple(self.source_block_symbols, source_symbol_id);
 
         let mut rebuilt = Symbol::zero(self.symbol_size as usize);
