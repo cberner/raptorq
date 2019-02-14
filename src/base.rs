@@ -266,7 +266,8 @@ impl IntermediateSymbolDecoder {
             if hdpc_rows[*row] {
                 continue;
             }
-            let mut ones = Vec::with_capacity(2);
+            let mut ones = [0; 2];
+            let mut found = 0;
             for col in self.i..(self.L - self.u) {
                 // "The following graph defined by the structure of V is used in determining which
                 // row of A is chosen. The columns that intersect V are the nodes in the graph,
@@ -275,9 +276,10 @@ impl IntermediateSymbolDecoder {
                 // of the two ones."
                 // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
                 if self.A.get(*row, col) == Octet::one() {
-                    ones.push(col);
+                    ones[found] = col;
+                    found += 1;
                 }
-                if ones.len() == 2 {
+                if found == 2 {
                     break;
                 }
             }
