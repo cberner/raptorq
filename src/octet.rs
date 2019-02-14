@@ -291,12 +291,8 @@ mod tests {
         let octet = Octet {
             value: rand::thread_rng().gen()
         };
-        let octet2 = octet.clone();
-        let zero = Octet {
-            value: 0
-        };
         // See section 5.7.2. u is its own additive inverse
-        assert_eq!(zero, octet + octet2);
+        assert_eq!(Octet::zero(), &octet + &octet);
     }
 
     #[test]
@@ -304,10 +300,7 @@ mod tests {
         let octet = Octet {
             value: rand::thread_rng().gen()
         };
-        let one = Octet {
-            value: 1
-        };
-        assert_eq!(octet, octet.clone() * one);
+        assert_eq!(octet, &octet * &Octet::one());
     }
 
     #[test]
@@ -315,10 +308,8 @@ mod tests {
         let octet = Octet {
             value: rand::thread_rng().gen_range(1, 255)
         };
-        let one = Octet {
-            value: 1
-        };
-        assert_eq!(one.clone(), octet.clone() * (one.clone() / octet.clone()));
+        let one = Octet::one();
+        assert_eq!(one, &octet * &(&one / &octet));
     }
 
     #[test]
@@ -326,11 +317,7 @@ mod tests {
         let octet = Octet {
             value: rand::thread_rng().gen_range(1, 255)
         };
-        let octet2 = octet.clone();
-        let one = Octet {
-            value: 1
-        };
-        assert_eq!(one, octet / octet2);
+        assert_eq!(Octet::one(), &octet / &octet);
     }
 
     #[test]
