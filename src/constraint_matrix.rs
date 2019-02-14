@@ -122,7 +122,7 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
     }
 
     // G_HDPC
-    let g_hdpc = generate_mt(H, Kprime, S) * generate_gamma(Kprime, S);
+    let g_hdpc = &generate_mt(H, Kprime, S) * &generate_gamma(Kprime, S);
     for i in 0..H {
         for j in 0..(Kprime + S) {
             matrix.set(i + S, j, g_hdpc.get(i, j));

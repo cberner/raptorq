@@ -103,10 +103,10 @@ impl OctetMatrix {
     }
 }
 
-impl Mul for OctetMatrix {
+impl<'a, 'b> Mul<&'b OctetMatrix> for &'a OctetMatrix {
     type Output = OctetMatrix;
 
-    fn mul(self, rhs: OctetMatrix) -> OctetMatrix {
+    fn mul(self, rhs: &'b OctetMatrix) -> OctetMatrix {
         assert_eq!(self.width, rhs.height);
         let mut result = OctetMatrix::new(self.height, rhs.width);
         for row in 0..self.height {
@@ -152,6 +152,6 @@ mod tests {
                 a.set(i, j, Octet::new(rand::thread_rng().gen()));
             }
         }
-        assert_eq!(a.clone(), identity * a.clone());
+        assert_eq!(a, &identity * &a);
     }
 }
