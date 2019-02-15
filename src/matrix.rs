@@ -60,22 +60,23 @@ impl OctetMatrix {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
-        let temp = self.clone();
+        let mut temp = vec![vec![0; self.width]; rows];
         for row in 0..rows {
-            let mut elements = vec![0; self.width];
             for i in 0..rows {
                 let scalar = other.get(row, i);
                 if scalar == Octet::zero() {
                     continue;
                 }
                 if scalar == Octet::one() {
-                    add_assign(&mut elements, &temp.elements[i]);
+                    add_assign(&mut temp[row], &self.elements[i]);
                 }
                 else {
-                    fused_addassign_mul_scalar(&mut elements, &temp.elements[i], &scalar);
+                    fused_addassign_mul_scalar(&mut temp[row], &self.elements[i], &scalar);
                 }
             }
-            self.elements[row] = elements;
+        }
+        for row in (0..rows).rev() {
+            self.elements[row] = temp.pop().unwrap();
         }
     }
 

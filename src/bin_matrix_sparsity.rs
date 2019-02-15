@@ -43,7 +43,7 @@ fn main() {
         println!("Original density for {}x{}: {} of {}", a.height(), a.width(), density, a.height() * a.width());
 
         let symbols = vec![Symbol::zero(1); a.width()];
-        let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
+        let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
         decoder.execute();
         println!("Optimized decoder mul ops: {} ({:.1} per symbol), add ops: {} ({:.1} per symbol)",
                  decoder.get_symbol_mul_ops(),

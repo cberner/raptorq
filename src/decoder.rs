@@ -93,7 +93,7 @@ impl SourceBlockDecoder {
             }
 
             let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, encoded_indices.into_iter());
-            let intermediate_symbols =  fused_inverse_mul_symbols(&constraint_matrix, &d, self.source_block_symbols);
+            let intermediate_symbols =  fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols);
 
             if intermediate_symbols == None {
                 return None

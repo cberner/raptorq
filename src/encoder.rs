@@ -80,7 +80,7 @@ fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize) -> V
     assert_eq!(D.len(), L as usize);
 
     let A = generate_constraint_matrix(extended_source_symbols, 0..extended_source_symbols);
-    fused_inverse_mul_symbols(&A, &D, extended_source_symbols).unwrap()
+    fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
 }
 
 // Enc[] function, as defined in section 5.3.5.3

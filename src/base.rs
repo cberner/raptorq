@@ -211,7 +211,7 @@ pub struct IntermediateSymbolDecoder {
 }
 
 impl IntermediateSymbolDecoder {
-    pub fn new(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
+    pub fn new(matrix: OctetMatrix, symbols: Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
         // TODO: implement for non-square matrices
         assert_eq!(matrix.width(), symbols.len());
         assert_eq!(matrix.height(), symbols.len());
@@ -224,8 +224,8 @@ impl IntermediateSymbolDecoder {
 
         IntermediateSymbolDecoder {
             A: matrix.clone(),
-            X: matrix.clone(),
-            D: symbols.clone(),
+            X: matrix,
+            D: symbols,
             c,
             d,
             i: 0,
@@ -827,11 +827,11 @@ impl IntermediateSymbolDecoder {
         // See end of section 5.4.2.1
         let mut index_mapping = ArrayMap::new(0, self.L);
         for i in 0..self.L {
-            index_mapping.insert(self.c[i], self.d[i]);
+            index_mapping.insert(self.d[i], self.c[i]);
         }
-        let mut result = Vec::with_capacity(self.L);
-        for i in 0..self.L {
-            result.push(self.D[index_mapping.get(i)].clone());
+        let mut result = vec![Symbol::zero(0); self.L];
+        for i in (0..self.L).rev() {
+            result[index_mapping.get(i)] = self.D.pop().unwrap();
         }
         Some(result)
     }
@@ -840,7 +840,7 @@ impl IntermediateSymbolDecoder {
 
 // Fused implementation for self.inverse().mul_symbols(symbols)
 // See section 5.4.2.1
-pub fn fused_inverse_mul_symbols(matrix: &OctetMatrix, symbols: &Vec<Symbol>, num_source_symbols: u32) -> Option<Vec<Symbol>> {
+pub fn fused_inverse_mul_symbols(matrix: OctetMatrix, symbols: Vec<Symbol>, num_source_symbols: u32) -> Option<Vec<Symbol>> {
     IntermediateSymbolDecoder::new(matrix, symbols, num_source_symbols).execute()
 }
 
@@ -859,7 +859,7 @@ mod tests {
             let num_symbols = extended_source_block_symbols(*elements);
             let a = generate_constraint_matrix(num_symbols, 0..num_symbols);
             let symbols = vec![Symbol::zero(1); a.width()];
-            let mut decoder = IntermediateSymbolDecoder::new(&a, &symbols, num_symbols);
+            let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();
             assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < 30.0);
             assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < 50.0);
