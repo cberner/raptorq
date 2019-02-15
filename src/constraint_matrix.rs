@@ -7,7 +7,6 @@ use systematic_constants::num_intermediate_symbols;
 use matrix::OctetMatrix;
 use octet::Octet;
 use rng::rand;
-use std::collections::HashSet;
 use systematic_constants::calculate_p1;
 use base::intermediate_tuple;
 
@@ -44,7 +43,7 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
 pub fn enc_indices(source_block_symbols: u32,
-       source_tuple: (u32, u32, u32, u32, u32, u32)) -> HashSet<usize> {
+       source_tuple: (u32, u32, u32, u32, u32, u32)) -> Vec<usize> {
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
     let p1 = calculate_p1(source_block_symbols);
@@ -56,26 +55,26 @@ pub fn enc_indices(source_block_symbols: u32,
     assert!(1 <= a1 && a < w);
     assert!(b1 < w);
 
-    let mut indices = HashSet::new();
-    indices.insert(b as usize);
+    let mut indices = Vec::with_capacity((d + d1) as usize);
+    indices.push(b as usize);
 
     for _ in 1..d {
         b = (b + a) % w;
-        indices.insert(b as usize);
+        indices.push(b as usize);
     }
 
     while b1 >= p {
         b1 = (b1 + a1) % p1;
     }
 
-    indices.insert((w + b1) as usize);
+    indices.push((w + b1) as usize);
 
     for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
         }
-        indices.insert((w + b1) as usize);
+        indices.push((w + b1) as usize);
     }
 
     indices
