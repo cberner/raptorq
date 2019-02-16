@@ -102,7 +102,7 @@ struct FirstPhaseRowSelectionStats {
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new(matrix: &OctetMatrix, num_source_symbols: u32) -> FirstPhaseRowSelectionStats {
+    pub fn new(matrix: &OctetMatrix, end_col: usize, num_source_symbols: u32) -> FirstPhaseRowSelectionStats {
         let S = num_ldpc_symbols(num_source_symbols);
         let H = num_hdpc_symbols(num_source_symbols);
 
@@ -118,7 +118,7 @@ impl FirstPhaseRowSelectionStats {
             ones_per_row: ArrayMap::new(0, matrix.height()),
             hdpc_rows,
             start_col: 0,
-            end_col: matrix.width()
+            end_col
         };
 
         for i in 0..matrix.height() {
@@ -440,7 +440,7 @@ impl IntermediateSymbolDecoder {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
-        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.num_source_symbols);
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.L - self.u, self.num_source_symbols);
 
         while self.i + self.u < self.L {
             // Calculate r
