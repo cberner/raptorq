@@ -186,7 +186,7 @@ impl FirstPhaseRowSelectionStats {
 
     #[inline(never)]
     fn first_phase_graph_substep(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> usize {
-        let mut g = Graph::new_undirected();
+        let mut g = Graph::<usize, usize, Undirected, u32>::with_capacity(self.end_col - self.start_col, rows_with_two_ones.len());
         let mut node_lookup = ArrayMap::new(self.start_col, self.end_col);
         for col in self.start_col..self.end_col {
             let node = g.add_node(col);
