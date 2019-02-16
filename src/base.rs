@@ -392,6 +392,7 @@ impl IntermediateSymbolDecoder {
         let S = num_ldpc_symbols(self.num_source_symbols);
         let H = num_hdpc_symbols(self.num_source_symbols);
 
+        // See section 5.3.3.4.2, Figure 5.
         let mut hdpc_rows = vec![false; self.A.height()];
         for row in S..(S + H) {
             hdpc_rows[row as usize] = true;
