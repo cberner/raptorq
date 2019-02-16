@@ -91,18 +91,32 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 }
 
 struct FirstPhaseRowSelectionStats {
+    original_degree: ArrayMap<usize>,
     non_zeros_per_row: ArrayMap<usize>,
     ones_per_row: ArrayMap<usize>,
+    hdpc_rows: Vec<bool>,
     start_col: usize,
     end_col: usize
 }
 
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
-    pub fn new(matrix: &OctetMatrix) -> FirstPhaseRowSelectionStats {
+    #[allow(non_snake_case)]
+    pub fn new(matrix: &OctetMatrix, num_source_symbols: u32) -> FirstPhaseRowSelectionStats {
+        let S = num_ldpc_symbols(num_source_symbols);
+        let H = num_hdpc_symbols(num_source_symbols);
+
+        // See section 5.3.3.4.2, Figure 5.
+        let mut hdpc_rows = vec![false; matrix.height()];
+        for row in S..(S + H) {
+            hdpc_rows[row as usize] = true;
+        }
+
         let mut result = FirstPhaseRowSelectionStats {
+            original_degree: ArrayMap::new(0, 0),
             non_zeros_per_row: ArrayMap::new(0, matrix.height()),
             ones_per_row: ArrayMap::new(0, matrix.height()),
+            hdpc_rows,
             start_col: 0,
             end_col: matrix.width()
         };
@@ -110,6 +124,8 @@ impl FirstPhaseRowSelectionStats {
         for i in 0..matrix.height() {
             result.recompute_row(i, matrix);
         }
+        // Original degree is the degree of each row before processing begins
+        result.original_degree = result.non_zeros_per_row.clone();
 
         result
     }
@@ -117,6 +133,8 @@ impl FirstPhaseRowSelectionStats {
     pub fn swap_rows(&mut self, i: usize, j: usize) {
         self.non_zeros_per_row.swap(i, j);
         self.ones_per_row.swap(i, j);
+        self.original_degree.swap(i, j);
+        self.hdpc_rows.swap(i, j);
     }
 
     // Recompute all stored statistics for the given row
@@ -171,11 +189,113 @@ impl FirstPhaseRowSelectionStats {
         self.end_col = end_col;
     }
 
+    #[inline(never)]
+    fn first_phase_graph_substep(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> usize {
+        let mut g = Graph::new_undirected();
+        let mut node_lookup = ArrayMap::new(self.start_col, self.end_col);
+        for col in self.start_col..self.end_col {
+            let node = g.add_node(col);
+            node_lookup.insert(col, node);
+        }
+
+        for row in rows_with_two_ones.iter() {
+            if self.hdpc_rows[*row] {
+                continue;
+            }
+            let mut ones = [0; 2];
+            let mut found = 0;
+            for col in self.start_col..self.end_col {
+                // "The following graph defined by the structure of V is used in determining which
+                // row of A is chosen. The columns that intersect V are the nodes in the graph,
+                // and the rows that have exactly 2 nonzero entries in V and are not HDPC rows
+                // are the edges of the graph that connect the two columns (nodes) in the positions
+                // of the two ones."
+                // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
+                if matrix.get(*row, col) == Octet::one() {
+                    ones[found] = col;
+                    found += 1;
+                }
+                if found == 2 {
+                    break;
+                }
+            }
+            let node1 = node_lookup.get(ones[0]);
+            let node2 = node_lookup.get(ones[1]);
+            g.add_edge(node1, node2, *row);
+        }
+
+        let connected_components = condensation(g.clone(), true);
+        let mut row_to_component_size = ArrayMap::new(start_row, end_row);
+        for index in connected_components.node_indices() {
+            let cols = connected_components.node_weight(index).unwrap();
+            for col in cols {
+                for edge in g.edges(node_lookup.get(*col)) {
+                    row_to_component_size.insert(*edge.weight(), cols.len());
+                }
+            }
+        }
+
+        let mut chosen_component_size = 0;
+        let mut chosen_row = std::usize::MAX;
+        for row in rows_with_two_ones {
+            let row = *row;
+            if self.hdpc_rows[row] {
+                continue;
+            }
+            if row_to_component_size.get(row) > chosen_component_size {
+                chosen_row = row;
+                chosen_component_size = row_to_component_size.get(row);
+            }
+        }
+        assert_ne!(chosen_row, std::usize::MAX);
+        chosen_row
+    }
+
+    #[inline(never)]
+    fn first_phase_original_degree_substep(&self, start_row: usize, end_row: usize, r: usize) -> usize {
+        let mut chosen_hdpc = None;
+        let mut chosen_hdpc_original_degree = std::usize::MAX;
+        let mut chosen_non_hdpc = None;
+        let mut chosen_non_hdpc_original_degree = std::usize::MAX;
+        for row in start_row..end_row {
+            let non_zero = self.non_zeros_per_row.get(row);
+            let row_original_degree = self.original_degree.get(row);
+            if non_zero == r {
+                if self.hdpc_rows[row] {
+                    if row_original_degree < chosen_hdpc_original_degree {
+                        chosen_hdpc = Some(row);
+                        chosen_hdpc_original_degree = row_original_degree;
+                    }
+                }
+                else if row_original_degree < chosen_non_hdpc_original_degree {
+                    chosen_non_hdpc = Some(row);
+                    chosen_non_hdpc_original_degree = row_original_degree;
+                }
+            }
+        }
+        if chosen_non_hdpc != None {
+            return chosen_non_hdpc.unwrap();
+        }
+        else {
+            return chosen_hdpc.unwrap();
+        }
+    }
+
+    // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
+    #[inline(never)]
+    #[cfg(debug_assertions)]
+    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>) {
+        for row in start_row..end_row {
+            if self.non_zeros_per_row.get(row) == 2 {
+                assert!(rows_with_two_ones.contains(&row) || self.hdpc_rows[row]);
+            }
+        }
+    }
+
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
-    // Returns (rows with two 1s, a row with two values > 1,
-    // mapping from row number to number of non-zero values, "r" minimum positive number of non-zero values a row has)
-    pub fn first_phase_selection(&self, start_row: usize, end_row: usize) -> (Vec<usize>, Option<usize>, ArrayMap<usize>, Option<usize>) {
+    // Returns (the chosen row, and "r" number of non-zero values the row has)
+    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, matrix: &OctetMatrix) -> (Option<usize>, Option<usize>) {
         let mut rows_with_two_ones = vec![];
         let mut row_with_two_greater_than_one = None;
         let mut r = std::usize::MAX;
@@ -193,11 +313,24 @@ impl FirstPhaseRowSelectionStats {
             }
         }
 
-        if r < std::usize::MAX {
-            (rows_with_two_ones, row_with_two_greater_than_one, self.non_zeros_per_row.clone(), Some(r))
+        if r == std::usize::MAX {
+            return (None, None);
+        }
+
+        if r == 2 {
+            // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
+            if rows_with_two_ones.len() > 0 {
+                #[cfg(debug_assertions)]
+                self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
+                return (Some(self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix)), Some(r));
+            }
+            else {
+                // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
+                return (row_with_two_greater_than_one, Some(r));
+            }
         }
         else {
-            (rows_with_two_ones, row_with_two_greater_than_one, self.non_zeros_per_row.clone(), None)
+            return (Some(self.first_phase_original_degree_substep(start_row, end_row, r)), Some(r));
         }
     }
 }
@@ -263,68 +396,6 @@ impl IntermediateSymbolDecoder {
         return true;
     }
 
-    #[inline(never)]
-    fn first_phase_graph_substep(&self, rows_with_two_ones: &Vec<usize>, hdpc_rows: &Vec<bool>) -> usize {
-        let mut g = Graph::new_undirected();
-        let mut node_lookup = ArrayMap::new(self.i, self.L - self.u);
-        for col in self.i..(self.L - self.u) {
-            let node = g.add_node(col);
-            node_lookup.insert(col, node);
-        }
-
-        for row in rows_with_two_ones.iter() {
-            if hdpc_rows[*row] {
-                continue;
-            }
-            let mut ones = [0; 2];
-            let mut found = 0;
-            for col in self.i..(self.L - self.u) {
-                // "The following graph defined by the structure of V is used in determining which
-                // row of A is chosen. The columns that intersect V are the nodes in the graph,
-                // and the rows that have exactly 2 nonzero entries in V and are not HDPC rows
-                // are the edges of the graph that connect the two columns (nodes) in the positions
-                // of the two ones."
-                // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
-                if self.A.get(*row, col) == Octet::one() {
-                    ones[found] = col;
-                    found += 1;
-                }
-                if found == 2 {
-                    break;
-                }
-            }
-            let node1 = node_lookup.get(ones[0]);
-            let node2 = node_lookup.get(ones[1]);
-            g.add_edge(node1, node2, *row);
-        }
-
-        let connected_components = condensation(g.clone(), true);
-        let mut row_to_component_size = ArrayMap::new(self.i, self.L);
-        for index in connected_components.node_indices() {
-            let cols = connected_components.node_weight(index).unwrap();
-            for col in cols {
-                for edge in g.edges(node_lookup.get(*col)) {
-                    row_to_component_size.insert(*edge.weight(), cols.len());
-                }
-            }
-        }
-
-        let mut chosen_component_size = 0;
-        let mut chosen_row= self.L + 1;
-        for row in rows_with_two_ones {
-            let row = *row;
-            if hdpc_rows[row] {
-                continue;
-            }
-            if row_to_component_size.get(row) > chosen_component_size {
-                chosen_row = row;
-                chosen_component_size = row_to_component_size.get(row);
-            }
-        }
-        assert_ne!(chosen_row, self.L + 1);
-        chosen_row
-    }
-
     // Performs the column swapping substep of first phase, after the row has been chosen
     #[inline(never)]
     fn first_phase_swap_columns_substep(&mut self, r: usize) {
@@ -349,36 +420,6 @@ impl IntermediateSymbolDecoder {
         }
     }
 
-    #[inline(never)]
-    fn first_phase_original_degree_substep(&self, original_degree: &ArrayMap<usize>, non_zero_counts: &ArrayMap<usize>, hdpc_rows: &Vec<bool>, r: usize) -> usize {
-        let mut chosen_hdpc = None;
-        let mut chosen_hdpc_original_degree = self.L + 1;
-        let mut chosen_non_hdpc = None;
-        let mut chosen_non_hdpc_original_degree = self.L + 1;
-        for row in self.i..self.L {
-            let non_zero = non_zero_counts.get(row);
-            let row_original_degree = original_degree.get(row);
-            if non_zero == r {
-                if hdpc_rows[row] {
-                    if row_original_degree < chosen_hdpc_original_degree {
-                        chosen_hdpc = Some(row);
-                        chosen_hdpc_original_degree = row_original_degree;
-                    }
-                }
-                else if row_original_degree < chosen_non_hdpc_original_degree {
-                    chosen_non_hdpc = Some(row);
-                    chosen_non_hdpc_original_degree = row_original_degree;
-                }
-            }
-        }
-        if chosen_non_hdpc != None {
-            return chosen_non_hdpc.unwrap();
-        }
-        else {
-            return chosen_hdpc.unwrap();
-        }
-    }
-
     // First phase (section 5.4.2.2)
     #[allow(non_snake_case)]
     #[inline(never)]
@@ -399,58 +440,26 @@ impl IntermediateSymbolDecoder {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
-        let S = num_ldpc_symbols(self.num_source_symbols);
-        let H = num_hdpc_symbols(self.num_source_symbols);
-
-        // See section 5.3.3.4.2, Figure 5.
-        let mut hdpc_rows = vec![false; self.A.height()];
-        for row in S..(S + H) {
-            hdpc_rows[row as usize] = true;
-        }
-
-        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A);
-
-        // Original degree is the degree of each row before processing begins
-        let (_, _, original_degree, _) = selection_helper.first_phase_selection(0, self.L);
-
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.num_source_symbols);
 
         while self.i + self.u < self.L {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let (rows_with_two_ones, row_with_two_greater_than_one, non_zero_counts, r) =
-                selection_helper.first_phase_selection(self.i, self.L);
+            let (chosen_row, r) = selection_helper.first_phase_selection(self.i, self.L, &self.A);
 
             if r == None {
                 return false;
             }
             let r = r.unwrap();
-
-            let chosen_row;
-            if r == 2 {
-                // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
-                if rows_with_two_ones.len() > 0 {
-                    #[cfg(debug_assertions)]
-                    self.first_phase_graph_substep_verify(self.i, self.L, &hdpc_rows, &rows_with_two_ones, &non_zero_counts);
-                    chosen_row = Some(self.first_phase_graph_substep(&rows_with_two_ones, &hdpc_rows));
-                }
-                else {
-                    // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
-                    chosen_row = row_with_two_greater_than_one;
-                }
-            }
-            else {
-                chosen_row = Some(self.first_phase_original_degree_substep(&original_degree, &non_zero_counts, &hdpc_rows, r));
-            }
+            let chosen_row = chosen_row.unwrap();
 
             // See paragraph beginning: "After the row is chosen in this step..."
             // Reorder rows
             let temp = self.i;
-            let chosen_row = chosen_row.unwrap();
             self.swap_rows(temp, chosen_row);
             self.X.swap_rows(temp, chosen_row);
             selection_helper.swap_rows(temp, chosen_row);
-            hdpc_rows.swap(temp, chosen_row);
             // Reorder columns
             self.first_phase_swap_columns_substep(r);
             // Zero out leading value in following rows
@@ -481,17 +490,6 @@ impl IntermediateSymbolDecoder {
 
         self.record_symbol_ops(0);
         return true;
-    }
-
-    // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
-    #[inline(never)]
-    #[cfg(debug_assertions)]
-    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, hdpc_rows: &Vec<bool>, rows_with_two_ones: &Vec<usize>, non_zeros: &ArrayMap<usize>) {
-        for row in start_row..end_row {
-            if non_zeros.get(row) == 2 {
-                assert!(rows_with_two_ones.contains(&row) || hdpc_rows[row]);
-            }
-        }
     }
 
     // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
