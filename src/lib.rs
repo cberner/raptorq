@@ -15,6 +15,7 @@ mod encoder;
 mod decoder;
 
 pub use base::PayloadId;
+pub use base::IntermediateSymbolDecoder;
 pub use octet::Octet;
 pub use symbol::Symbol;
 pub use encoder::SourceBlockEncoder;

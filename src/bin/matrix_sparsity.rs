@@ -2,29 +2,12 @@ extern crate petgraph;
 extern crate primal;
 extern crate raptorq;
 
-mod util;
-mod arraymap;
-mod octets;
-#[allow(dead_code)]
-mod systematic_constants;
-#[allow(dead_code)]
-mod rng;
-#[allow(dead_code)]
-mod octet;
-#[allow(dead_code)]
-mod symbol;
-#[allow(dead_code)]
-mod matrix;
-#[allow(dead_code)]
-mod constraint_matrix;
-#[allow(dead_code)]
-mod base;
 
-use constraint_matrix::generate_constraint_matrix;
-use octet::Octet;
-use systematic_constants::extended_source_block_symbols;
-use symbol::Symbol;
-use base::IntermediateSymbolDecoder;
+use raptorq::IntermediateSymbolDecoder;
+use raptorq::Octet;
+use raptorq::generate_constraint_matrix;
+use raptorq::extended_source_block_symbols;
+use raptorq::Symbol;
 
 fn main() {
     Octet::static_init();

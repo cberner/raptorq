@@ -17,15 +17,5 @@ criterion = "0.2"
 name = "codec_benchmark"
 harness = false
 
-[[bin]]
-name = "matrix_sparsity"
-path = "src/bin_matrix_sparsity.rs"
-test = false
-
-[[bin]]
-name = "encode_benchmark"
-path = "src/bin_encode_benchmark.rs"
-test = false
-
 [profile.release]
 debug = true
