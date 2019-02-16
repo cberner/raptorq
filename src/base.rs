@@ -56,7 +56,7 @@ pub fn deg(v: u32, lt_symbols: u32) -> u32 {
             return min(d as u32, lt_symbols - 2);
         }
     }
-    panic!();
+    unreachable!();
 }
 
 // Tuple[K', X] as defined in section 5.3.5.4

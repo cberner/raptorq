@@ -490,7 +490,7 @@ pub fn extended_source_block_symbols(source_block_symbols: u32) -> u32 {
             return block_size;
         }
     }
-    panic!(); // unreachable
+    unreachable!();
 }
 
 // Calculates, J(K'), the systematic index, for a given number of source block symbols
@@ -502,7 +502,7 @@ pub fn systematic_index(source_block_symbols: u32) -> u32 {
             return systematic_index;
         }
     }
-    panic!(); // unreachable
+    unreachable!();
 }
 
 // Calculates, H(K'), the number of HDPC symbols, for a given number of source block symbols
@@ -514,7 +514,7 @@ pub fn num_hdpc_symbols(source_block_symbols: u32) -> u32 {
             return hdpc_symbols;
         }
     }
-    panic!(); // unreachable
+    unreachable!();
 }
 
 // Calculates, S(K'), the number of LDPC symbols, for a given number of source block symbols
@@ -526,7 +526,7 @@ pub fn num_ldpc_symbols(source_block_symbols: u32) -> u32 {
             return ldpc_symbols;
         }
     }
-    panic!(); // unreachable
+    unreachable!();
 }
 
 // Calculates, W(K'), the number of LT symbols, for a given number of source block symbols
@@ -538,7 +538,7 @@ pub fn num_lt_symbols(source_block_symbols: u32) -> u32 {
             return lt_symbols;
         }
     }
-    panic!(); // unreachable
+    unreachable!();
 }
 
 // Calculates, L, the number of intermediate symbols, for a given number of source block symbols
