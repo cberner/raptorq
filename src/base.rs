@@ -95,9 +95,11 @@ struct FirstPhaseRowSelectionStats {
     original_degree: UsizeArrayMap,
     non_zeros_per_row: UsizeArrayMap,
     ones_per_row: UsizeArrayMap,
+    non_zeros_histogram: UsizeArrayMap,
     hdpc_rows: Vec<bool>,
     start_col: usize,
-    end_col: usize
+    end_col: usize,
+    start_row: usize
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -117,13 +119,18 @@ impl FirstPhaseRowSelectionStats {
             original_degree: UsizeArrayMap::new(0, 0),
             non_zeros_per_row: UsizeArrayMap::new(0, matrix.height()),
             ones_per_row: UsizeArrayMap::new(0, matrix.height()),
+            non_zeros_histogram: UsizeArrayMap::new(0, end_col + 1),
             hdpc_rows,
             start_col: 0,
-            end_col
+            end_col,
+            start_row: 0
         };
 
-        for i in 0..matrix.height() {
-            result.recompute_row(i, matrix);
+        for row in 0..matrix.height() {
+            let (ones, non_zero) = count_ones_and_nonzeros(&matrix.get_row(row)[0..end_col]);
+            result.non_zeros_per_row.insert(row, non_zero);
+            result.ones_per_row.insert(row, ones);
+            result.non_zeros_histogram.increment(non_zero);
         }
         // Original degree is the degree of each row before processing begins
         result.original_degree = result.non_zeros_per_row.clone();
@@ -141,6 +148,8 @@ impl FirstPhaseRowSelectionStats {
     // Recompute all stored statistics for the given row
     pub fn recompute_row(&mut self, row: usize, matrix: &OctetMatrix) {
         let (ones, non_zero) = count_ones_and_nonzeros(&matrix.get_row(row)[self.start_col..self.end_col]);
+        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(row));
+        self.non_zeros_histogram.increment(non_zero);
         self.non_zeros_per_row.insert(row, non_zero);
         self.ones_per_row.insert(row, ones);
     }
@@ -150,6 +159,9 @@ impl FirstPhaseRowSelectionStats {
         if *value == Octet::one() {
             self.ones_per_row.decrement(row);
         }
+        let non_zeros = self.non_zeros_per_row.get(row);
+        self.non_zeros_histogram.decrement(non_zeros);
+        self.non_zeros_histogram.increment(non_zeros - 1);
         self.non_zeros_per_row.decrement(row);
     }
 
@@ -159,6 +171,9 @@ impl FirstPhaseRowSelectionStats {
         // Only shrinking is supported
         assert!(start_col > self.start_col);
         assert!(end_col <= self.end_col);
+        assert_eq!(self.start_row, start_row - 1);
+
+        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(self.start_row));
 
         for row in start_row..end_row {
             for col in self.start_col..start_col {
@@ -166,6 +181,9 @@ impl FirstPhaseRowSelectionStats {
                     self.ones_per_row.decrement(row);
                 }
                 if matrix.get(row, col) != Octet::zero() {
+                    let non_zeros = self.non_zeros_per_row.get(row);
+                    self.non_zeros_histogram.decrement(non_zeros);
+                    self.non_zeros_histogram.increment(non_zeros - 1);
                     self.non_zeros_per_row.decrement(row);
                 }
             }
@@ -175,6 +193,9 @@ impl FirstPhaseRowSelectionStats {
                     self.ones_per_row.decrement(row);
                 }
                 if matrix.get(row, col) != Octet::zero() {
+                    let non_zeros = self.non_zeros_per_row.get(row);
+                    self.non_zeros_histogram.decrement(non_zeros);
+                    self.non_zeros_histogram.increment(non_zeros - 1);
                     self.non_zeros_per_row.decrement(row);
                 }
             }
@@ -182,6 +203,7 @@ impl FirstPhaseRowSelectionStats {
 
         self.start_col = start_col;
         self.end_col = end_col;
+        self.start_row = start_row;
     }
 
     #[inline(never)]
@@ -291,41 +313,45 @@ impl FirstPhaseRowSelectionStats {
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has)
     pub fn first_phase_selection(&self, start_row: usize, end_row: usize, matrix: &OctetMatrix) -> (Option<usize>, Option<usize>) {
-        let mut rows_with_two_ones = vec![];
-        let mut row_with_two_greater_than_one = None;
-        let mut r = std::usize::MAX;
-        for row in start_row..end_row {
-            let non_zero = self.non_zeros_per_row.get(row);
-            let ones = self.ones_per_row.get(row);
-            if non_zero > 0 && non_zero < r {
-                r = non_zero;
-            }
-            if non_zero == 2 && ones != 2 {
-                row_with_two_greater_than_one = Some(row);
-            }
-            if non_zero == 2 && ones == 2 {
-                rows_with_two_ones.push(row);
+        let mut r = None;
+        for i in 1..(self.end_col - self.start_col + 1) {
+            if self.non_zeros_histogram.get(i) > 0 {
+                r = Some(i);
+                break;
             }
         }
 
-        if r == std::usize::MAX {
+        if r == None {
             return (None, None);
         }
 
-        if r == 2 {
+        if r.unwrap() == 2 {
+            let mut rows_with_two_ones = vec![];
+            let mut row_with_two_greater_than_one = None;
+            for row in start_row..end_row {
+                let non_zero = self.non_zeros_per_row.get(row);
+                let ones = self.ones_per_row.get(row);
+                if non_zero == 2 && ones != 2 {
+                    row_with_two_greater_than_one = Some(row);
+                }
+                if non_zero == 2 && ones == 2 {
+                    rows_with_two_ones.push(row);
+                }
+            }
+
             // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
             if rows_with_two_ones.len() > 0 {
                 #[cfg(debug_assertions)]
                 self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
-                return (Some(self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix)), Some(r));
+                return (Some(self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix)), r);
             }
             else {
                 // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
-                return (row_with_two_greater_than_one, Some(r));
+                return (row_with_two_greater_than_one, r);
             }
         }
         else {
-            return (Some(self.first_phase_original_degree_substep(start_row, end_row, r)), Some(r));
+            return (Some(self.first_phase_original_degree_substep(start_row, end_row, r.unwrap())), r);
         }
     }
 }

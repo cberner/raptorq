@@ -12,10 +12,6 @@ impl <T: std::clone::Clone> ArrayMap<T> {
         }
     }
 
-    pub fn swap(&mut self, key: usize, other_key: usize) {
-        self.elements.swap(key, other_key);
-    }
-
     pub fn insert(&mut self, key: usize, value: T) {
         self.elements[key - self.offset] = Some(value);
     }
