@@ -15,6 +15,7 @@ use arraymap::ArrayMap;
 use util::get_both_indices;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
+use arraymap::UsizeArrayMap;
 
 // As defined in section 3.2
 #[derive(Clone)]
@@ -91,9 +92,9 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
 }
 
 struct FirstPhaseRowSelectionStats {
-    original_degree: ArrayMap<usize>,
-    non_zeros_per_row: ArrayMap<usize>,
-    ones_per_row: ArrayMap<usize>,
+    original_degree: UsizeArrayMap,
+    non_zeros_per_row: UsizeArrayMap,
+    ones_per_row: UsizeArrayMap,
     hdpc_rows: Vec<bool>,
     start_col: usize,
     end_col: usize
@@ -113,9 +114,9 @@ impl FirstPhaseRowSelectionStats {
         }
 
         let mut result = FirstPhaseRowSelectionStats {
-            original_degree: ArrayMap::new(0, 0),
-            non_zeros_per_row: ArrayMap::new(0, matrix.height()),
-            ones_per_row: ArrayMap::new(0, matrix.height()),
+            original_degree: UsizeArrayMap::new(0, 0),
+            non_zeros_per_row: UsizeArrayMap::new(0, matrix.height()),
+            ones_per_row: UsizeArrayMap::new(0, matrix.height()),
             hdpc_rows,
             start_col: 0,
             end_col
@@ -147,11 +148,9 @@ impl FirstPhaseRowSelectionStats {
     pub fn eliminate_leading_value(&mut self, row: usize, value: &Octet) {
         debug_assert_ne!(*value, Octet::zero());
         if *value == Octet::one() {
-            let old = self.ones_per_row.get(row);
-            self.ones_per_row.insert(row, old - 1);
+            self.ones_per_row.decrement(row);
         }
-        let old = self.non_zeros_per_row.get(row);
-        self.non_zeros_per_row.insert(row, old - 1);
+        self.non_zeros_per_row.decrement(row);
     }
 
     // Set the valid columns, and recalculate statistics
@@ -164,23 +163,19 @@ impl FirstPhaseRowSelectionStats {
         for row in start_row..end_row {
             for col in self.start_col..start_col {
                 if matrix.get(row, col) == Octet::one() {
-                    let old = self.ones_per_row.get(row);
-                    self.ones_per_row.insert(row, old - 1);
+                    self.ones_per_row.decrement(row);
                 }
                 if matrix.get(row, col) != Octet::zero() {
-                    let old = self.non_zeros_per_row.get(row);
-                    self.non_zeros_per_row.insert(row, old - 1);
+                    self.non_zeros_per_row.decrement(row);
                 }
             }
 
             for col in end_col..self.end_col {
                 if matrix.get(row, col) == Octet::one() {
-                    let old = self.ones_per_row.get(row);
-                    self.ones_per_row.insert(row, old - 1);
+                    self.ones_per_row.decrement(row);
                 }
                 if matrix.get(row, col) != Octet::zero() {
-                    let old = self.non_zeros_per_row.get(row);
-                    self.non_zeros_per_row.insert(row, old - 1);
+                    self.non_zeros_per_row.decrement(row);
                 }
             }
         }
