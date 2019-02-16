@@ -308,7 +308,7 @@ impl FirstPhaseRowSelectionStats {
             if non_zero == 2 && ones != 2 {
                 row_with_two_greater_than_one = Some(row);
             }
-            if ones == 2 {
+            if non_zero == 2 && ones == 2 {
                 rows_with_two_ones.push(row);
             }
         }
