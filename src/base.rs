@@ -126,6 +126,16 @@ impl FirstPhaseRowSelectionStats {
         self.ones_per_row.insert(row, ones);
     }
 
+    pub fn eliminate_leading_value(&mut self, row: usize, value: &Octet) {
+        debug_assert_ne!(*value, Octet::zero());
+        if *value == Octet::one() {
+            let old = self.ones_per_row.get(row);
+            self.ones_per_row.insert(row, old - 1);
+        }
+        let old = self.non_zeros_per_row.get(row);
+        self.non_zeros_per_row.insert(row, old - 1);
+    }
+
     // Set the valid columns, and recalculate statistics
     #[inline(never)]
     pub fn resize(&mut self, start_row: usize, end_row: usize, start_col: usize, end_col: usize, matrix: &OctetMatrix) {
@@ -446,11 +456,19 @@ impl IntermediateSymbolDecoder {
             // Zero out leading value in following rows
             let temp = self.i;
             for row in (self.i + 1)..self.A.height() {
-                if self.A.get(row, temp) != Octet::zero() {
+                let leading_value = self.A.get(row, temp);
+                if leading_value != Octet::zero() {
                     // Addition is equivalent to subtraction
-                    let beta = &self.A.get(row, temp) / &self.A.get(temp, temp);
+                    let beta = &leading_value / &self.A.get(temp, temp);
                     self.fma_rows(temp, row, beta);
-                    selection_helper.recompute_row(row, &self.A);
+                    if r == 1 {
+                        // Hot path for r == 1, since it's very common due to maximum connected
+                        // component selection, and recompute_row() is expensive
+                        selection_helper.eliminate_leading_value(row, &leading_value);
+                    }
+                    else {
+                        selection_helper.recompute_row(row, &self.A);
+                    }
                 }
             }
 
