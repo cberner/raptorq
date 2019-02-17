@@ -6,7 +6,7 @@ use octet::OCTET_MUL_LOW_BITS;
 use octet::OCTET_MUL_HI_BITS;
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
-fn mulassign_scalar_fallback(octets: &mut Vec<u8>, scalar: &Octet) {
+fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in 0..octets.len() {
         unsafe {
@@ -16,7 +16,7 @@ fn mulassign_scalar_fallback(octets: &mut Vec<u8>, scalar: &Octet) {
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn mulassign_scalar_avx2(octets: &mut Vec<u8>, scalar: &Octet) {
+fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -58,7 +58,7 @@ fn mulassign_scalar_avx2(octets: &mut Vec<u8>, scalar: &Octet) {
     }
 }
 
-pub fn mulassign_scalar(octets: &mut Vec<u8>, scalar: &Octet) {
+pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
     unsafe {
         assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
     }
@@ -70,7 +70,7 @@ pub fn mulassign_scalar(octets: &mut Vec<u8>, scalar: &Octet) {
 }
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
-fn fused_addassign_mul_scalar_fallback(octets: &mut Vec<u8>, other: &Vec<u8>, scalar: &Octet) {
+fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in 0..octets.len() {
         unsafe  {
@@ -80,7 +80,7 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut Vec<u8>, other: &Vec<u8>, sc
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn fused_addassign_mul_scalar_avx2(octets: &mut Vec<u8>, other: &Vec<u8>, scalar: &Octet) {
+fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -128,7 +128,7 @@ fn fused_addassign_mul_scalar_avx2(octets: &mut Vec<u8>, other: &Vec<u8>, scalar
     }
 }
 
-pub fn fused_addassign_mul_scalar(octets: &mut Vec<u8>, other: &Vec<u8>, scalar: &Octet) {
+pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     // TODO: enable these in debug only?
     assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
     assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
@@ -146,7 +146,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut Vec<u8>, other: &Vec<u8>, scalar:
 }
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
-fn add_assign_fallback(octets: &mut Vec<u8>, other: &Vec<u8>) {
+fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     assert_eq!(octets.len(), other.len());
     let self_ptr = octets.as_mut_ptr() as *mut u64;
     let other_ptr = other.as_ptr() as *const u64;
@@ -164,7 +164,7 @@ fn add_assign_fallback(octets: &mut Vec<u8>, other: &Vec<u8>) {
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn add_assign_avx2(octets: &mut Vec<u8>, other: &Vec<u8>) {
+fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -199,7 +199,7 @@ fn add_assign_avx2(octets: &mut Vec<u8>, other: &Vec<u8>) {
     }
 }
 
-pub fn add_assign(octets: &mut Vec<u8>, other: &Vec<u8>) {
+pub fn add_assign(octets: &mut [u8], other: &[u8]) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
     return add_assign_avx2(octets, other);
 
