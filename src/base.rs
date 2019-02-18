@@ -16,6 +16,7 @@ use util::get_both_indices;
 use petgraph::prelude::*;
 use petgraph::algo::condensation;
 use arraymap::UsizeArrayMap;
+use octets::mulassign_scalar;
 
 // As defined in section 3.2
 #[derive(Clone)]
@@ -820,11 +821,7 @@ impl IntermediateSymbolDecoder {
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
         self.D[self.d[i]].mulassign_scalar(&beta);
-        for j in 0..self.A.width() {
-            // TODO: use SIMD
-            let temp = &self.A.get(i, j) * &beta;
-            self.A.set(i, j, temp);
-        }
+        mulassign_scalar(self.A.get_row_mut(i), &beta);
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {

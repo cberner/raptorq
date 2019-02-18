@@ -40,6 +40,10 @@ impl OctetMatrix {
         &self.elements[i]
     }
 
+    pub fn get_row_mut(&mut self, i: usize) -> &mut Vec<u8> {
+        &mut self.elements[i]
+    }
+
     pub fn get(&self, i: usize, j: usize) -> Octet {
         Octet::new(self.elements[i][j])
     }
