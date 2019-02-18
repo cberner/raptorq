@@ -376,13 +376,14 @@ pub struct IntermediateSymbolDecoder {
 
 impl IntermediateSymbolDecoder {
     pub fn new(matrix: OctetMatrix, symbols: Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
-        // TODO: implement for non-square matrices
-        assert_eq!(matrix.width(), symbols.len());
+        assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
         let mut c = Vec::with_capacity(matrix.width());
-        let mut d = Vec::with_capacity(matrix.width());
+        let mut d = Vec::with_capacity(symbols.len());
         for i in 0..matrix.width() {
             c.push(i);
+        }
+        for i in 0..symbols.len() {
             d.push(i);
         }
 
@@ -428,7 +429,7 @@ impl IntermediateSymbolDecoder {
                     dest = self.i;
                 }
                 else {
-                    dest = self.L - self.u - swapped_columns;
+                    dest = self.A.width() - self.u - swapped_columns;
                 }
                 self.swap_columns(dest, col);
                 // Also apply to X
@@ -461,13 +462,13 @@ impl IntermediateSymbolDecoder {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
-        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.L - self.u, self.num_source_symbols);
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.A.width() - self.u, self.num_source_symbols);
 
         while self.i + self.u < self.L {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let (chosen_row, r) = selection_helper.first_phase_selection(self.i, self.L, &self.A);
+            let (chosen_row, r) = selection_helper.first_phase_selection(self.i, self.A.height(), &self.A);
 
             if r == None {
                 return false;
@@ -504,7 +505,7 @@ impl IntermediateSymbolDecoder {
 
             self.i += 1;
             self.u += r - 1;
-            selection_helper.resize(self.i, self.L, self.i, self.L - self.u, &self.A);
+            selection_helper.resize(self.i, self.A.height(), self.i, self.A.width() - self.u, &self.A);
             #[cfg(debug_assertions)]
             self.first_phase_verify();
         }
@@ -527,7 +528,7 @@ impl IntermediateSymbolDecoder {
                 }
             }
         }
-        assert!(self.all_zeroes(0, self.i, self.i, self.A.height() - self.u));
+        assert!(self.all_zeroes(0, self.i, self.i, self.A.width() - self.u));
         assert!(self.all_zeroes(self.i, self.A.height(), 0, self.i));
     }
 
@@ -549,6 +550,8 @@ impl IntermediateSymbolDecoder {
 
         // Perform backwards elimination
         self.backwards_elimination(temp, temp, size);
+
+        self.A.resize(self.L, self.L);
 
         self.record_symbol_ops(1);
         return true;
@@ -674,10 +677,10 @@ impl IntermediateSymbolDecoder {
         // Same assertion about X being equal to the upper left of A
         #[cfg(debug_assertions)]
         self.third_phase_verify_end();
-        assert!(self.all_zeroes(0, self.i, self.L - self.u, self.L));
-        assert!(self.all_zeroes(self.L - self.u, self.L, 0, self.i));
-        for row in (self.L - self.u)..self.L {
-            for col in (self.L - self.u)..self.L {
+        assert!(self.all_zeroes(0, self.i, self.A.width() - self.u, self.A.width()));
+        assert!(self.all_zeroes(self.A.height() - self.u, self.A.height(), 0, self.i));
+        for row in (self.A.height() - self.u)..self.A.height() {
+            for col in (self.A.width() - self.u)..self.A.width() {
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
                 }
@@ -719,9 +722,9 @@ impl IntermediateSymbolDecoder {
     #[cfg(debug_assertions)]
     fn fifth_phase_verify(&self) {
         assert_eq!(self.L, self.A.height());
-        for row in 0..self.L {
+        for row in 0..self.A.height() {
             assert_eq!(self.L, self.A.width());
-            for col in 0..self.L {
+            for col in 0..self.A.width() {
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
                 }
@@ -817,7 +820,8 @@ impl IntermediateSymbolDecoder {
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
         self.D[self.d[i]].mulassign_scalar(&beta);
-        for j in 0..self.L {
+        for j in 0..self.A.width() {
+            // TODO: use SIMD
             let temp = &self.A.get(i, j) * &beta;
             self.A.set(i, j, temp);
         }
@@ -865,11 +869,12 @@ impl IntermediateSymbolDecoder {
         // See end of section 5.4.2.1
         let mut index_mapping = ArrayMap::new(0, self.L);
         for i in 0..self.L {
-            index_mapping.insert(self.d[i], self.c[i]);
+            index_mapping.insert(self.c[i], self.d[i]);
         }
-        let mut result = vec![Symbol::zero(0); self.L];
-        for i in (0..self.L).rev() {
-            result[index_mapping.get(i)] = self.D.pop().unwrap();
+
+        let mut result = Vec::with_capacity(self.L);
+        for i in 0..self.L {
+            result.push(self.D[index_mapping.get(i)].clone());
         }
         Some(result)
     }
@@ -895,7 +900,8 @@ mod tests {
         Octet::static_init();
         for elements in [10, 100].iter() {
             let num_symbols = extended_source_block_symbols(*elements);
-            let a = generate_constraint_matrix(num_symbols, 0..num_symbols);
+            let indices: Vec<u32> = (0..num_symbols).collect();
+            let a = generate_constraint_matrix(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();

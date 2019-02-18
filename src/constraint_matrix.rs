@@ -82,7 +82,7 @@ pub fn enc_indices(source_block_symbols: u32,
 
 // See section 5.3.3.4.2
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u32, encoded_symbol_indices: T) -> OctetMatrix {
+pub fn generate_constraint_matrix(source_block_symbols: u32, encoded_symbol_indices: &[u32]) -> OctetMatrix {
     let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
     let S = num_ldpc_symbols(source_block_symbols) as usize;
     let H = num_hdpc_symbols(source_block_symbols) as usize;
@@ -91,7 +91,8 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
     let P = num_pi_symbols(source_block_symbols) as usize;
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
-    let mut matrix = OctetMatrix::new(L, L);
+    assert!(S + H + encoded_symbol_indices.len() >= L);
+    let mut matrix = OctetMatrix::new(S + H + encoded_symbol_indices.len(), L);
 
     // G_LDPC,1
     // See section 5.3.3.3
@@ -135,7 +136,7 @@ pub fn generate_constraint_matrix<T:Iterator<Item=u32>>(source_block_symbols: u3
 
     // G_ENC
     let mut row = 0;
-    for i in encoded_symbol_indices {
+    for &i in encoded_symbol_indices.iter() {
         // row != i, because i is the ESI
         let tuple = intermediate_tuple(Kprime as u32, i);
 

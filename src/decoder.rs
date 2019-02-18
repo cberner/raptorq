@@ -83,16 +83,12 @@ impl SourceBlockDecoder {
                 d.push(Symbol::zero(self.symbol_size as usize));
             }
 
-            // TODO: support extra repair symbols, that would make matrix non-square
             for repair_packet in self.repair_packets.iter() {
-                if encoded_indices.len() as u32 == num_extended_symbols {
-                    break;
-                }
                 encoded_indices.push(repair_packet.payload_id.encoding_symbol_id);
                 d.push(repair_packet.symbol.clone());
             }
 
-            let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, encoded_indices.into_iter());
+            let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
             let intermediate_symbols =  fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols);
 
             if intermediate_symbols == None {
