@@ -46,10 +46,14 @@ mod codec_tests {
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
 
         let mut result = None;
-        // TODO: make this test pass deterministically. Right now it will fail with 1% probability
-        for packet in encoder.repair_packets(0, (elements / 8) as u32) {
-            assert_eq!(result, None);
+        let mut parsed_packets = 0;
+        // This test can theoretically fail with ~1/256^5 probability
+        for packet in encoder.repair_packets(0, (elements / 8 + 4) as u32) {
+            if parsed_packets < elements / 8 {
+                assert_eq!(result, None);
+            }
             result = decoder.parse(packet);
+            parsed_packets += 1;
         }
 
         assert_eq!(result.unwrap(), data);
