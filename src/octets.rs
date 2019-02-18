@@ -129,9 +129,8 @@ fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scalar: &Oct
 }
 
 pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octet) {
-    // TODO: enable these in debug only?
-    assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
-    assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
+    debug_assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
+    debug_assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
 
     unsafe {
         assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
