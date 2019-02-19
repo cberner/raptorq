@@ -10,7 +10,7 @@ use systematic_constants::num_ldpc_symbols;
 use systematic_constants::num_hdpc_symbols;
 use constraint_matrix::generate_constraint_matrix;
 use base::intermediate_tuple;
-use base::fused_inverse_mul_symbols;
+use pi_solver::fused_inverse_mul_symbols;
 
 pub struct SourceBlockEncoder {
     source_block_id: u8,
