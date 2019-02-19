@@ -5,6 +5,7 @@ use symbol::Symbol;
 use systematic_constants::calculate_p1;
 use systematic_constants::num_lt_symbols;
 use systematic_constants::systematic_index;
+use systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 
 // As defined in section 3.2
 #[derive(Clone)]
@@ -31,6 +32,89 @@ impl PayloadId {
 pub struct EncodingPacket {
     pub payload_id: PayloadId,
     pub symbol: Symbol
+}
+
+// As defined in section 3.3.2 and 3.3.3
+pub struct ObjectTransmissionInformation {
+    transfer_length: u64, // Limited to u40
+    symbol_size: u16,
+    num_source_blocks: u8,
+    num_sub_blocks: u16,
+    symbol_alignment: u8
+}
+
+impl ObjectTransmissionInformation {
+    pub fn new(transfer_length: u64, symbol_size: u16, source_blocks: u8, sub_blocks: u16, alignment: u8) -> ObjectTransmissionInformation {
+        assert!(transfer_length <= 946270874880);
+        assert_eq!(symbol_size % alignment as u16, 0);
+        ObjectTransmissionInformation {
+            transfer_length,
+            symbol_size,
+            num_source_blocks: source_blocks,
+            num_sub_blocks: sub_blocks,
+            symbol_alignment: alignment
+        }
+    }
+
+    pub fn transfer_length(&self) -> u64 {
+        self.transfer_length
+    }
+
+    pub fn symbol_size(&self) -> u16 {
+        self.symbol_size
+    }
+
+    pub fn source_blocks(&self) -> u8 {
+        self.num_source_blocks
+    }
+
+    pub fn sub_blocks(&self) -> u16 {
+        self.num_sub_blocks
+    }
+
+    pub fn alignment(&self) -> u8 {
+        self.symbol_alignment
+    }
+
+    pub fn with_defaults(transfer_length: u64, max_packet_size: u16) -> ObjectTransmissionInformation {
+        let alignment = 8;
+        assert!(max_packet_size >= alignment);
+        let symbol_size = max_packet_size - (max_packet_size % alignment);
+        let max_memory = 10*1024*1024;
+        let sub_symbol_size = 8;
+
+        let kt = (transfer_length as f64 / symbol_size as f64).ceil();
+        let n_max = (symbol_size as f64 / (sub_symbol_size * alignment) as f64).floor() as u32;
+
+        let kl = |n: u32| -> u32 {
+            for &(kprime, _, _, _, _) in SYSTEMATIC_INDICES_AND_PARAMETERS.iter().rev() {
+                let x = (symbol_size as f64 / (alignment as u32 * n) as f64).ceil();
+                if kprime <= (max_memory as f64 / (alignment as f64 * x)) as u32 {
+                    return kprime;
+                }
+            }
+            unreachable!();
+        };
+
+        let num_source_blocks = (kt / kl(n_max) as f64).ceil() as u32;
+
+        let mut n = 1;
+        for i in 1..=n_max {
+            n = i;
+            if (kt / num_source_blocks as f64).ceil() as u32 <= kl(n) {
+                break;
+            }
+        }
+
+        ObjectTransmissionInformation {
+            transfer_length,
+            symbol_size,
+            num_source_blocks: num_source_blocks as u8,
+            num_sub_blocks: n as u16,
+            symbol_alignment: alignment as u8
+
+        }
+    }
 }
 
 // Deg[v] as defined in section 5.3.5.2
