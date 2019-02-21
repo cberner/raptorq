@@ -21,6 +21,8 @@ pub use pi_solver::IntermediateSymbolDecoder;
 pub use octet::Octet;
 pub use symbol::Symbol;
 pub use encoder::SourceBlockEncoder;
+pub use encoder::Encoder;
 pub use decoder::SourceBlockDecoder;
+pub use decoder::Decoder;
 pub use constraint_matrix::generate_constraint_matrix;
 pub use systematic_constants::extended_source_block_symbols;

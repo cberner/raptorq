@@ -35,6 +35,7 @@ pub struct EncodingPacket {
 }
 
 // As defined in section 3.3.2 and 3.3.3
+#[derive(Clone)]
 pub struct ObjectTransmissionInformation {
     transfer_length: u64, // Limited to u40
     symbol_size: u16,
@@ -115,6 +116,15 @@ impl ObjectTransmissionInformation {
 
         }
     }
+}
+
+// Partition[I, J] function, as defined in section 4.4.1.2
+pub fn partition(i: u32, j: u32) -> (u32, u32, u32, u32) {
+    let il = (i as f64 / j as f64).ceil() as u32;
+    let is = (i as f64 / j as f64).floor() as u32;
+    let jl = i - is * j;
+    let js = j - jl;
+    (il, is, jl, js)
 }
 
 // Deg[v] as defined in section 5.3.5.2

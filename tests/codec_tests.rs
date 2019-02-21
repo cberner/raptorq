@@ -4,9 +4,46 @@ extern crate raptorq;
 #[cfg(test)]
 mod codec_tests {
     use rand::Rng;
+    use rand::seq::SliceRandom;
     use raptorq::SourceBlockEncoder;
     use raptorq::SourceBlockDecoder;
+    use raptorq::Encoder;
+    use raptorq::Decoder;
     use raptorq::Octet;
+
+    #[test]
+    fn random_erasure() {
+        Octet::static_init();
+
+        let elements: usize = rand::thread_rng().gen_range(1, 1_000_000);
+        let mut data: Vec<u8> = vec![0; elements];
+        for i in 0..elements {
+            data[i] = rand::thread_rng().gen();
+        }
+
+        // MTU is set to not be too small, otherwise this test may take a very long time
+        let mtu = rand::thread_rng().gen_range(elements as u16 / 100, 10_000);
+
+        let encoder = Encoder::with_defaults(&data, mtu);
+
+        let mut packets = encoder.get_encoded_packets(15);
+        packets.shuffle(&mut rand::thread_rng());
+        // Erase 10 packets at random
+        let length = packets.len();
+        packets.truncate(length - 10);
+
+        let mut decoder = Decoder::new(encoder.get_config());
+
+        let mut result = None;
+        while !packets.is_empty() {
+            result = decoder.decode(packets.pop().unwrap());
+            if result != None {
+                break;
+            }
+        }
+
+        assert_eq!(result.unwrap(), data);
+    }
 
     #[test]
     fn round_trip() {
