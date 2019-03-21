@@ -1,5 +1,5 @@
 use base::EncodingPacket;
-use PayloadId;
+use ::{PayloadId, Octet};
 use systematic_constants::extended_source_block_symbols;
 use systematic_constants::num_pi_symbols;
 use symbol::Symbol;
@@ -21,6 +21,8 @@ pub struct Encoder {
 
 impl Encoder {
     pub fn with_defaults(data: &[u8], maximum_transmission_unit: u16) -> Encoder {
+        Octet::static_init();
+
         let config = ObjectTransmissionInformation::with_defaults(data.len() as u64, maximum_transmission_unit);
 
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
@@ -86,6 +88,7 @@ pub struct SourceBlockEncoder {
 
 impl SourceBlockEncoder {
     pub fn new(source_block_id: u8, symbol_size: u16, data: &[u8]) -> SourceBlockEncoder {
+        Octet::static_init();
         assert_eq!(data.len() % symbol_size as usize, 0);
         let source_symbols: Vec<Symbol> = data.chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))

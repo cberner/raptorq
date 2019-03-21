@@ -8,7 +8,7 @@ use constraint_matrix::generate_constraint_matrix;
 use base::intermediate_tuple;
 use pi_solver::fused_inverse_mul_symbols;
 use constraint_matrix::enc_indices;
-use ObjectTransmissionInformation;
+use ::{ObjectTransmissionInformation, Octet};
 use base::partition;
 
 pub struct Decoder {
@@ -18,6 +18,7 @@ pub struct Decoder {
 
 impl Decoder {
     pub fn new(config: ObjectTransmissionInformation) -> Decoder {
+        Octet::static_init();
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
         let (kl, ks, zl, zs) = partition(kt, config.source_blocks() as u32);
 
@@ -70,6 +71,7 @@ pub struct SourceBlockDecoder {
 
 impl SourceBlockDecoder {
     pub fn new(source_block_id: u8, symbol_size: u16, block_length: u64) -> SourceBlockDecoder {
+        Octet::static_init();
         let source_symbols = (block_length as f64 / symbol_size as f64).ceil() as u32;
         let mut received_esi = HashSet::new();
         for i in source_symbols..extended_source_block_symbols(source_symbols) {
