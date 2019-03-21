@@ -1,7 +1,6 @@
 use std::cmp::min;
 
 use rng::rand;
-use symbol::Symbol;
 use systematic_constants::calculate_p1;
 use systematic_constants::num_lt_symbols;
 use systematic_constants::systematic_index;
@@ -30,8 +29,25 @@ impl PayloadId {
 // As defined in section 4.4.2
 #[derive(Clone)]
 pub struct EncodingPacket {
-    pub payload_id: PayloadId,
-    pub symbol: Symbol
+    payload_id: PayloadId,
+    data: Vec<u8>
+}
+
+impl EncodingPacket {
+    pub fn new(payload_id: PayloadId, data: Vec<u8>) -> EncodingPacket {
+        EncodingPacket {
+            payload_id,
+            data
+        }
+    }
+
+    pub fn payload_id(&self) -> PayloadId {
+        self.payload_id.clone()
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
 }
 
 // As defined in section 3.3.2 and 3.3.3

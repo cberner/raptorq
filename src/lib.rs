@@ -16,6 +16,7 @@ mod encoder;
 mod decoder;
 
 pub use base::PayloadId;
+pub use base::EncodingPacket;
 pub use base::ObjectTransmissionInformation;
 pub use pi_solver::IntermediateSymbolDecoder;
 pub use octet::Octet;

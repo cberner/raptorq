@@ -102,10 +102,10 @@ impl SourceBlockEncoder {
         let mut esi: i32 = -1;
         self.source_symbols.iter().map(|symbol| {
             esi += 1;
-            EncodingPacket {
-                payload_id: PayloadId::new(self.source_block_id, esi as u32).unwrap(),
-                symbol: symbol.clone()
-            }
+            EncodingPacket::new(
+                PayloadId::new(self.source_block_id, esi as u32).unwrap(),
+                symbol.bytes().clone()
+            )
         }).collect()
     }
 
@@ -115,10 +115,10 @@ impl SourceBlockEncoder {
         let mut result = vec![];
         for i in 0..packets {
             let tuple = intermediate_tuple(self.source_symbols.len() as u32, start_encoding_symbol_id + i);
-            result.push(EncodingPacket {
-                payload_id: PayloadId::new(self.source_block_id, start_encoding_symbol_id + i).unwrap(),
-                symbol: enc(self.source_symbols.len() as u32, &self.intermediate_symbols, tuple)
-            });
+            result.push(EncodingPacket::new(
+                PayloadId::new(self.source_block_id, start_encoding_symbol_id + i).unwrap(),
+                enc(self.source_symbols.len() as u32, &self.intermediate_symbols, tuple).bytes().clone()
+            ));
         }
         result
     }

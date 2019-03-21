@@ -41,7 +41,7 @@ impl Decoder {
     }
 
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        self.blocks[packet.payload_id.source_block_number as usize].parse(packet);
+        self.blocks[packet.payload_id().source_block_number as usize].parse(packet);
         for block in self.blocks.iter() {
             if !block.is_decoded() {
                 return None;
@@ -126,8 +126,8 @@ impl SourceBlockDecoder {
             }
 
             for repair_packet in self.repair_packets.iter() {
-                encoded_indices.push(repair_packet.payload_id.encoding_symbol_id);
-                d.push(repair_packet.symbol.clone());
+                encoded_indices.push(repair_packet.payload_id().encoding_symbol_id);
+                d.push(Symbol::new(repair_packet.data().clone()));
             }
 
             let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
@@ -156,18 +156,18 @@ impl SourceBlockDecoder {
     }
 
     pub fn parse(& mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        assert_eq!(self.source_block_id, packet.payload_id.source_block_number);
+        assert_eq!(self.source_block_id, packet.payload_id().source_block_number);
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        if self.received_esi.insert(packet.payload_id.encoding_symbol_id) {
-            if packet.payload_id.encoding_symbol_id >= num_extended_symbols {
+        if self.received_esi.insert(packet.payload_id().encoding_symbol_id) {
+            if packet.payload_id().encoding_symbol_id >= num_extended_symbols {
                 // Repair symbol
                 self.repair_packets.push(packet);
             }
             else {
                 // Check that this is not an extended symbol (which aren't explicitly sent)
-                assert!(packet.payload_id.encoding_symbol_id < self.source_block_symbols);
+                assert!(packet.payload_id().encoding_symbol_id < self.source_block_symbols);
                 // Source symbol
-                self.source_symbols[packet.payload_id.encoding_symbol_id as usize] = Some(packet.symbol);
+                self.source_symbols[packet.payload_id().encoding_symbol_id as usize] = Some(Symbol::new(packet.data().clone()));
                 self.received_source_symbols += 1;
             }
         }
