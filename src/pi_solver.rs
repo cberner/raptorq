@@ -159,6 +159,7 @@ impl FirstPhaseRowSelectionStats {
                     break;
                 }
             }
+            assert_eq!(found, 2);
             let node1 = node_lookup.get(ones[0]);
             let node2 = node_lookup.get(ones[1]);
             g.add_edge(node1, node2, *row);

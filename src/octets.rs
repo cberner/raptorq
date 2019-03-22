@@ -1,11 +1,10 @@
 use octet::Octet;
 use octet::OCTET_MUL;
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use octet::OCTET_MUL_LOW_BITS;
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use octet::OCTET_MUL_HI_BITS;
 
-#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in 0..octets.len() {
@@ -15,46 +14,35 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let low_mask;
-    let hi_mask;
-    unsafe {
-        low_mask =_mm256_set1_epi8(0x0F);
-        hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
-    }
+    let low_mask =_mm256_set1_epi8(0x0F);
+    let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
-    let low_table;
-    let hi_table;
-    unsafe  {
-        low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-        hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-    }
+    let low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
 
     for i in 0..(octets.len() / 32) {
-        unsafe {
-            let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
-            let low = _mm256_and_si256(self_vec, low_mask);
-            let low_result = _mm256_shuffle_epi8(low_table, low);
-            let hi = _mm256_and_si256(self_vec, hi_mask);
-            let hi = _mm256_srli_epi64(hi, 4);
-            let hi_result = _mm256_shuffle_epi8(hi_table, hi);
-            let result = _mm256_xor_si256(hi_result, low_result);
-            _mm256_storeu_si256(self_avx_ptr.add(i), result);
-        }
+        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+        let low = _mm256_and_si256(self_vec, low_mask);
+        let low_result = _mm256_shuffle_epi8(low_table, low);
+        let hi = _mm256_and_si256(self_vec, hi_mask);
+        let hi = _mm256_srli_epi64(hi, 4);
+        let hi_result = _mm256_shuffle_epi8(hi_table, hi);
+        let result = _mm256_xor_si256(hi_result, low_result);
+        _mm256_storeu_si256(self_avx_ptr.add(i), result);
     }
 
     let remainder = octets.len() % 32;
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in (octets.len() - remainder)..octets.len() {
-        unsafe {
-            *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index + *octets.get_unchecked(i) as usize);
-        }
+        *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index + *octets.get_unchecked(i) as usize);
     }
 }
 
@@ -62,14 +50,18 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
     unsafe {
         assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
     }
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-    return mulassign_scalar_avx2(octets, scalar);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                return mulassign_scalar_avx2(octets, scalar);
+            }
+        }
+    }
 
-    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     return mulassign_scalar_fallback(octets, scalar);
 }
 
-#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
 fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in 0..octets.len() {
@@ -79,52 +71,41 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: 
     }
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scalar: &Octet) {
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let low_mask;
-    let hi_mask;
-    unsafe {
-        low_mask =_mm256_set1_epi8(0x0F);
-        hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
-    }
+    let low_mask =_mm256_set1_epi8(0x0F);
+    let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
     let other_avx_ptr = other.as_ptr() as *const __m256i;
-    let low_table;
-    let hi_table;
-    unsafe  {
-        low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-        hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-    }
+    let low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
 
     for i in 0..(octets.len() / 32) {
-        unsafe {
-            // Multiply by scalar
-            let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
-            let low = _mm256_and_si256(other_vec, low_mask);
-            let low_result = _mm256_shuffle_epi8(low_table, low);
-            let hi = _mm256_and_si256(other_vec, hi_mask);
-            let hi = _mm256_srli_epi64(hi, 4);
-            let hi_result = _mm256_shuffle_epi8(hi_table, hi);
-            let other_vec = _mm256_xor_si256(hi_result, low_result);
+        // Multiply by scalar
+        let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
+        let low = _mm256_and_si256(other_vec, low_mask);
+        let low_result = _mm256_shuffle_epi8(low_table, low);
+        let hi = _mm256_and_si256(other_vec, hi_mask);
+        let hi = _mm256_srli_epi64(hi, 4);
+        let hi_result = _mm256_shuffle_epi8(hi_table, hi);
+        let other_vec = _mm256_xor_si256(hi_result, low_result);
 
-            // Add to self
-            let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
-            let result = _mm256_xor_si256(self_vec, other_vec);
-            _mm256_storeu_si256(self_avx_ptr.add(i), result);
-        }
+        // Add to self
+        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+        let result = _mm256_xor_si256(self_vec, other_vec);
+        _mm256_storeu_si256(self_avx_ptr.add(i), result);
     }
 
     let remainder = octets.len() % 32;
     let scalar_index = (scalar.byte() as usize) << 8;
     for i in (octets.len() - remainder)..octets.len() {
-        unsafe  {
-            *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index + *other.get_unchecked(i) as usize);
-        }
+        *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index + *other.get_unchecked(i) as usize);
     }
 }
 
@@ -137,14 +118,18 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
     }
 
     assert_eq!(octets.len(), other.len());
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-    return fused_addassign_mul_scalar_avx2(octets, other, scalar);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                return fused_addassign_mul_scalar_avx2(octets, other, scalar);
+            }
+        }
+    }
 
-    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     return fused_addassign_mul_scalar_fallback(octets, other, scalar);
 }
 
-#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
 fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     assert_eq!(octets.len(), other.len());
     let self_ptr = octets.as_mut_ptr() as *mut u64;
@@ -162,8 +147,9 @@ fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     }
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -173,107 +159,87 @@ fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
     let other_avx_ptr = other.as_ptr() as *const __m256i;
     for i in 0..(octets.len() / 32) {
-        unsafe {
-            let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
-            let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
-            let result = _mm256_xor_si256(self_vec, other_vec);
-            _mm256_storeu_si256(self_avx_ptr.add(i), result);
-        }
+        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+        let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
+        let result = _mm256_xor_si256(self_vec, other_vec);
+        _mm256_storeu_si256(self_avx_ptr.add(i), result);
     }
 
     let remainder = octets.len() % 32;
     let self_ptr = octets.as_mut_ptr() as *mut u64;
     let other_ptr = other.as_ptr() as *const u64;
     for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
-        unsafe {
-            *self_ptr.add(i) ^= *other_ptr.add(i);
-        }
+        *self_ptr.add(i) ^= *other_ptr.add(i);
     }
 
     let remainder = octets.len() % 8;
     for i in (octets.len() - remainder)..octets.len() {
-        unsafe {
-            *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
-        }
+        *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
     }
 }
 
 pub fn add_assign(octets: &mut [u8], other: &[u8]) {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-    return add_assign_avx2(octets, other);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                return add_assign_avx2(octets, other);
+            }
+        }
+    }
 
-    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     return add_assign_fallback(octets, other);
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-#[inline(never)]
-fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
+#[target_feature(enable = "avx2")]
+unsafe fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let avx_ones;
-    let avx_zeros;
-    unsafe {
-        avx_ones =_mm256_set1_epi8(1);
-        avx_zeros = _mm256_set1_epi8(0);
-    }
+    let avx_ones =_mm256_set1_epi8(1);
+    let avx_zeros = _mm256_set1_epi8(0);
     let avx_ptr = octets.as_ptr() as *const __m256i;
 
     let mut ones = 0;
     let mut non_zeros = 0;
     for i in 0..(octets.len() / 32) {
-        unsafe {
-            let vec = _mm256_loadu_si256(avx_ptr.add(i));
-            let compared_ones = _mm256_cmpeq_epi8(vec, avx_ones);
-            ones += _mm256_extract_epi64(compared_ones, 0).count_ones() / 8;
-            ones += _mm256_extract_epi64(compared_ones, 1).count_ones() / 8;
-            ones += _mm256_extract_epi64(compared_ones, 2).count_ones() / 8;
-            ones += _mm256_extract_epi64(compared_ones, 3).count_ones() / 8;
+        let vec = _mm256_loadu_si256(avx_ptr.add(i));
+        let compared_ones = _mm256_cmpeq_epi8(vec, avx_ones);
+        ones += _mm256_extract_epi64(compared_ones, 0).count_ones() / 8;
+        ones += _mm256_extract_epi64(compared_ones, 1).count_ones() / 8;
+        ones += _mm256_extract_epi64(compared_ones, 2).count_ones() / 8;
+        ones += _mm256_extract_epi64(compared_ones, 3).count_ones() / 8;
 
-            let compared_zeros = _mm256_cmpeq_epi8(vec, avx_zeros);
-            non_zeros += 32;
-            non_zeros -= _mm256_extract_epi64(compared_zeros, 0).count_ones() / 8;
-            non_zeros -= _mm256_extract_epi64(compared_zeros, 1).count_ones() / 8;
-            non_zeros -= _mm256_extract_epi64(compared_zeros, 2).count_ones() / 8;
-            non_zeros -= _mm256_extract_epi64(compared_zeros, 3).count_ones() / 8;
-        }
+        let compared_zeros = _mm256_cmpeq_epi8(vec, avx_zeros);
+        non_zeros += 32;
+        non_zeros -= _mm256_extract_epi64(compared_zeros, 0).count_ones() / 8;
+        non_zeros -= _mm256_extract_epi64(compared_zeros, 1).count_ones() / 8;
+        non_zeros -= _mm256_extract_epi64(compared_zeros, 2).count_ones() / 8;
+        non_zeros -= _mm256_extract_epi64(compared_zeros, 3).count_ones() / 8;
     }
 
     let mut remainder = octets.len() % 32;
     if remainder >= 16 {
         remainder -= 16;
-        let avx_ones;
-        let avx_zeros;
-        unsafe {
-            avx_ones =_mm_set1_epi8(1);
-            avx_zeros = _mm_set1_epi8(0);
-        }
-        let avx_ptr;
-        unsafe {
-            avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32) as *const __m128i;
-        }
+        let avx_ones =_mm_set1_epi8(1);
+        let avx_zeros = _mm_set1_epi8(0);
+        let avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32) as *const __m128i;
 
-        unsafe {
-            let vec = _mm_lddqu_si128(avx_ptr);
-            let compared_ones = _mm_cmpeq_epi8(vec, avx_ones);
-            ones += _mm_extract_epi64(compared_ones, 0).count_ones() / 8;
-            ones += _mm_extract_epi64(compared_ones, 1).count_ones() / 8;
+        let vec = _mm_lddqu_si128(avx_ptr);
+        let compared_ones = _mm_cmpeq_epi8(vec, avx_ones);
+        ones += _mm_extract_epi64(compared_ones, 0).count_ones() / 8;
+        ones += _mm_extract_epi64(compared_ones, 1).count_ones() / 8;
 
-            let compared_zeros = _mm_cmpeq_epi8(vec, avx_zeros);
-            non_zeros += 16;
-            non_zeros -= _mm_extract_epi64(compared_zeros, 0).count_ones() / 8;
-            non_zeros -= _mm_extract_epi64(compared_zeros, 1).count_ones() / 8;
-        }
+        let compared_zeros = _mm_cmpeq_epi8(vec, avx_zeros);
+        non_zeros += 16;
+        non_zeros -= _mm_extract_epi64(compared_zeros, 0).count_ones() / 8;
+        non_zeros -= _mm_extract_epi64(compared_zeros, 1).count_ones() / 8;
     }
 
     for i in (octets.len() - remainder)..octets.len() {
-        let value;
-        unsafe {
-            value = octets.get_unchecked(i);
-        }
+        let value = octets.get_unchecked(i);
         if *value == 1 {
             ones += 1;
         }
@@ -284,7 +250,6 @@ fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
     (ones as usize, non_zeros as usize)
 }
 
-#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
 fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (usize, usize) {
     let mut ones = 0;
     let mut non_zeros = 0;
@@ -300,10 +265,15 @@ fn count_ones_and_nonzeros_fallback(octets: &[u8]) -> (usize, usize) {
 }
 
 pub fn count_ones_and_nonzeros(octets: &[u8]) -> (usize, usize) {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-    return count_ones_and_nonzeros_avx2(octets);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                return count_ones_and_nonzeros_avx2(octets);
+            }
+        }
+    }
 
-    #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2")))]
     return count_ones_and_nonzeros_fallback(octets);
 }
 
