@@ -13,8 +13,6 @@ mod codec_tests {
 
     #[test]
     fn random_erasure() {
-        Octet::static_init();
-
         let elements: usize = rand::thread_rng().gen_range(1, 1_000_000);
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -47,8 +45,6 @@ mod codec_tests {
 
     #[test]
     fn round_trip() {
-        Octet::static_init();
-
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -70,8 +66,6 @@ mod codec_tests {
 
     #[test]
     fn repair() {
-        Octet::static_init();
-
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {

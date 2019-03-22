@@ -10,8 +10,6 @@ use raptorq::extended_source_block_symbols;
 use raptorq::Symbol;
 
 fn main() {
-    Octet::static_init();
-
     for elements in [10, 100, 1000, 10000].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let indices: Vec<u32> = (0..num_symbols).collect();

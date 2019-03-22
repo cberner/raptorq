@@ -810,13 +810,11 @@ pub fn fused_inverse_mul_symbols(matrix: OctetMatrix, symbols: Vec<Symbol>, num_
 mod tests {
     use super::IntermediateSymbolDecoder;
     use constraint_matrix::generate_constraint_matrix;
-    use octet::Octet;
     use symbol::Symbol;
     use systematic_constants::extended_source_block_symbols;
 
     #[test]
     fn operations_per_symbol() {
-        Octet::static_init();
         for elements in [10, 100].iter() {
             let num_symbols = extended_source_block_symbols(*elements);
             let indices: Vec<u32> = (0..num_symbols).collect();

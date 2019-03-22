@@ -3,12 +3,9 @@ extern crate raptorq;
 
 use rand::Rng;
 use raptorq::SourceBlockEncoder;
-use raptorq::Octet;
 
 
 fn main() {
-    Octet::static_init();
-
     let elements = 10*1024;
     let symbol_size = 512;
     let mut data: Vec<u8> = vec![0; elements];

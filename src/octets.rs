@@ -6,10 +6,10 @@ use octet::OCTET_MUL_LOW_BITS;
 use octet::OCTET_MUL_HI_BITS;
 
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
-    let scalar_index = (scalar.byte() as usize) << 8;
+    let scalar_index = scalar.byte() as usize;
     for i in 0..octets.len() {
         unsafe {
-            *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index + *octets.get_unchecked(i) as usize);
+            *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*octets.get_unchecked(i) as usize);
         }
     }
 }
@@ -40,16 +40,13 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     }
 
     let remainder = octets.len() % 32;
-    let scalar_index = (scalar.byte() as usize) << 8;
+    let scalar_index = scalar.byte() as usize;
     for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index + *octets.get_unchecked(i) as usize);
+        *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*octets.get_unchecked(i) as usize);
     }
 }
 
 pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
-    unsafe {
-        assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
-    }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("avx2") {
@@ -63,10 +60,10 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
 }
 
 fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: &Octet) {
-    let scalar_index = (scalar.byte() as usize) << 8;
+    let scalar_index = scalar.byte() as usize;
     for i in 0..octets.len() {
         unsafe  {
-            *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index + *other.get_unchecked(i) as usize);
+            *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*other.get_unchecked(i) as usize);
         }
     }
 }
@@ -103,19 +100,15 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
     }
 
     let remainder = octets.len() % 32;
-    let scalar_index = (scalar.byte() as usize) << 8;
+    let scalar_index = scalar.byte() as usize;
     for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index + *other.get_unchecked(i) as usize);
+        *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*other.get_unchecked(i) as usize);
     }
 }
 
 pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     debug_assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
     debug_assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
-
-    unsafe {
-        assert_ne!(0, OCTET_MUL[1 << 8 | 1], "Must call Octet::static_init()");
-    }
 
     assert_eq!(octets.len(), other.len());
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
