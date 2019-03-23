@@ -200,18 +200,11 @@ impl FirstPhaseRowSelectionStats {
                 component_size += 1;
                 for &(next_node, row) in next_nodes.iter() {
                     node_queue.push(next_node);
-                    // TODO: check whether there's an even better heuristic. The spec doesn't cover this
-                    // but it seems that choosing the first row is much better. Maybe choosing
-                    // a row with maximum sparsity in its columns would be even better
-                    if examplar_row == None || row < examplar_row.unwrap() {
-                        examplar_row = Some(row);
-                    }
+                    examplar_row = Some(row);
                 }
             }
 
-            if component_size > largest_component_size ||
-                // TODO: check whether there's a better heuristic (see above)
-                (component_size == largest_component_size && examplar_row.unwrap() < examplar_largest_component_row.unwrap()) {
+            if component_size > largest_component_size {
                 examplar_largest_component_row = examplar_row;
                 largest_component_size = component_size;
             }
@@ -843,15 +836,15 @@ mod tests {
 
     #[test]
     fn operations_per_symbol() {
-        for elements in [10, 100].iter() {
-            let num_symbols = extended_source_block_symbols(*elements);
+        for &(elements, expected_mul_ops, expected_add_ops) in [(10, 35.0, 50.0), (100, 16.0, 35.0)].iter() {
+            let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
             let a = generate_constraint_matrix(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();
-            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < 30.0, "mul_ops = {}", decoder.get_symbol_mul_ops());
-            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < 50.0, "add_ops = {}", decoder.get_symbol_add_ops());
+            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < expected_mul_ops, "mul ops per symbol = {}", (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64));
+            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < expected_add_ops, "add ops per symbol = {}", (decoder.get_symbol_add_ops() as f64 / num_symbols as f64));
         }
     }
 }
