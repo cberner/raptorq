@@ -3,7 +3,7 @@ name = "raptorq"
 description = "RaptorQ (RFC6330)"
 license = "Apache-2.0"
 repository = "https://github.com/cberner/raptorq"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
