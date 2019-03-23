@@ -22,3 +22,6 @@ harness = false
 
 [profile.release]
 debug = true
+
+[features]
+benchmarking = []

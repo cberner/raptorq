@@ -8,7 +8,7 @@ test:
 	cargo test
 
 bench:
-	cargo bench
+	cargo bench --features benchmarking
 
 profile:
-	RUSTFLAGS='-Cforce-frame-pointers' cargo bench --no-run
+	RUSTFLAGS='-Cforce-frame-pointers' cargo bench --no-run --features benchmarking
