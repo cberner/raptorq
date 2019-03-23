@@ -52,8 +52,8 @@ impl OctetMatrix {
         self.elements.swap(i, j);
     }
 
-    pub fn swap_columns(&mut self, i: usize, j:usize) {
-        for row in 0..self.elements.len() {
+    pub fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
+        for row in start_row..self.elements.len() {
             self.elements[row].swap(i, j);
         }
     }

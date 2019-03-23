@@ -376,9 +376,10 @@ impl IntermediateSymbolDecoder {
                 else {
                     dest = self.A.width() - self.u - swapped_columns;
                 }
-                self.swap_columns(dest, col);
+                // No need to swap the first i rows, as they are all zero (see submatrix above V)
+                self.swap_columns(dest, col, self.i);
                 // Also apply to X
-                self.X.swap_columns(dest, col);
+                self.X.swap_columns(dest, col, 0);
                 swapped_columns += 1;
                 if swapped_columns == r {
                     break;
@@ -788,8 +789,8 @@ impl IntermediateSymbolDecoder {
         self.d.swap(i, iprime);
     }
 
-    fn swap_columns(&mut self, j: usize, jprime: usize) {
-        self.A.swap_columns(j, jprime);
+    fn swap_columns(&mut self, j: usize, jprime: usize, start_row: usize) {
+        self.A.swap_columns(j, jprime, start_row);
         self.c.swap(j, jprime);
     }
 
