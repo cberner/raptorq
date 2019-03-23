@@ -1,18 +1,18 @@
 use petgraph::algo::condensation;
 use petgraph::prelude::*;
 
-use arraymap::ArrayMap;
-use arraymap::UsizeArrayMap;
-use matrix::OctetMatrix;
-use octet::Octet;
-use octets::count_ones_and_nonzeros;
-use octets::mulassign_scalar;
-use symbol::Symbol;
-use systematic_constants::num_hdpc_symbols;
-use systematic_constants::num_intermediate_symbols;
-use systematic_constants::num_ldpc_symbols;
-use systematic_constants::num_pi_symbols;
-use util::get_both_indices;
+use crate::arraymap::ArrayMap;
+use crate::arraymap::UsizeArrayMap;
+use crate::matrix::OctetMatrix;
+use crate::octet::Octet;
+use crate::octets::count_ones_and_nonzeros;
+use crate::octets::mulassign_scalar;
+use crate::symbol::Symbol;
+use crate::systematic_constants::num_hdpc_symbols;
+use crate::systematic_constants::num_intermediate_symbols;
+use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::num_pi_symbols;
+use crate::util::get_both_indices;
 
 struct FirstPhaseRowSelectionStats {
     original_degree: UsizeArrayMap,
@@ -809,9 +809,9 @@ pub fn fused_inverse_mul_symbols(matrix: OctetMatrix, symbols: Vec<Symbol>, num_
 #[cfg(test)]
 mod tests {
     use super::IntermediateSymbolDecoder;
-    use constraint_matrix::generate_constraint_matrix;
-    use symbol::Symbol;
-    use systematic_constants::extended_source_block_symbols;
+    use crate::constraint_matrix::generate_constraint_matrix;
+    use crate::symbol::Symbol;
+    use crate::systematic_constants::extended_source_block_symbols;
 
     #[test]
     fn operations_per_symbol() {

@@ -1,9 +1,9 @@
-use octet::Octet;
-use octet::OCTET_MUL;
+use crate::octet::Octet;
+use crate::octet::OCTET_MUL;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use octet::OCTET_MUL_LOW_BITS;
+use crate::octet::OCTET_MUL_LOW_BITS;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use octet::OCTET_MUL_HI_BITS;
+use crate::octet::OCTET_MUL_HI_BITS;
 
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = scalar.byte() as usize;
@@ -272,12 +272,11 @@ pub fn count_ones_and_nonzeros(octets: &[u8]) -> (usize, usize) {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
+    use rand::Rng;
 
-    use octets::tests::rand::Rng;
-    use octet::Octet;
-    use octets::fused_addassign_mul_scalar;
-    use octets::mulassign_scalar;
+    use crate::octet::Octet;
+    use crate::octets::fused_addassign_mul_scalar;
+    use crate::octets::mulassign_scalar;
 
     #[test]
     fn mul_assign() {

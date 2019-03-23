@@ -1,6 +1,3 @@
-extern crate petgraph;
-extern crate primal;
-
 mod util;
 mod arraymap;
 mod systematic_constants;
@@ -15,15 +12,15 @@ mod pi_solver;
 mod encoder;
 mod decoder;
 
-pub use base::PayloadId;
-pub use base::EncodingPacket;
-pub use base::ObjectTransmissionInformation;
-pub use pi_solver::IntermediateSymbolDecoder;
-pub use octet::Octet;
-pub use symbol::Symbol;
-pub use encoder::SourceBlockEncoder;
-pub use encoder::Encoder;
-pub use decoder::SourceBlockDecoder;
-pub use decoder::Decoder;
-pub use constraint_matrix::generate_constraint_matrix;
-pub use systematic_constants::extended_source_block_symbols;
+pub use crate::base::PayloadId;
+pub use crate::base::EncodingPacket;
+pub use crate::base::ObjectTransmissionInformation;
+pub use crate::pi_solver::IntermediateSymbolDecoder;
+pub use crate::octet::Octet;
+pub use crate::symbol::Symbol;
+pub use crate::encoder::SourceBlockEncoder;
+pub use crate::encoder::Encoder;
+pub use crate::decoder::SourceBlockDecoder;
+pub use crate::decoder::Decoder;
+pub use crate::constraint_matrix::generate_constraint_matrix;
+pub use crate::systematic_constants::extended_source_block_symbols;

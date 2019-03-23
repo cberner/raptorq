@@ -1,16 +1,14 @@
-#[macro_use]
-extern crate criterion;
-extern crate rand;
-extern crate raptorq;
-
+use criterion::criterion_group;
+use criterion::criterion_main;
+use criterion::Benchmark;
 use criterion::Criterion;
+use criterion::Throughput;
+
 use rand::Rng;
 use raptorq::SourceBlockEncoder;
 use raptorq::SourceBlockDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
-use criterion::Benchmark;
-use criterion::Throughput;
 
 
 fn criterion_benchmark(c: &mut Criterion) {

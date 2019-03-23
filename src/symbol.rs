@@ -1,8 +1,8 @@
-use octet::Octet;
 use std::ops::AddAssign;
-use octets::mulassign_scalar;
-use octets::fused_addassign_mul_scalar;
-use octets::add_assign;
+use crate::octet::Octet;
+use crate::octets::mulassign_scalar;
+use crate::octets::fused_addassign_mul_scalar;
+use crate::octets::add_assign;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
@@ -47,10 +47,9 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
+    use rand::Rng;
 
-    use symbol::tests::rand::Rng;
-    use symbol::Symbol;
+    use crate::symbol::Symbol;
 
     #[test]
     fn add_assign() {

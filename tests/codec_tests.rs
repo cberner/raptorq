@@ -1,6 +1,3 @@
-extern crate rand;
-extern crate raptorq;
-
 #[cfg(test)]
 mod codec_tests {
     use rand::Rng;
@@ -9,7 +6,6 @@ mod codec_tests {
     use raptorq::SourceBlockDecoder;
     use raptorq::Encoder;
     use raptorq::Decoder;
-    use raptorq::Octet;
 
     #[test]
     fn random_erasure() {

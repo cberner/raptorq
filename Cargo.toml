@@ -4,6 +4,7 @@ description = "RaptorQ (RFC6330)"
 license = "Apache-2.0"
 repository = "https://github.com/cberner/raptorq"
 version = "0.7.1"
+edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [dependencies]

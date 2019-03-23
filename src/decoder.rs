@@ -1,15 +1,15 @@
 use std::collections::HashSet;
-use base::EncodingPacket;
-use symbol::Symbol;
-use systematic_constants::extended_source_block_symbols;
-use systematic_constants::num_ldpc_symbols;
-use systematic_constants::num_hdpc_symbols;
-use constraint_matrix::generate_constraint_matrix;
-use base::intermediate_tuple;
-use pi_solver::fused_inverse_mul_symbols;
-use constraint_matrix::enc_indices;
-use base::ObjectTransmissionInformation;
-use base::partition;
+use crate::base::EncodingPacket;
+use crate::symbol::Symbol;
+use crate::systematic_constants::extended_source_block_symbols;
+use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::num_hdpc_symbols;
+use crate::constraint_matrix::generate_constraint_matrix;
+use crate::base::intermediate_tuple;
+use crate::pi_solver::fused_inverse_mul_symbols;
+use crate::constraint_matrix::enc_indices;
+use crate::base::ObjectTransmissionInformation;
+use crate::base::partition;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,

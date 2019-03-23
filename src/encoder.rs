@@ -1,18 +1,18 @@
-use base::EncodingPacket;
-use base::PayloadId;
-use systematic_constants::extended_source_block_symbols;
-use systematic_constants::num_pi_symbols;
-use symbol::Symbol;
-use systematic_constants::num_lt_symbols;
-use systematic_constants::calculate_p1;
-use systematic_constants::num_intermediate_symbols;
-use systematic_constants::num_ldpc_symbols;
-use systematic_constants::num_hdpc_symbols;
-use constraint_matrix::generate_constraint_matrix;
-use base::intermediate_tuple;
-use pi_solver::fused_inverse_mul_symbols;
-use ObjectTransmissionInformation;
-use base::partition;
+use crate::base::EncodingPacket;
+use crate::base::PayloadId;
+use crate::systematic_constants::extended_source_block_symbols;
+use crate::systematic_constants::num_pi_symbols;
+use crate::symbol::Symbol;
+use crate::systematic_constants::num_lt_symbols;
+use crate::systematic_constants::calculate_p1;
+use crate::systematic_constants::num_intermediate_symbols;
+use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::num_hdpc_symbols;
+use crate::constraint_matrix::generate_constraint_matrix;
+use crate::base::intermediate_tuple;
+use crate::pi_solver::fused_inverse_mul_symbols;
+use crate::base::partition;
+use crate::ObjectTransmissionInformation;
 
 pub struct Encoder {
     config: ObjectTransmissionInformation,
@@ -190,16 +190,15 @@ fn enc(source_block_symbols: u32,
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
+    use rand::Rng;
 
-    use symbol::Symbol;
-    use encoder::tests::rand::Rng;
-    use encoder::enc;
-    use base::intermediate_tuple;
-    use encoder::gen_intermediate_symbols;
-    use systematic_constants::num_ldpc_symbols;
-    use systematic_constants::num_lt_symbols;
-    use systematic_constants::num_pi_symbols;
+    use crate::symbol::Symbol;
+    use crate::encoder::enc;
+    use crate::base::intermediate_tuple;
+    use crate::encoder::gen_intermediate_symbols;
+    use crate::systematic_constants::num_ldpc_symbols;
+    use crate::systematic_constants::num_lt_symbols;
+    use crate::systematic_constants::num_pi_symbols;
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;

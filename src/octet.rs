@@ -1461,14 +1461,13 @@ impl<'a, 'b> Div<&'b Octet> for &'a Octet {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
+    use rand::Rng;
 
-    use octet::tests::rand::Rng;
-    use octet::Octet;
-    use octet::OCT_LOG;
-    use octet::OCT_EXP;
-    use octet::OCTET_MUL_LOW_BITS;
-    use octet::OCTET_MUL_HI_BITS;
+    use crate::octet::Octet;
+    use crate::octet::OCT_LOG;
+    use crate::octet::OCT_EXP;
+    use crate::octet::OCTET_MUL_LOW_BITS;
+    use crate::octet::OCTET_MUL_HI_BITS;
 
     #[test]
     fn multiplication_tables() {

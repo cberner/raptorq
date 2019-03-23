@@ -1,14 +1,14 @@
-use systematic_constants::extended_source_block_symbols;
-use systematic_constants::num_hdpc_symbols;
-use systematic_constants::num_ldpc_symbols;
-use systematic_constants::num_pi_symbols;
-use systematic_constants::num_lt_symbols;
-use systematic_constants::num_intermediate_symbols;
-use matrix::OctetMatrix;
-use octet::Octet;
-use rng::rand;
-use systematic_constants::calculate_p1;
-use base::intermediate_tuple;
+use crate::rng::rand;
+use crate::systematic_constants::extended_source_block_symbols;
+use crate::systematic_constants::num_hdpc_symbols;
+use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::num_pi_symbols;
+use crate::systematic_constants::num_lt_symbols;
+use crate::systematic_constants::num_intermediate_symbols;
+use crate::matrix::OctetMatrix;
+use crate::octet::Octet;
+use crate::systematic_constants::calculate_p1;
+use crate::base::intermediate_tuple;
 
 // Generates the GAMMA matrix
 // See section 5.3.3.3

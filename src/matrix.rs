@@ -1,8 +1,8 @@
 use std::ops::Mul;
-use octet::Octet;
-use octets::fused_addassign_mul_scalar;
-use octets::add_assign;
-use util::get_both_indices;
+use crate::octet::Octet;
+use crate::octets::fused_addassign_mul_scalar;
+use crate::octets::add_assign;
+use crate::util::get_both_indices;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetMatrix {
@@ -134,11 +134,10 @@ impl<'a, 'b> Mul<&'b OctetMatrix> for &'a OctetMatrix {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
+    use rand::Rng;
 
-    use matrix::tests::rand::Rng;
-    use matrix::OctetMatrix;
-    use octet::Octet;
+    use crate::matrix::OctetMatrix;
+    use crate::octet::Octet;
 
     fn identity(size: usize) -> OctetMatrix {
         let mut result = OctetMatrix::new(size, size);

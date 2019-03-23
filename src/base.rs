@@ -1,10 +1,10 @@
 use std::cmp::min;
 
-use rng::rand;
-use systematic_constants::calculate_p1;
-use systematic_constants::num_lt_symbols;
-use systematic_constants::systematic_index;
-use systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
+use crate::rng::rand;
+use crate::systematic_constants::calculate_p1;
+use crate::systematic_constants::num_lt_symbols;
+use crate::systematic_constants::systematic_index;
+use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 
 // As defined in section 3.2
 #[derive(Clone)]
