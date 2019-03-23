@@ -7,12 +7,10 @@ version = "0.8.0"
 edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
-[dependencies]
-primal = "0.2"
-
 [dev-dependencies]
-rand = "0.6"
 criterion = "0.2"
+primal = "0.2"
+rand = "0.6"
 
 [[bench]]
 name = "codec_benchmark"
