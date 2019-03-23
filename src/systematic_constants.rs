@@ -571,7 +571,7 @@ pub fn calculate_p1(source_block_symbols: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::systematic_constants::MAX_SOURCE_SYMBOLS_PER_BLOCK;
+    use crate::systematic_constants::{MAX_SOURCE_SYMBOLS_PER_BLOCK, num_pi_symbols, calculate_p1};
     use crate::systematic_constants::num_ldpc_symbols;
     use crate::systematic_constants::num_lt_symbols;
 
@@ -581,6 +581,23 @@ mod tests {
             // See section 5.6
             assert!(primal::is_prime(num_ldpc_symbols(i) as u64));
             assert!(primal::is_prime(num_lt_symbols(i) as u64));
+        }
+    }
+
+    #[test]
+    fn check_p1() {
+        for i in 0..=MAX_SOURCE_SYMBOLS_PER_BLOCK {
+            let mut p1 = num_pi_symbols(i);
+            while !primal::is_prime(p1 as u64) {
+                if p1 % 2 == 0 {
+                    p1 += 1;
+                }
+                else {
+                    p1 += 2;
+                }
+            }
+
+            assert_eq!(p1, calculate_p1(i));
         }
     }
 }
