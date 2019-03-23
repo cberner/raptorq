@@ -16,8 +16,22 @@ impl <T: std::clone::Clone> ArrayMap<T> {
         self.elements[key - self.offset] = Some(value);
     }
 
-    pub fn get(&self, key: usize) -> T {
-        self.elements[key - self.offset].clone().unwrap()
+    pub fn get(&self, key: usize) -> Option<&T> {
+        self.elements[key - self.offset].as_ref()
+    }
+
+    pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
+        self.elements[key - self.offset].as_mut()
+    }
+
+    pub fn keys(&self) -> Vec<usize> {
+        let mut result = Vec::with_capacity(self.elements.len());
+        for i in 0..self.elements.len() {
+            if self.elements[i].is_some() {
+                result.push(i + self.offset);
+            }
+        }
+        return result;
     }
 }
 
@@ -53,5 +67,28 @@ impl UsizeArrayMap {
 
     pub fn increment(&mut self, key: usize) {
         self.elements[key - self.offset] += 1;
+    }
+}
+
+#[derive(Clone)]
+pub struct BoolArrayMap {
+    offset: usize,
+    elements: Vec<bool>
+}
+
+impl BoolArrayMap {
+    pub fn new(start_key: usize, end_key: usize) -> BoolArrayMap {
+        BoolArrayMap {
+            offset: start_key,
+            elements: vec![false; end_key - start_key]
+        }
+    }
+
+    pub fn insert(&mut self, key: usize, value: bool) {
+        self.elements[key - self.offset] = value;
+    }
+
+    pub fn get(&self, key: usize) -> bool {
+        self.elements[key - self.offset]
     }
 }

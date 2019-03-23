@@ -1,8 +1,3 @@
-extern crate petgraph;
-extern crate primal;
-extern crate raptorq;
-
-
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
 use raptorq::generate_constraint_matrix;

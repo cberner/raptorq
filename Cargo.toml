@@ -9,7 +9,6 @@ authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [dependencies]
 primal = "0.2"
-petgraph = "0.4"
 rand = "0.6"
 
 [dev-dependencies]

@@ -1,6 +1,3 @@
-extern crate rand;
-extern crate raptorq;
-
 use rand::Rng;
 use raptorq::SourceBlockEncoder;
 

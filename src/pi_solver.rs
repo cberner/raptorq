@@ -1,7 +1,4 @@
-use petgraph::algo::condensation;
-use petgraph::prelude::*;
-
-use crate::arraymap::ArrayMap;
+use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::arraymap::UsizeArrayMap;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
@@ -130,13 +127,8 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> usize {
-        let mut g = Graph::<usize, usize, Undirected, u32>::with_capacity(self.end_col - self.start_col, rows_with_two_ones.len());
-        let mut node_lookup = ArrayMap::new(self.start_col, self.end_col);
-        for col in self.start_col..self.end_col {
-            let node = g.add_node(col);
-            node_lookup.insert(col, node);
-        }
+    fn first_phase_graph_substep_build_adjacency(&self, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> ArrayMap<Vec<(usize, usize)>> {
+        let mut adjacent_nodes = ArrayMap::new(self.start_col, self.end_col);
 
         for row in rows_with_two_ones.iter() {
             if self.hdpc_rows[*row] {
@@ -160,36 +152,72 @@ impl FirstPhaseRowSelectionStats {
                 }
             }
             assert_eq!(found, 2);
-            let node1 = node_lookup.get(ones[0]);
-            let node2 = node_lookup.get(ones[1]);
-            g.add_edge(node1, node2, *row);
+            let first = adjacent_nodes.get_mut(ones[0]);
+            if first == None {
+                let mut new_nodes = Vec::with_capacity(10);
+                new_nodes.push((ones[1], *row));
+                adjacent_nodes.insert(ones[0], new_nodes);
+            }
+            else {
+                first.unwrap().push((ones[1], *row));
+            }
+            let second = adjacent_nodes.get_mut(ones[1]);
+            if second == None {
+                let mut new_nodes = Vec::with_capacity(10);
+                new_nodes.push((ones[0], *row));
+                adjacent_nodes.insert(ones[1], new_nodes);
+            }
+            else {
+                second.unwrap().push((ones[0], *row));
+            }
         }
 
-        let connected_components = condensation(g.clone(), true);
-        let mut row_to_component_size = ArrayMap::new(start_row, end_row);
-        for index in connected_components.node_indices() {
-            let cols = connected_components.node_weight(index).unwrap();
-            for col in cols {
-                for edge in g.edges(node_lookup.get(*col)) {
-                    row_to_component_size.insert(*edge.weight(), cols.len());
+        return adjacent_nodes;
+    }
+
+    #[inline(never)]
+    fn first_phase_graph_substep(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> usize {
+        let adjacent_nodes = self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
+        let mut visited = BoolArrayMap::new(start_row, end_row);
+
+        let mut examplar_largest_component_row = None;
+        let mut largest_component_size = 0;
+
+        let mut node_queue = Vec::with_capacity(10);
+        for key in adjacent_nodes.keys() {
+            let mut component_size = 0;
+            let mut examplar_row = None;
+            // Pick arbitrary node (column) to start
+            node_queue.clear();
+            node_queue.push(key);
+            while !node_queue.is_empty() {
+                let node = node_queue.pop().unwrap();
+                if visited.get(node) {
+                    continue;
+                }
+                visited.insert(node, true);
+                let next_nodes = adjacent_nodes.get(node).unwrap();
+                component_size += 1;
+                for &(next_node, row) in next_nodes.iter() {
+                    node_queue.push(next_node);
+                    // TODO: check whether there's an even better heuristic. The spec doesn't cover this
+                    // but it seems that choosing the first row is much better. Maybe choosing
+                    // a row with maximum sparsity in its columns would be even better
+                    if examplar_row == None || row < examplar_row.unwrap() {
+                        examplar_row = Some(row);
+                    }
                 }
             }
+
+            if component_size > largest_component_size ||
+                // TODO: check whether there's a better heuristic (see above)
+                (component_size == largest_component_size && examplar_row.unwrap() < examplar_largest_component_row.unwrap()) {
+                examplar_largest_component_row = examplar_row;
+                largest_component_size = component_size;
+            }
         }
 
-        let mut chosen_component_size = 0;
-        let mut chosen_row = std::usize::MAX;
-        for row in rows_with_two_ones {
-            let row = *row;
-            if self.hdpc_rows[row] {
-                continue;
-            }
-            if row_to_component_size.get(row) > chosen_component_size {
-                chosen_row = row;
-                chosen_component_size = row_to_component_size.get(row);
-            }
-        }
-        assert_ne!(chosen_row, std::usize::MAX);
-        chosen_row
+        return examplar_largest_component_row.unwrap();
     }
 
     #[inline(never)]
@@ -787,7 +815,7 @@ impl IntermediateSymbolDecoder {
         self.fifth_phase();
 
         // See end of section 5.4.2.1
-        let mut index_mapping = ArrayMap::new(0, self.L);
+        let mut index_mapping = UsizeArrayMap::new(0, self.L);
         for i in 0..self.L {
             index_mapping.insert(self.c[i], self.d[i]);
         }
@@ -822,8 +850,8 @@ mod tests {
             let symbols = vec![Symbol::zero(1); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();
-            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < 30.0);
-            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < 50.0);
+            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < 30.0, "mul_ops = {}", decoder.get_symbol_mul_ops());
+            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < 50.0, "add_ops = {}", decoder.get_symbol_add_ops());
         }
     }
 }
