@@ -103,7 +103,7 @@ impl SourceBlockEncoder {
         self.source_symbols.iter().map(|symbol| {
             esi += 1;
             EncodingPacket::new(
-                PayloadId::new(self.source_block_id, esi as u32).unwrap(),
+                PayloadId::new(self.source_block_id, esi as u32),
                 symbol.bytes().clone()
             )
         }).collect()
@@ -116,7 +116,7 @@ impl SourceBlockEncoder {
         for i in 0..packets {
             let tuple = intermediate_tuple(self.source_symbols.len() as u32, start_encoding_symbol_id + i);
             result.push(EncodingPacket::new(
-                PayloadId::new(self.source_block_id, start_encoding_symbol_id + i).unwrap(),
+                PayloadId::new(self.source_block_id, start_encoding_symbol_id + i),
                 enc(self.source_symbols.len() as u32, &self.intermediate_symbols, tuple).bytes().clone()
             ));
         }

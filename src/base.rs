@@ -7,22 +7,36 @@ use crate::systematic_constants::systematic_index;
 use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 
 // As defined in section 3.2
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PayloadId {
     source_block_number: u8,
     encoding_symbol_id: u32
 }
 
 impl PayloadId {
-    pub fn new(source_block_number: u8, encoding_symbol_id: u32) -> Option<PayloadId> {
+    pub fn new(source_block_number: u8, encoding_symbol_id: u32) -> PayloadId {
         // Encoding Symbol ID must be a 24-bit unsigned int
-        if encoding_symbol_id >= 16777216 {
-            return None
-        }
-        Some(PayloadId {
+        assert!(encoding_symbol_id < 16777216);
+        PayloadId {
             source_block_number,
             encoding_symbol_id
-        })
+        }
+    }
+
+    pub fn deserialize(data: &[u8; 4]) -> PayloadId {
+        PayloadId {
+            source_block_number: data[0],
+            encoding_symbol_id: ((data[1] as u32) << 16) + ((data[2] as u32) << 8) + data[3] as u32
+        }
+    }
+
+    pub fn serialize(&self) -> [u8; 4] {
+        [
+            self.source_block_number,
+            (self.encoding_symbol_id >> 16) as u8,
+            ((self.encoding_symbol_id >> 8) & 0xFF) as u8,
+            (self.encoding_symbol_id & 0xFF) as u8
+        ]
     }
 
     pub fn source_block_number(&self) -> u8 {
@@ -35,7 +49,7 @@ impl PayloadId {
 }
 
 // As defined in section 4.4.2
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EncodingPacket {
     payload_id: PayloadId,
     data: Vec<u8>
@@ -49,6 +63,21 @@ impl EncodingPacket {
         }
     }
 
+    pub fn deserialize(data: &[u8]) -> EncodingPacket {
+        let payload_data = [data[0], data[1], data[2], data[3]];
+        EncodingPacket {
+            payload_id: PayloadId::deserialize(&payload_data),
+            data: Vec::from(&data[4..])
+        }
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut serialized = Vec::with_capacity(4 + self.data.len());
+        serialized.extend_from_slice(&self.payload_id.serialize());
+        serialized.extend(self.data.iter());
+        return serialized;
+    }
+
     pub fn payload_id(&self) -> PayloadId {
         self.payload_id.clone()
     }
@@ -59,7 +88,7 @@ impl EncodingPacket {
 }
 
 // As defined in section 3.3.2 and 3.3.3
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ObjectTransmissionInformation {
     transfer_length: u64, // Limited to u40
     symbol_size: u16,
@@ -81,6 +110,34 @@ impl ObjectTransmissionInformation {
         }
     }
 
+    pub fn deserialize(data: &[u8; 12]) -> ObjectTransmissionInformation {
+        ObjectTransmissionInformation {
+            transfer_length: ((data[0] as u64) << 32) + ((data[1] as u64) << 24) +
+                ((data[2] as u64) << 16) + ((data[3] as u64) << 8) + (data[4] as u64),
+            symbol_size: ((data[6] as u16) << 8) + data[7] as u16,
+            num_source_blocks: data[8],
+            num_sub_blocks: ((data[9] as u16) << 8) + data[10] as u16,
+            symbol_alignment: data[11]
+        }
+    }
+
+    pub fn serialize(&self) -> [u8; 12] {
+        [
+            ((self.transfer_length >> 32) & 0xFF) as u8,
+            ((self.transfer_length >> 24) & 0xFF) as u8,
+            ((self.transfer_length >> 16) & 0xFF) as u8,
+            ((self.transfer_length >> 8) & 0xFF) as u8,
+            (self.transfer_length & 0xFF) as u8,
+            0, // Reserved
+            (self.symbol_size >> 8) as u8,
+            (self.symbol_size & 0xFF) as u8,
+            self.num_source_blocks,
+            (self.num_sub_blocks >> 8) as u8,
+            (self.num_sub_blocks & 0xFF) as u8,
+            self.symbol_alignment
+        ]
+    }
+
     pub fn transfer_length(&self) -> u64 {
         self.transfer_length
     }
@@ -97,7 +154,7 @@ impl ObjectTransmissionInformation {
         self.num_sub_blocks
     }
 
-    pub fn alignment(&self) -> u8 {
+    pub fn symbol_alignment(&self) -> u8 {
         self.symbol_alignment
     }
 
@@ -196,4 +253,32 @@ pub fn intermediate_tuple(source_block_symbols: u32, internal_symbol_id: u32) ->
     let b1 = rand(internal_symbol_id, 5, P1);
 
     (d, a, b, d1, a1, b1)
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+    use crate::{PayloadId, EncodingPacket, ObjectTransmissionInformation};
+
+    #[test]
+    fn payload_id_serialization() {
+        let payload_id = PayloadId::new(rand::thread_rng().gen(), rand::thread_rng().gen_range(0, 256 * 256 * 256));
+        let deserialized = PayloadId::deserialize(&payload_id.serialize());
+        assert_eq!(deserialized, payload_id);
+    }
+
+    #[test]
+    fn encoding_packet_serialization() {
+        let payload_id = PayloadId::new(rand::thread_rng().gen(), rand::thread_rng().gen_range(0, 256 * 256 * 256));
+        let packet = EncodingPacket::new(payload_id, vec![rand::thread_rng().gen()]);
+        let deserialized = EncodingPacket::deserialize(&packet.serialize());
+        assert_eq!(deserialized, packet);
+    }
+
+    #[test]
+    fn oti_serialization() {
+        let oti = ObjectTransmissionInformation::with_defaults(rand::thread_rng().gen_range(0, 256 * 256 * 256 * 256 * 256), rand::thread_rng().gen());
+        let deserialized = ObjectTransmissionInformation::deserialize(&oti.serialize());
+        assert_eq!(deserialized, oti);
+    }
 }
