@@ -67,7 +67,7 @@ impl Encoder {
     pub fn get_encoded_packets(&self, repair_packets_per_block: u32) -> Vec<EncodingPacket> {
         let mut packets = vec![];
         for encoder in self.blocks.iter() {
-            packets.extend(encoder.all_source_packets());
+            packets.extend(encoder.source_packets());
             packets.extend(encoder.repair_packets(0, repair_packets_per_block));
         }
         packets
@@ -98,7 +98,7 @@ impl SourceBlockEncoder {
         }
     }
 
-    pub fn all_source_packets(&self) -> Vec<EncodingPacket> {
+    pub fn source_packets(&self) -> Vec<EncodingPacket> {
         let mut esi: i32 = -1;
         self.source_symbols.iter().map(|symbol| {
             esi += 1;

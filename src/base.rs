@@ -9,8 +9,8 @@ use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 // As defined in section 3.2
 #[derive(Clone)]
 pub struct PayloadId {
-    pub source_block_number: u8,
-    pub encoding_symbol_id: u32
+    source_block_number: u8,
+    encoding_symbol_id: u32
 }
 
 impl PayloadId {
@@ -23,6 +23,14 @@ impl PayloadId {
             source_block_number,
             encoding_symbol_id
         })
+    }
+
+    pub fn source_block_number(&self) -> u8 {
+        self.source_block_number
+    }
+
+    pub fn encoding_symbol_id(&self) -> u32 {
+        self.encoding_symbol_id
     }
 }
 

@@ -59,7 +59,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let encode_data = data.clone();
     c.bench("encode 10KB", Benchmark::new("", move |b| b.iter(|| {
         let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
-        return encoder.all_source_packets();
+        return encoder.source_packets();
     })).throughput(Throughput::Bytes(data.len() as u32)));
 
     let roundtrip_data = data.clone();
@@ -67,8 +67,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         let encoder = SourceBlockEncoder::new(1, symbol_size, &roundtrip_data);
         let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
         let mut result = None;
-        for packet in encoder.all_source_packets() {
-            result = decoder.parse(packet);
+        for packet in encoder.source_packets() {
+            result = decoder.decode(packet);
         }
         return result
     })).throughput(Throughput::Bytes(data.len() as u32)));
@@ -79,7 +79,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
         let mut result = None;
         for packet in encoder.repair_packets(0, (elements / symbol_size as usize) as u32) {
-            result = decoder.parse(packet);
+            result = decoder.decode(packet);
         }
         return result
     })).throughput(Throughput::Bytes(data.len() as u32)));

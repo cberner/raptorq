@@ -13,7 +13,8 @@ use crate::base::partition;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,
-    blocks: Vec<SourceBlockDecoder>
+    block_decoders: Vec<SourceBlockDecoder>,
+    blocks: Vec<Option<Vec<u8>>>
 }
 
 impl Decoder {
@@ -25,32 +26,37 @@ impl Decoder {
         assert_eq!(1, config.sub_blocks());
 //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks() as u32);
 
-        let mut blocks = vec![];
+        let mut decoders = vec![];
         for i in 0..zl {
-            blocks.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), kl as u64 * config.symbol_size() as u64));
+            decoders.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), kl as u64 * config.symbol_size() as u64));
         }
 
         for i in 0..zs {
-            blocks.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), ks as u64 * config.symbol_size() as u64));
+            decoders.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), ks as u64 * config.symbol_size() as u64));
         }
 
         Decoder {
             config,
-            blocks
+            block_decoders: decoders,
+            blocks: vec![None; (zl + zs) as usize]
         }
     }
 
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        self.blocks[packet.payload_id().source_block_number as usize].parse(packet);
+        let block_number = packet.payload_id().source_block_number() as usize;
+        if self.blocks[block_number].is_none() {
+            self.blocks[block_number] = self.block_decoders[block_number].decode(packet);
+
+        }
         for block in self.blocks.iter() {
-            if !block.is_decoded() {
+            if block.is_none() {
                 return None;
             }
         }
 
         let mut result = vec![];
-        for block in self.blocks.iter_mut() {
-            result.extend(block.get_data().unwrap());
+        for block in self.blocks.iter() {
+            result.extend(block.clone().unwrap());
         }
         result.truncate(self.config.transfer_length() as usize);
         Some(result)
@@ -87,12 +93,23 @@ impl SourceBlockDecoder {
         }
     }
 
-    pub fn is_decoded(&self) -> bool {
-        self.decoded
-    }
+    pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
+        assert_eq!(self.source_block_id, packet.payload_id().source_block_number());
+        let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
+        if self.received_esi.insert(packet.payload_id().encoding_symbol_id()) {
+            if packet.payload_id().encoding_symbol_id() >= num_extended_symbols {
+                // Repair symbol
+                self.repair_packets.push(packet);
+            }
+            else {
+                // Check that this is not an extended symbol (which aren't explicitly sent)
+                assert!(packet.payload_id().encoding_symbol_id() < self.source_block_symbols);
+                // Source symbol
+                self.source_symbols[packet.payload_id().encoding_symbol_id() as usize] = Some(Symbol::new(packet.data().clone()));
+                self.received_source_symbols += 1;
+            }
+        }
 
-    // TODO: it would be nice if this function wasn't mut
-    pub fn get_data(&mut self) -> Option<Vec<u8>> {
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
         if self.received_source_symbols == self.source_block_symbols {
             let mut result = vec![];
@@ -126,7 +143,7 @@ impl SourceBlockDecoder {
             }
 
             for repair_packet in self.repair_packets.iter() {
-                encoded_indices.push(repair_packet.payload_id().encoding_symbol_id);
+                encoded_indices.push(repair_packet.payload_id().encoding_symbol_id());
                 d.push(Symbol::new(repair_packet.data().clone()));
             }
 
@@ -153,26 +170,6 @@ impl SourceBlockDecoder {
             return Some(result);
         }
         None
-    }
-
-    pub fn parse(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        assert_eq!(self.source_block_id, packet.payload_id().source_block_number);
-        let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        if self.received_esi.insert(packet.payload_id().encoding_symbol_id) {
-            if packet.payload_id().encoding_symbol_id >= num_extended_symbols {
-                // Repair symbol
-                self.repair_packets.push(packet);
-            }
-            else {
-                // Check that this is not an extended symbol (which aren't explicitly sent)
-                assert!(packet.payload_id().encoding_symbol_id < self.source_block_symbols);
-                // Source symbol
-                self.source_symbols[packet.payload_id().encoding_symbol_id as usize] = Some(Symbol::new(packet.data().clone()));
-                self.received_source_symbols += 1;
-            }
-        }
-
-        self.get_data()
     }
 
     fn rebuild_source_symbol(&self, intermediate_symbols: &Vec<Symbol>, source_symbol_id: u32) -> Symbol {

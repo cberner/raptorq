@@ -52,9 +52,9 @@ mod codec_tests {
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
 
         let mut result = None;
-        for packet in encoder.all_source_packets() {
+        for packet in encoder.source_packets() {
             assert_eq!(result, None);
-            result = decoder.parse(packet);
+            result = decoder.decode(packet);
         }
 
         assert_eq!(result.unwrap(), data);
@@ -79,7 +79,7 @@ mod codec_tests {
             if parsed_packets < elements / 8 {
                 assert_eq!(result, None);
             }
-            result = decoder.parse(packet);
+            result = decoder.decode(packet);
             parsed_packets += 1;
         }
 
