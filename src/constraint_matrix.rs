@@ -1,14 +1,14 @@
-use crate::rng::rand;
-use crate::systematic_constants::extended_source_block_symbols;
-use crate::systematic_constants::num_hdpc_symbols;
-use crate::systematic_constants::num_ldpc_symbols;
-use crate::systematic_constants::num_pi_symbols;
-use crate::systematic_constants::num_lt_symbols;
-use crate::systematic_constants::num_intermediate_symbols;
+use crate::base::intermediate_tuple;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
+use crate::rng::rand;
 use crate::systematic_constants::calculate_p1;
-use crate::base::intermediate_tuple;
+use crate::systematic_constants::extended_source_block_symbols;
+use crate::systematic_constants::num_hdpc_symbols;
+use crate::systematic_constants::num_intermediate_symbols;
+use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::num_lt_symbols;
+use crate::systematic_constants::num_pi_symbols;
 
 // Generates the GAMMA matrix
 // See section 5.3.3.3
@@ -31,8 +31,12 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
     let mut matrix = OctetMatrix::new(H, Kprime + S);
     for i in 0..H {
         for j in 0..=(Kprime + S - 2) {
-            if i == rand((j + 1) as u32, 6, H as u32) as usize ||
-                i == ((rand((j + 1) as u32, 6, H as u32) + rand((j + 1) as u32, 7, (H - 1) as u32) + 1) % (H as u32)) as usize {
+            if i == rand((j + 1) as u32, 6, H as u32) as usize
+                || i == ((rand((j + 1) as u32, 6, H as u32)
+                    + rand((j + 1) as u32, 7, (H - 1) as u32)
+                    + 1)
+                    % (H as u32)) as usize
+            {
                 matrix.set(i, j, Octet::one());
             }
         }
@@ -42,8 +46,10 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
 }
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
-pub fn enc_indices(source_block_symbols: u32,
-       source_tuple: (u32, u32, u32, u32, u32, u32)) -> Vec<usize> {
+pub fn enc_indices(
+    source_block_symbols: u32,
+    source_tuple: (u32, u32, u32, u32, u32, u32),
+) -> Vec<usize> {
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
     let p1 = calculate_p1(source_block_symbols);
@@ -82,7 +88,10 @@ pub fn enc_indices(source_block_symbols: u32,
 
 // See section 5.3.3.4.2
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix(source_block_symbols: u32, encoded_symbol_indices: &[u32]) -> OctetMatrix {
+pub fn generate_constraint_matrix(
+    source_block_symbols: u32,
+    encoded_symbol_indices: &[u32],
+) -> OctetMatrix {
     let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
     let S = num_ldpc_symbols(source_block_symbols) as usize;
     let H = num_hdpc_symbols(source_block_symbols) as usize;

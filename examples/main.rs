@@ -1,5 +1,5 @@
-use rand::Rng;
 use rand::seq::SliceRandom;
+use rand::Rng;
 use raptorq::{Decoder, Encoder, EncodingPacket};
 
 fn main() {
@@ -13,7 +13,9 @@ fn main() {
     let encoder = Encoder::with_defaults(&data, 1400);
 
     // Perform the encoding, and serialize to Vec<u8> for transmission
-    let mut packets: Vec<Vec<u8>> = encoder.get_encoded_packets(15).iter()
+    let mut packets: Vec<Vec<u8>> = encoder
+        .get_encoded_packets(15)
+        .iter()
         .map(|packet| packet.serialize())
         .collect();
 

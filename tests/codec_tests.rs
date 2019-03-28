@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod codec_tests {
-    use rand::Rng;
     use rand::seq::SliceRandom;
-    use raptorq::SourceBlockEncoder;
-    use raptorq::SourceBlockDecoder;
-    use raptorq::Encoder;
+    use rand::Rng;
     use raptorq::Decoder;
+    use raptorq::Encoder;
+    use raptorq::SourceBlockDecoder;
+    use raptorq::SourceBlockEncoder;
 
     #[test]
     fn random_erasure() {

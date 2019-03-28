@@ -1,15 +1,17 @@
 use crate::octet::Octet;
 use crate::octet::OCTET_MUL;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use crate::octet::OCTET_MUL_LOW_BITS;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::octet::OCTET_MUL_HI_BITS;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::octet::OCTET_MUL_LOW_BITS;
 
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = scalar.byte() as usize;
     for i in 0..octets.len() {
         unsafe {
-            *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*octets.get_unchecked(i) as usize);
+            *octets.get_unchecked_mut(i) = *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*octets.get_unchecked(i) as usize);
         }
     }
 }
@@ -22,11 +24,13 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let low_mask =_mm256_set1_epi8(0x0F);
+    let low_mask = _mm256_set1_epi8(0x0F);
     let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
-    let low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-    let hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let low_table =
+        _mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let hi_table =
+        _mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
 
     for i in 0..(octets.len() / 32) {
         let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
@@ -42,7 +46,9 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     let remainder = octets.len() % 32;
     let scalar_index = scalar.byte() as usize;
     for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) = *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*octets.get_unchecked(i) as usize);
+        *octets.get_unchecked_mut(i) = *OCTET_MUL
+            .get_unchecked(scalar_index)
+            .get_unchecked(*octets.get_unchecked(i) as usize);
     }
 }
 
@@ -62,8 +68,10 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
 fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     let scalar_index = scalar.byte() as usize;
     for i in 0..octets.len() {
-        unsafe  {
-            *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*other.get_unchecked(i) as usize);
+        unsafe {
+            *octets.get_unchecked_mut(i) ^= *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*other.get_unchecked(i) as usize);
         }
     }
 }
@@ -76,12 +84,14 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let low_mask =_mm256_set1_epi8(0x0F);
+    let low_mask = _mm256_set1_epi8(0x0F);
     let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
     let other_avx_ptr = other.as_ptr() as *const __m256i;
-    let low_table =_mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
-    let hi_table =_mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let low_table =
+        _mm256_loadu_si256(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
+    let hi_table =
+        _mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
 
     for i in 0..(octets.len() / 32) {
         // Multiply by scalar
@@ -102,13 +112,23 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
     let remainder = octets.len() % 32;
     let scalar_index = scalar.byte() as usize;
     for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) ^= *OCTET_MUL.get_unchecked(scalar_index).get_unchecked(*other.get_unchecked(i) as usize);
+        *octets.get_unchecked_mut(i) ^= *OCTET_MUL
+            .get_unchecked(scalar_index)
+            .get_unchecked(*other.get_unchecked(i) as usize);
     }
 }
 
 pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octet) {
-    debug_assert_ne!(*scalar, Octet::one(), "Don't call this with one. Use += instead");
-    debug_assert_ne!(*scalar, Octet::zero(), "Don't call with zero. It's very inefficient");
+    debug_assert_ne!(
+        *scalar,
+        Octet::one(),
+        "Don't call this with one. Use += instead"
+    );
+    debug_assert_ne!(
+        *scalar,
+        Octet::zero(),
+        "Don't call with zero. It's very inefficient"
+    );
 
     assert_eq!(octets.len(), other.len());
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -191,7 +211,7 @@ unsafe fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    let avx_ones =_mm256_set1_epi8(1);
+    let avx_ones = _mm256_set1_epi8(1);
     let avx_zeros = _mm256_set1_epi8(0);
     let avx_ptr = octets.as_ptr() as *const __m256i;
 
@@ -216,7 +236,7 @@ unsafe fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
     let mut remainder = octets.len() % 32;
     if remainder >= 16 {
         remainder -= 16;
-        let avx_ones =_mm_set1_epi8(1);
+        let avx_ones = _mm_set1_epi8(1);
         let avx_zeros = _mm_set1_epi8(0);
         let avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32) as *const __m128i;
 

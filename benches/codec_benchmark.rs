@@ -5,11 +5,10 @@ use criterion::Criterion;
 use criterion::Throughput;
 
 use rand::Rng;
-use raptorq::SourceBlockEncoder;
-use raptorq::SourceBlockDecoder;
 use raptorq::Octet;
+use raptorq::SourceBlockDecoder;
+use raptorq::SourceBlockEncoder;
 use raptorq::Symbol;
-
 
 fn criterion_benchmark(c: &mut Criterion) {
     let octet1 = Octet::new(rand::thread_rng().gen_range(1, 255));
@@ -25,31 +24,48 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let symbol1_mul_scalar = symbol1.clone();
     let octet1_mul_scalar = octet1.clone();
-    c.bench("Symbol mulassign_scalar()", Benchmark::new("", move |b| b.iter(|| {
-        let mut temp = symbol1_mul_scalar.clone();
-        temp.mulassign_scalar(&octet1_mul_scalar);
-        temp
-    })).throughput(Throughput::Bytes(symbol1.len() as u32)));
+    c.bench(
+        "Symbol mulassign_scalar()",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let mut temp = symbol1_mul_scalar.clone();
+                temp.mulassign_scalar(&octet1_mul_scalar);
+                temp
+            })
+        })
+        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+    );
 
     let symbol1_addassign = symbol1.clone();
     let symbol2_addassign = symbol2.clone();
-    c.bench("Symbol +=", Benchmark::new("", move |b| b.iter(|| {
-        let mut temp = symbol1_addassign.clone();
-        temp += &symbol2_addassign;
-        temp
-    })).throughput(Throughput::Bytes(symbol1.len() as u32)));
+    c.bench(
+        "Symbol +=",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let mut temp = symbol1_addassign.clone();
+                temp += &symbol2_addassign;
+                temp
+            })
+        })
+        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+    );
 
     let symbol1_fma = symbol1.clone();
     let symbol2_fma = symbol2.clone();
     let octet1_fma = octet1.clone();
-    c.bench("Symbol FMA", Benchmark::new("", move |b| b.iter(|| {
-        let mut temp = symbol1_fma.clone();
-        temp.fused_addassign_mul_scalar(&symbol2_fma, &octet1_fma);
-        temp
-    })).throughput(Throughput::Bytes(symbol1.len() as u32)));
+    c.bench(
+        "Symbol FMA",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let mut temp = symbol1_fma.clone();
+                temp.fused_addassign_mul_scalar(&symbol2_fma, &octet1_fma);
+                temp
+            })
+        })
+        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+    );
 
-
-    let elements = 10*1024;
+    let elements = 10 * 1024;
     let symbol_size = 512;
     let mut data: Vec<u8> = vec![0; elements];
     for i in 0..elements {
@@ -57,32 +73,50 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     let encode_data = data.clone();
-    c.bench("encode 10KB", Benchmark::new("", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
-        return encoder.source_packets();
-    })).throughput(Throughput::Bytes(data.len() as u32)));
+    c.bench(
+        "encode 10KB",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
+                return encoder.source_packets();
+            })
+        })
+        .throughput(Throughput::Bytes(data.len() as u32)),
+    );
 
     let roundtrip_data = data.clone();
-    c.bench("roundtrip 10KB", Benchmark::new("", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, &roundtrip_data);
-        let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
-        let mut result = None;
-        for packet in encoder.source_packets() {
-            result = decoder.decode(packet);
-        }
-        return result
-    })).throughput(Throughput::Bytes(data.len() as u32)));
+    c.bench(
+        "roundtrip 10KB",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let encoder = SourceBlockEncoder::new(1, symbol_size, &roundtrip_data);
+                let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
+                let mut result = None;
+                for packet in encoder.source_packets() {
+                    result = decoder.decode(packet);
+                }
+                return result;
+            })
+        })
+        .throughput(Throughput::Bytes(data.len() as u32)),
+    );
 
     let repair_data = data.clone();
-    c.bench("roundtrip repair 10KB", Benchmark::new("", move |b| b.iter(|| {
-        let encoder = SourceBlockEncoder::new(1, symbol_size, &repair_data);
-        let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
-        let mut result = None;
-        for packet in encoder.repair_packets(0, (elements / symbol_size as usize) as u32) {
-            result = decoder.decode(packet);
-        }
-        return result
-    })).throughput(Throughput::Bytes(data.len() as u32)));
+    c.bench(
+        "roundtrip repair 10KB",
+        Benchmark::new("", move |b| {
+            b.iter(|| {
+                let encoder = SourceBlockEncoder::new(1, symbol_size, &repair_data);
+                let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
+                let mut result = None;
+                for packet in encoder.repair_packets(0, (elements / symbol_size as usize) as u32) {
+                    result = decoder.decode(packet);
+                }
+                return result;
+            })
+        })
+        .throughput(Throughput::Bytes(data.len() as u32)),
+    );
 }
 
 criterion_group!(benches, criterion_benchmark);

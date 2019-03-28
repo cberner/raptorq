@@ -1,24 +1,22 @@
-use std::ops::AddAssign;
 use crate::octet::Octet;
-use crate::octets::mulassign_scalar;
-use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::add_assign;
+use crate::octets::fused_addassign_mul_scalar;
+use crate::octets::mulassign_scalar;
+use std::ops::AddAssign;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
-    value: Vec<u8>
+    value: Vec<u8>,
 }
 
 impl Symbol {
     pub fn new(value: Vec<u8>) -> Symbol {
-        Symbol {
-            value
-        }
+        Symbol { value }
     }
 
     pub fn zero(size: usize) -> Symbol {
         Symbol {
-            value: vec![0; size]
+            value: vec![0; size],
         }
     }
 

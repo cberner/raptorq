@@ -1,14 +1,14 @@
-use std::ops::Mul;
 use crate::octet::Octet;
-use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::add_assign;
+use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
+use std::ops::Mul;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetMatrix {
     height: usize,
     width: usize,
-    elements: Vec<Vec<u8>>
+    elements: Vec<Vec<u8>>,
 }
 
 impl OctetMatrix {
@@ -20,7 +20,7 @@ impl OctetMatrix {
         OctetMatrix {
             height,
             width,
-            elements
+            elements,
         }
     }
 
@@ -48,7 +48,7 @@ impl OctetMatrix {
         Octet::new(self.elements[i][j])
     }
 
-    pub fn swap_rows(&mut self, i: usize, j:usize) {
+    pub fn swap_rows(&mut self, i: usize, j: usize) {
         self.elements.swap(i, j);
     }
 
@@ -73,8 +73,7 @@ impl OctetMatrix {
                 }
                 if scalar == Octet::one() {
                     add_assign(&mut temp[row], &self.elements[i]);
-                }
-                else {
+                } else {
                     fused_addassign_mul_scalar(&mut temp[row], &self.elements[i], &scalar);
                 }
             }
@@ -90,8 +89,7 @@ impl OctetMatrix {
 
         if *scalar == Octet::one() {
             add_assign(dest_row, temp_row);
-        }
-        else {
+        } else {
             fused_addassign_mul_scalar(dest_row, temp_row, scalar);
         }
     }
@@ -122,9 +120,12 @@ impl<'a, 'b> Mul<&'b OctetMatrix> for &'a OctetMatrix {
                 }
                 if scalar == Octet::one() {
                     add_assign(&mut result.elements[row], &rhs.elements[i]);
-                }
-                else {
-                    fused_addassign_mul_scalar(&mut result.elements[row], &rhs.elements[i], &scalar);
+                } else {
+                    fused_addassign_mul_scalar(
+                        &mut result.elements[row],
+                        &rhs.elements[i],
+                        &scalar,
+                    );
                 }
             }
         }
