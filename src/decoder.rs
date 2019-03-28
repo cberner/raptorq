@@ -1,20 +1,20 @@
-use std::collections::HashSet;
+use crate::base::intermediate_tuple;
+use crate::base::partition;
 use crate::base::EncodingPacket;
+use crate::base::ObjectTransmissionInformation;
+use crate::constraint_matrix::enc_indices;
+use crate::constraint_matrix::generate_constraint_matrix;
+use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
 use crate::systematic_constants::extended_source_block_symbols;
-use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
-use crate::constraint_matrix::generate_constraint_matrix;
-use crate::base::intermediate_tuple;
-use crate::pi_solver::fused_inverse_mul_symbols;
-use crate::constraint_matrix::enc_indices;
-use crate::base::ObjectTransmissionInformation;
-use crate::base::partition;
+use crate::systematic_constants::num_ldpc_symbols;
+use std::collections::HashSet;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,
     block_decoders: Vec<SourceBlockDecoder>,
-    blocks: Vec<Option<Vec<u8>>>
+    blocks: Vec<Option<Vec<u8>>>,
 }
 
 impl Decoder {
@@ -24,21 +24,29 @@ impl Decoder {
 
         // TODO: support subblocks
         assert_eq!(1, config.sub_blocks());
-//        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks() as u32);
+        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks() as u32);
 
         let mut decoders = vec![];
         for i in 0..zl {
-            decoders.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), kl as u64 * config.symbol_size() as u64));
+            decoders.push(SourceBlockDecoder::new(
+                i as u8,
+                config.symbol_size(),
+                kl as u64 * config.symbol_size() as u64,
+            ));
         }
 
         for i in 0..zs {
-            decoders.push(SourceBlockDecoder::new(i as u8, config.symbol_size(), ks as u64 * config.symbol_size() as u64));
+            decoders.push(SourceBlockDecoder::new(
+                i as u8,
+                config.symbol_size(),
+                ks as u64 * config.symbol_size() as u64,
+            ));
         }
 
         Decoder {
             config,
             block_decoders: decoders,
-            blocks: vec![None; (zl + zs) as usize]
+            blocks: vec![None; (zl + zs) as usize],
         }
     }
 
@@ -46,7 +54,6 @@ impl Decoder {
         let block_number = packet.payload_id().source_block_number() as usize;
         if self.blocks[block_number].is_none() {
             self.blocks[block_number] = self.block_decoders[block_number].decode(packet);
-
         }
         for block in self.blocks.iter() {
             if block.is_none() {
@@ -71,7 +78,7 @@ pub struct SourceBlockDecoder {
     repair_packets: Vec<EncodingPacket>,
     received_source_symbols: u32,
     received_esi: HashSet<u32>,
-    decoded: bool
+    decoded: bool,
 }
 
 impl SourceBlockDecoder {
@@ -89,23 +96,29 @@ impl SourceBlockDecoder {
             repair_packets: vec![],
             received_source_symbols: 0,
             received_esi,
-            decoded: false
+            decoded: false,
         }
     }
 
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        assert_eq!(self.source_block_id, packet.payload_id().source_block_number());
+        assert_eq!(
+            self.source_block_id,
+            packet.payload_id().source_block_number()
+        );
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        if self.received_esi.insert(packet.payload_id().encoding_symbol_id()) {
+        if self
+            .received_esi
+            .insert(packet.payload_id().encoding_symbol_id())
+        {
             if packet.payload_id().encoding_symbol_id() >= num_extended_symbols {
                 // Repair symbol
                 self.repair_packets.push(packet);
-            }
-            else {
+            } else {
                 // Check that this is not an extended symbol (which aren't explicitly sent)
                 assert!(packet.payload_id().encoding_symbol_id() < self.source_block_symbols);
                 // Source symbol
-                self.source_symbols[packet.payload_id().encoding_symbol_id() as usize] = Some(Symbol::new(packet.data().clone()));
+                self.source_symbols[packet.payload_id().encoding_symbol_id() as usize] =
+                    Some(Symbol::new(packet.data().clone()));
                 self.received_source_symbols += 1;
             }
         }
@@ -147,11 +160,13 @@ impl SourceBlockDecoder {
                 d.push(Symbol::new(repair_packet.data().clone()));
             }
 
-            let constraint_matrix = generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
-            let intermediate_symbols =  fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols);
+            let constraint_matrix =
+                generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
+            let intermediate_symbols =
+                fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols);
 
             if intermediate_symbols == None {
-                return None
+                return None;
             }
             let intermediate_symbols = intermediate_symbols.unwrap();
 
@@ -159,8 +174,7 @@ impl SourceBlockDecoder {
             for i in 0..self.source_block_symbols as usize {
                 if self.source_symbols[i] != None {
                     result.extend(self.source_symbols[i].clone().unwrap().bytes())
-                }
-                else {
+                } else {
                     let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
                     result.extend(rebuilt.bytes());
                 }
@@ -172,7 +186,11 @@ impl SourceBlockDecoder {
         None
     }
 
-    fn rebuild_source_symbol(&self, intermediate_symbols: &Vec<Symbol>, source_symbol_id: u32) -> Symbol {
+    fn rebuild_source_symbol(
+        &self,
+        intermediate_symbols: &Vec<Symbol>,
+        source_symbol_id: u32,
+    ) -> Symbol {
         let tuple = intermediate_tuple(self.source_block_symbols, source_symbol_id);
 
         let mut rebuilt = Symbol::zero(self.symbol_size as usize);
@@ -182,4 +200,3 @@ impl SourceBlockDecoder {
         rebuilt
     }
 }
-

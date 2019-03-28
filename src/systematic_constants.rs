@@ -479,7 +479,8 @@ pub const SYSTEMATIC_INDICES_AND_PARAMETERS: [(u32, u32, u32, u32, u32); 477] = 
     (54735, 233, 877, 16, 55259),
     (55289, 362, 883, 16, 55817),
     (55843, 963, 907, 16, 56393),
-    (56403, 471, 907, 16, 56951)];
+    (56403, 471, 907, 16, 56951),
+];
 
 const P1_TABLE: [(u32, u32); 477] = [
     (10, 11),
@@ -958,7 +959,8 @@ const P1_TABLE: [(u32, u32); 477] = [
     (54735, 373),
     (55289, 373),
     (55843, 373),
-    (56403, 379)];
+    (56403, 379),
+];
 
 // Calculates, K', the extended source block size, in symbols, for a given source block size
 // See section 5.3.1
@@ -1023,9 +1025,9 @@ pub fn num_lt_symbols(source_block_symbols: u32) -> u32 {
 // Calculates, L, the number of intermediate symbols, for a given number of source block symbols
 // See section 5.3.3.3
 pub fn num_intermediate_symbols(source_block_symbols: u32) -> u32 {
-    extended_source_block_symbols(source_block_symbols) +
-        num_ldpc_symbols(source_block_symbols) +
-        num_hdpc_symbols(source_block_symbols)
+    extended_source_block_symbols(source_block_symbols)
+        + num_ldpc_symbols(source_block_symbols)
+        + num_hdpc_symbols(source_block_symbols)
 }
 
 // Calculates, P, the number of PI symbols, for a given number of source block symbols
@@ -1047,9 +1049,9 @@ pub fn calculate_p1(source_block_symbols: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::systematic_constants::{MAX_SOURCE_SYMBOLS_PER_BLOCK, num_pi_symbols, calculate_p1};
     use crate::systematic_constants::num_ldpc_symbols;
     use crate::systematic_constants::num_lt_symbols;
+    use crate::systematic_constants::{calculate_p1, num_pi_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
 
     #[test]
     fn all_prime() {
@@ -1067,8 +1069,7 @@ mod tests {
             while !primal::is_prime(p1 as u64) {
                 if p1 % 2 == 0 {
                     p1 += 1;
-                }
-                else {
+                } else {
                     p1 += 2;
                 }
             }

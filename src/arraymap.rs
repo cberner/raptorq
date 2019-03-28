@@ -1,14 +1,14 @@
 #[derive(Clone)]
 pub struct ArrayMap<T> {
     offset: usize,
-    elements: Vec<Option<T>>
+    elements: Vec<Option<T>>,
 }
 
-impl <T: std::clone::Clone> ArrayMap<T> {
+impl<T: std::clone::Clone> ArrayMap<T> {
     pub fn new(start_key: usize, end_key: usize) -> ArrayMap<T> {
         ArrayMap {
             offset: start_key,
-            elements: vec![None; end_key - start_key]
+            elements: vec![None; end_key - start_key],
         }
     }
 
@@ -38,14 +38,14 @@ impl <T: std::clone::Clone> ArrayMap<T> {
 #[derive(Clone)]
 pub struct UsizeArrayMap {
     offset: usize,
-    elements: Vec<usize>
+    elements: Vec<usize>,
 }
 
 impl UsizeArrayMap {
     pub fn new(start_key: usize, end_key: usize) -> UsizeArrayMap {
         UsizeArrayMap {
             offset: start_key,
-            elements: vec![0; end_key - start_key]
+            elements: vec![0; end_key - start_key],
         }
     }
 
@@ -73,14 +73,14 @@ impl UsizeArrayMap {
 #[derive(Clone)]
 pub struct BoolArrayMap {
     offset: usize,
-    elements: Vec<bool>
+    elements: Vec<bool>,
 }
 
 impl BoolArrayMap {
     pub fn new(start_key: usize, end_key: usize) -> BoolArrayMap {
         BoolArrayMap {
             offset: start_key,
-            elements: vec![false; end_key - start_key]
+            elements: vec![false; end_key - start_key],
         }
     }
 

@@ -1,8 +1,8 @@
 use std::ops::Add;
-use std::ops::Mul;
-use std::ops::Div;
-use std::ops::Sub;
 use std::ops::AddAssign;
+use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
 
 // As defined in section 5.7.3
 #[rustfmt::skip]
@@ -88,7 +88,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(7),
         calculate_octet_mul_hi_table_inner(8),
         calculate_octet_mul_hi_table_inner(9),
-
         calculate_octet_mul_hi_table_inner(10),
         calculate_octet_mul_hi_table_inner(11),
         calculate_octet_mul_hi_table_inner(12),
@@ -99,7 +98,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(17),
         calculate_octet_mul_hi_table_inner(18),
         calculate_octet_mul_hi_table_inner(19),
-
         calculate_octet_mul_hi_table_inner(20),
         calculate_octet_mul_hi_table_inner(21),
         calculate_octet_mul_hi_table_inner(22),
@@ -110,7 +108,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(27),
         calculate_octet_mul_hi_table_inner(28),
         calculate_octet_mul_hi_table_inner(29),
-
         calculate_octet_mul_hi_table_inner(30),
         calculate_octet_mul_hi_table_inner(31),
         calculate_octet_mul_hi_table_inner(32),
@@ -121,7 +118,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(37),
         calculate_octet_mul_hi_table_inner(38),
         calculate_octet_mul_hi_table_inner(39),
-
         calculate_octet_mul_hi_table_inner(40),
         calculate_octet_mul_hi_table_inner(41),
         calculate_octet_mul_hi_table_inner(42),
@@ -132,7 +128,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(47),
         calculate_octet_mul_hi_table_inner(48),
         calculate_octet_mul_hi_table_inner(49),
-
         calculate_octet_mul_hi_table_inner(50),
         calculate_octet_mul_hi_table_inner(51),
         calculate_octet_mul_hi_table_inner(52),
@@ -143,7 +138,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(57),
         calculate_octet_mul_hi_table_inner(58),
         calculate_octet_mul_hi_table_inner(59),
-
         calculate_octet_mul_hi_table_inner(60),
         calculate_octet_mul_hi_table_inner(61),
         calculate_octet_mul_hi_table_inner(62),
@@ -154,7 +148,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(67),
         calculate_octet_mul_hi_table_inner(68),
         calculate_octet_mul_hi_table_inner(69),
-
         calculate_octet_mul_hi_table_inner(70),
         calculate_octet_mul_hi_table_inner(71),
         calculate_octet_mul_hi_table_inner(72),
@@ -165,7 +158,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(77),
         calculate_octet_mul_hi_table_inner(78),
         calculate_octet_mul_hi_table_inner(79),
-
         calculate_octet_mul_hi_table_inner(80),
         calculate_octet_mul_hi_table_inner(81),
         calculate_octet_mul_hi_table_inner(82),
@@ -176,7 +168,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(87),
         calculate_octet_mul_hi_table_inner(88),
         calculate_octet_mul_hi_table_inner(89),
-
         calculate_octet_mul_hi_table_inner(90),
         calculate_octet_mul_hi_table_inner(91),
         calculate_octet_mul_hi_table_inner(92),
@@ -187,7 +178,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(97),
         calculate_octet_mul_hi_table_inner(98),
         calculate_octet_mul_hi_table_inner(99),
-
         calculate_octet_mul_hi_table_inner(100),
         calculate_octet_mul_hi_table_inner(101),
         calculate_octet_mul_hi_table_inner(102),
@@ -198,7 +188,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(107),
         calculate_octet_mul_hi_table_inner(108),
         calculate_octet_mul_hi_table_inner(109),
-
         calculate_octet_mul_hi_table_inner(110),
         calculate_octet_mul_hi_table_inner(111),
         calculate_octet_mul_hi_table_inner(112),
@@ -209,7 +198,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(117),
         calculate_octet_mul_hi_table_inner(118),
         calculate_octet_mul_hi_table_inner(119),
-
         calculate_octet_mul_hi_table_inner(120),
         calculate_octet_mul_hi_table_inner(121),
         calculate_octet_mul_hi_table_inner(122),
@@ -220,7 +208,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(127),
         calculate_octet_mul_hi_table_inner(128),
         calculate_octet_mul_hi_table_inner(129),
-
         calculate_octet_mul_hi_table_inner(130),
         calculate_octet_mul_hi_table_inner(131),
         calculate_octet_mul_hi_table_inner(132),
@@ -231,7 +218,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(137),
         calculate_octet_mul_hi_table_inner(138),
         calculate_octet_mul_hi_table_inner(139),
-
         calculate_octet_mul_hi_table_inner(140),
         calculate_octet_mul_hi_table_inner(141),
         calculate_octet_mul_hi_table_inner(142),
@@ -242,7 +228,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(147),
         calculate_octet_mul_hi_table_inner(148),
         calculate_octet_mul_hi_table_inner(149),
-
         calculate_octet_mul_hi_table_inner(150),
         calculate_octet_mul_hi_table_inner(151),
         calculate_octet_mul_hi_table_inner(152),
@@ -253,7 +238,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(157),
         calculate_octet_mul_hi_table_inner(158),
         calculate_octet_mul_hi_table_inner(159),
-
         calculate_octet_mul_hi_table_inner(160),
         calculate_octet_mul_hi_table_inner(161),
         calculate_octet_mul_hi_table_inner(162),
@@ -264,7 +248,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(167),
         calculate_octet_mul_hi_table_inner(168),
         calculate_octet_mul_hi_table_inner(169),
-
         calculate_octet_mul_hi_table_inner(170),
         calculate_octet_mul_hi_table_inner(171),
         calculate_octet_mul_hi_table_inner(172),
@@ -275,7 +258,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(177),
         calculate_octet_mul_hi_table_inner(178),
         calculate_octet_mul_hi_table_inner(179),
-
         calculate_octet_mul_hi_table_inner(180),
         calculate_octet_mul_hi_table_inner(181),
         calculate_octet_mul_hi_table_inner(182),
@@ -286,7 +268,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(187),
         calculate_octet_mul_hi_table_inner(188),
         calculate_octet_mul_hi_table_inner(189),
-
         calculate_octet_mul_hi_table_inner(190),
         calculate_octet_mul_hi_table_inner(191),
         calculate_octet_mul_hi_table_inner(192),
@@ -297,7 +278,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(197),
         calculate_octet_mul_hi_table_inner(198),
         calculate_octet_mul_hi_table_inner(199),
-
         calculate_octet_mul_hi_table_inner(200),
         calculate_octet_mul_hi_table_inner(201),
         calculate_octet_mul_hi_table_inner(202),
@@ -308,7 +288,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(207),
         calculate_octet_mul_hi_table_inner(208),
         calculate_octet_mul_hi_table_inner(209),
-
         calculate_octet_mul_hi_table_inner(210),
         calculate_octet_mul_hi_table_inner(211),
         calculate_octet_mul_hi_table_inner(212),
@@ -319,7 +298,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(217),
         calculate_octet_mul_hi_table_inner(218),
         calculate_octet_mul_hi_table_inner(219),
-
         calculate_octet_mul_hi_table_inner(220),
         calculate_octet_mul_hi_table_inner(221),
         calculate_octet_mul_hi_table_inner(222),
@@ -330,7 +308,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(227),
         calculate_octet_mul_hi_table_inner(228),
         calculate_octet_mul_hi_table_inner(229),
-
         calculate_octet_mul_hi_table_inner(230),
         calculate_octet_mul_hi_table_inner(231),
         calculate_octet_mul_hi_table_inner(232),
@@ -341,7 +318,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(237),
         calculate_octet_mul_hi_table_inner(238),
         calculate_octet_mul_hi_table_inner(239),
-
         calculate_octet_mul_hi_table_inner(240),
         calculate_octet_mul_hi_table_inner(241),
         calculate_octet_mul_hi_table_inner(242),
@@ -352,7 +328,6 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_hi_table_inner(247),
         calculate_octet_mul_hi_table_inner(248),
         calculate_octet_mul_hi_table_inner(249),
-
         calculate_octet_mul_hi_table_inner(250),
         calculate_octet_mul_hi_table_inner(251),
         calculate_octet_mul_hi_table_inner(252),
@@ -368,42 +343,35 @@ const fn calculate_octet_mul_hi_table_inner(x: usize) -> [u8; 32] {
         const_mul(x, 1 << 4),
         const_mul(x, 2 << 4),
         const_mul(x, 3 << 4),
-
         const_mul(x, 4 << 4),
         const_mul(x, 5 << 4),
         const_mul(x, 6 << 4),
         const_mul(x, 7 << 4),
-
         const_mul(x, 8 << 4),
         const_mul(x, 9 << 4),
         const_mul(x, 10 << 4),
         const_mul(x, 11 << 4),
-
         const_mul(x, 12 << 4),
         const_mul(x, 13 << 4),
         const_mul(x, 14 << 4),
         const_mul(x, 15 << 4),
-
         0,
         const_mul(x, 1 << 4),
         const_mul(x, 2 << 4),
         const_mul(x, 3 << 4),
-
         const_mul(x, 4 << 4),
         const_mul(x, 5 << 4),
         const_mul(x, 6 << 4),
         const_mul(x, 7 << 4),
-
         const_mul(x, 8 << 4),
         const_mul(x, 9 << 4),
         const_mul(x, 10 << 4),
         const_mul(x, 11 << 4),
-
         const_mul(x, 12 << 4),
         const_mul(x, 13 << 4),
         const_mul(x, 14 << 4),
         const_mul(x, 15 << 4),
-    ]
+    ];
 }
 
 const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
@@ -418,7 +386,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(7),
         calculate_octet_mul_low_table_inner(8),
         calculate_octet_mul_low_table_inner(9),
-
         calculate_octet_mul_low_table_inner(10),
         calculate_octet_mul_low_table_inner(11),
         calculate_octet_mul_low_table_inner(12),
@@ -429,7 +396,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(17),
         calculate_octet_mul_low_table_inner(18),
         calculate_octet_mul_low_table_inner(19),
-
         calculate_octet_mul_low_table_inner(20),
         calculate_octet_mul_low_table_inner(21),
         calculate_octet_mul_low_table_inner(22),
@@ -440,7 +406,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(27),
         calculate_octet_mul_low_table_inner(28),
         calculate_octet_mul_low_table_inner(29),
-
         calculate_octet_mul_low_table_inner(30),
         calculate_octet_mul_low_table_inner(31),
         calculate_octet_mul_low_table_inner(32),
@@ -451,7 +416,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(37),
         calculate_octet_mul_low_table_inner(38),
         calculate_octet_mul_low_table_inner(39),
-
         calculate_octet_mul_low_table_inner(40),
         calculate_octet_mul_low_table_inner(41),
         calculate_octet_mul_low_table_inner(42),
@@ -462,7 +426,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(47),
         calculate_octet_mul_low_table_inner(48),
         calculate_octet_mul_low_table_inner(49),
-
         calculate_octet_mul_low_table_inner(50),
         calculate_octet_mul_low_table_inner(51),
         calculate_octet_mul_low_table_inner(52),
@@ -473,7 +436,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(57),
         calculate_octet_mul_low_table_inner(58),
         calculate_octet_mul_low_table_inner(59),
-
         calculate_octet_mul_low_table_inner(60),
         calculate_octet_mul_low_table_inner(61),
         calculate_octet_mul_low_table_inner(62),
@@ -484,7 +446,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(67),
         calculate_octet_mul_low_table_inner(68),
         calculate_octet_mul_low_table_inner(69),
-
         calculate_octet_mul_low_table_inner(70),
         calculate_octet_mul_low_table_inner(71),
         calculate_octet_mul_low_table_inner(72),
@@ -495,7 +456,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(77),
         calculate_octet_mul_low_table_inner(78),
         calculate_octet_mul_low_table_inner(79),
-
         calculate_octet_mul_low_table_inner(80),
         calculate_octet_mul_low_table_inner(81),
         calculate_octet_mul_low_table_inner(82),
@@ -506,7 +466,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(87),
         calculate_octet_mul_low_table_inner(88),
         calculate_octet_mul_low_table_inner(89),
-
         calculate_octet_mul_low_table_inner(90),
         calculate_octet_mul_low_table_inner(91),
         calculate_octet_mul_low_table_inner(92),
@@ -517,7 +476,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(97),
         calculate_octet_mul_low_table_inner(98),
         calculate_octet_mul_low_table_inner(99),
-
         calculate_octet_mul_low_table_inner(100),
         calculate_octet_mul_low_table_inner(101),
         calculate_octet_mul_low_table_inner(102),
@@ -528,7 +486,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(107),
         calculate_octet_mul_low_table_inner(108),
         calculate_octet_mul_low_table_inner(109),
-
         calculate_octet_mul_low_table_inner(110),
         calculate_octet_mul_low_table_inner(111),
         calculate_octet_mul_low_table_inner(112),
@@ -539,7 +496,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(117),
         calculate_octet_mul_low_table_inner(118),
         calculate_octet_mul_low_table_inner(119),
-
         calculate_octet_mul_low_table_inner(120),
         calculate_octet_mul_low_table_inner(121),
         calculate_octet_mul_low_table_inner(122),
@@ -550,7 +506,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(127),
         calculate_octet_mul_low_table_inner(128),
         calculate_octet_mul_low_table_inner(129),
-
         calculate_octet_mul_low_table_inner(130),
         calculate_octet_mul_low_table_inner(131),
         calculate_octet_mul_low_table_inner(132),
@@ -561,7 +516,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(137),
         calculate_octet_mul_low_table_inner(138),
         calculate_octet_mul_low_table_inner(139),
-
         calculate_octet_mul_low_table_inner(140),
         calculate_octet_mul_low_table_inner(141),
         calculate_octet_mul_low_table_inner(142),
@@ -572,7 +526,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(147),
         calculate_octet_mul_low_table_inner(148),
         calculate_octet_mul_low_table_inner(149),
-
         calculate_octet_mul_low_table_inner(150),
         calculate_octet_mul_low_table_inner(151),
         calculate_octet_mul_low_table_inner(152),
@@ -583,7 +536,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(157),
         calculate_octet_mul_low_table_inner(158),
         calculate_octet_mul_low_table_inner(159),
-
         calculate_octet_mul_low_table_inner(160),
         calculate_octet_mul_low_table_inner(161),
         calculate_octet_mul_low_table_inner(162),
@@ -594,7 +546,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(167),
         calculate_octet_mul_low_table_inner(168),
         calculate_octet_mul_low_table_inner(169),
-
         calculate_octet_mul_low_table_inner(170),
         calculate_octet_mul_low_table_inner(171),
         calculate_octet_mul_low_table_inner(172),
@@ -605,7 +556,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(177),
         calculate_octet_mul_low_table_inner(178),
         calculate_octet_mul_low_table_inner(179),
-
         calculate_octet_mul_low_table_inner(180),
         calculate_octet_mul_low_table_inner(181),
         calculate_octet_mul_low_table_inner(182),
@@ -616,7 +566,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(187),
         calculate_octet_mul_low_table_inner(188),
         calculate_octet_mul_low_table_inner(189),
-
         calculate_octet_mul_low_table_inner(190),
         calculate_octet_mul_low_table_inner(191),
         calculate_octet_mul_low_table_inner(192),
@@ -627,7 +576,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(197),
         calculate_octet_mul_low_table_inner(198),
         calculate_octet_mul_low_table_inner(199),
-
         calculate_octet_mul_low_table_inner(200),
         calculate_octet_mul_low_table_inner(201),
         calculate_octet_mul_low_table_inner(202),
@@ -638,7 +586,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(207),
         calculate_octet_mul_low_table_inner(208),
         calculate_octet_mul_low_table_inner(209),
-
         calculate_octet_mul_low_table_inner(210),
         calculate_octet_mul_low_table_inner(211),
         calculate_octet_mul_low_table_inner(212),
@@ -649,7 +596,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(217),
         calculate_octet_mul_low_table_inner(218),
         calculate_octet_mul_low_table_inner(219),
-
         calculate_octet_mul_low_table_inner(220),
         calculate_octet_mul_low_table_inner(221),
         calculate_octet_mul_low_table_inner(222),
@@ -660,7 +606,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(227),
         calculate_octet_mul_low_table_inner(228),
         calculate_octet_mul_low_table_inner(229),
-
         calculate_octet_mul_low_table_inner(230),
         calculate_octet_mul_low_table_inner(231),
         calculate_octet_mul_low_table_inner(232),
@@ -671,7 +616,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(237),
         calculate_octet_mul_low_table_inner(238),
         calculate_octet_mul_low_table_inner(239),
-
         calculate_octet_mul_low_table_inner(240),
         calculate_octet_mul_low_table_inner(241),
         calculate_octet_mul_low_table_inner(242),
@@ -682,7 +626,6 @@ const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
         calculate_octet_mul_low_table_inner(247),
         calculate_octet_mul_low_table_inner(248),
         calculate_octet_mul_low_table_inner(249),
-
         calculate_octet_mul_low_table_inner(250),
         calculate_octet_mul_low_table_inner(251),
         calculate_octet_mul_low_table_inner(252),
@@ -698,42 +641,35 @@ const fn calculate_octet_mul_low_table_inner(x: usize) -> [u8; 32] {
         const_mul(x, 1),
         const_mul(x, 2),
         const_mul(x, 3),
-
         const_mul(x, 4),
         const_mul(x, 5),
         const_mul(x, 6),
         const_mul(x, 7),
-
         const_mul(x, 8),
         const_mul(x, 9),
         const_mul(x, 10),
         const_mul(x, 11),
-
         const_mul(x, 12),
         const_mul(x, 13),
         const_mul(x, 14),
         const_mul(x, 15),
-
         0,
         const_mul(x, 1),
         const_mul(x, 2),
         const_mul(x, 3),
-
         const_mul(x, 4),
         const_mul(x, 5),
         const_mul(x, 6),
         const_mul(x, 7),
-
         const_mul(x, 8),
         const_mul(x, 9),
         const_mul(x, 10),
         const_mul(x, 11),
-
         const_mul(x, 12),
         const_mul(x, 13),
         const_mul(x, 14),
         const_mul(x, 15),
-    ]
+    ];
 }
 
 const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
@@ -748,7 +684,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(7),
         calculate_octet_mul_table_inner(8),
         calculate_octet_mul_table_inner(9),
-
         calculate_octet_mul_table_inner(10),
         calculate_octet_mul_table_inner(11),
         calculate_octet_mul_table_inner(12),
@@ -759,7 +694,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(17),
         calculate_octet_mul_table_inner(18),
         calculate_octet_mul_table_inner(19),
-
         calculate_octet_mul_table_inner(20),
         calculate_octet_mul_table_inner(21),
         calculate_octet_mul_table_inner(22),
@@ -770,7 +704,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(27),
         calculate_octet_mul_table_inner(28),
         calculate_octet_mul_table_inner(29),
-
         calculate_octet_mul_table_inner(30),
         calculate_octet_mul_table_inner(31),
         calculate_octet_mul_table_inner(32),
@@ -781,7 +714,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(37),
         calculate_octet_mul_table_inner(38),
         calculate_octet_mul_table_inner(39),
-
         calculate_octet_mul_table_inner(40),
         calculate_octet_mul_table_inner(41),
         calculate_octet_mul_table_inner(42),
@@ -792,7 +724,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(47),
         calculate_octet_mul_table_inner(48),
         calculate_octet_mul_table_inner(49),
-
         calculate_octet_mul_table_inner(50),
         calculate_octet_mul_table_inner(51),
         calculate_octet_mul_table_inner(52),
@@ -803,7 +734,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(57),
         calculate_octet_mul_table_inner(58),
         calculate_octet_mul_table_inner(59),
-
         calculate_octet_mul_table_inner(60),
         calculate_octet_mul_table_inner(61),
         calculate_octet_mul_table_inner(62),
@@ -814,7 +744,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(67),
         calculate_octet_mul_table_inner(68),
         calculate_octet_mul_table_inner(69),
-
         calculate_octet_mul_table_inner(70),
         calculate_octet_mul_table_inner(71),
         calculate_octet_mul_table_inner(72),
@@ -825,7 +754,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(77),
         calculate_octet_mul_table_inner(78),
         calculate_octet_mul_table_inner(79),
-
         calculate_octet_mul_table_inner(80),
         calculate_octet_mul_table_inner(81),
         calculate_octet_mul_table_inner(82),
@@ -836,7 +764,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(87),
         calculate_octet_mul_table_inner(88),
         calculate_octet_mul_table_inner(89),
-
         calculate_octet_mul_table_inner(90),
         calculate_octet_mul_table_inner(91),
         calculate_octet_mul_table_inner(92),
@@ -847,7 +774,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(97),
         calculate_octet_mul_table_inner(98),
         calculate_octet_mul_table_inner(99),
-
         calculate_octet_mul_table_inner(100),
         calculate_octet_mul_table_inner(101),
         calculate_octet_mul_table_inner(102),
@@ -858,7 +784,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(107),
         calculate_octet_mul_table_inner(108),
         calculate_octet_mul_table_inner(109),
-
         calculate_octet_mul_table_inner(110),
         calculate_octet_mul_table_inner(111),
         calculate_octet_mul_table_inner(112),
@@ -869,7 +794,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(117),
         calculate_octet_mul_table_inner(118),
         calculate_octet_mul_table_inner(119),
-
         calculate_octet_mul_table_inner(120),
         calculate_octet_mul_table_inner(121),
         calculate_octet_mul_table_inner(122),
@@ -880,7 +804,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(127),
         calculate_octet_mul_table_inner(128),
         calculate_octet_mul_table_inner(129),
-
         calculate_octet_mul_table_inner(130),
         calculate_octet_mul_table_inner(131),
         calculate_octet_mul_table_inner(132),
@@ -891,7 +814,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(137),
         calculate_octet_mul_table_inner(138),
         calculate_octet_mul_table_inner(139),
-
         calculate_octet_mul_table_inner(140),
         calculate_octet_mul_table_inner(141),
         calculate_octet_mul_table_inner(142),
@@ -902,7 +824,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(147),
         calculate_octet_mul_table_inner(148),
         calculate_octet_mul_table_inner(149),
-
         calculate_octet_mul_table_inner(150),
         calculate_octet_mul_table_inner(151),
         calculate_octet_mul_table_inner(152),
@@ -913,7 +834,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(157),
         calculate_octet_mul_table_inner(158),
         calculate_octet_mul_table_inner(159),
-
         calculate_octet_mul_table_inner(160),
         calculate_octet_mul_table_inner(161),
         calculate_octet_mul_table_inner(162),
@@ -924,7 +844,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(167),
         calculate_octet_mul_table_inner(168),
         calculate_octet_mul_table_inner(169),
-
         calculate_octet_mul_table_inner(170),
         calculate_octet_mul_table_inner(171),
         calculate_octet_mul_table_inner(172),
@@ -935,7 +854,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(177),
         calculate_octet_mul_table_inner(178),
         calculate_octet_mul_table_inner(179),
-
         calculate_octet_mul_table_inner(180),
         calculate_octet_mul_table_inner(181),
         calculate_octet_mul_table_inner(182),
@@ -946,7 +864,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(187),
         calculate_octet_mul_table_inner(188),
         calculate_octet_mul_table_inner(189),
-
         calculate_octet_mul_table_inner(190),
         calculate_octet_mul_table_inner(191),
         calculate_octet_mul_table_inner(192),
@@ -957,7 +874,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(197),
         calculate_octet_mul_table_inner(198),
         calculate_octet_mul_table_inner(199),
-
         calculate_octet_mul_table_inner(200),
         calculate_octet_mul_table_inner(201),
         calculate_octet_mul_table_inner(202),
@@ -968,7 +884,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(207),
         calculate_octet_mul_table_inner(208),
         calculate_octet_mul_table_inner(209),
-
         calculate_octet_mul_table_inner(210),
         calculate_octet_mul_table_inner(211),
         calculate_octet_mul_table_inner(212),
@@ -979,7 +894,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(217),
         calculate_octet_mul_table_inner(218),
         calculate_octet_mul_table_inner(219),
-
         calculate_octet_mul_table_inner(220),
         calculate_octet_mul_table_inner(221),
         calculate_octet_mul_table_inner(222),
@@ -990,7 +904,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(227),
         calculate_octet_mul_table_inner(228),
         calculate_octet_mul_table_inner(229),
-
         calculate_octet_mul_table_inner(230),
         calculate_octet_mul_table_inner(231),
         calculate_octet_mul_table_inner(232),
@@ -1001,7 +914,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(237),
         calculate_octet_mul_table_inner(238),
         calculate_octet_mul_table_inner(239),
-
         calculate_octet_mul_table_inner(240),
         calculate_octet_mul_table_inner(241),
         calculate_octet_mul_table_inner(242),
@@ -1012,7 +924,6 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
         calculate_octet_mul_table_inner(247),
         calculate_octet_mul_table_inner(248),
         calculate_octet_mul_table_inner(249),
-
         calculate_octet_mul_table_inner(250),
         calculate_octet_mul_table_inner(251),
         calculate_octet_mul_table_inner(252),
@@ -1034,7 +945,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 7),
         const_mul(x, 8),
         const_mul(x, 9),
-
         const_mul(x, 10),
         const_mul(x, 11),
         const_mul(x, 12),
@@ -1045,7 +955,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 17),
         const_mul(x, 18),
         const_mul(x, 19),
-
         const_mul(x, 20),
         const_mul(x, 21),
         const_mul(x, 22),
@@ -1056,7 +965,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 27),
         const_mul(x, 28),
         const_mul(x, 29),
-
         const_mul(x, 30),
         const_mul(x, 31),
         const_mul(x, 32),
@@ -1067,7 +975,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 37),
         const_mul(x, 38),
         const_mul(x, 39),
-
         const_mul(x, 40),
         const_mul(x, 41),
         const_mul(x, 42),
@@ -1078,7 +985,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 47),
         const_mul(x, 48),
         const_mul(x, 49),
-
         const_mul(x, 50),
         const_mul(x, 51),
         const_mul(x, 52),
@@ -1089,7 +995,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 57),
         const_mul(x, 58),
         const_mul(x, 59),
-
         const_mul(x, 60),
         const_mul(x, 61),
         const_mul(x, 62),
@@ -1100,7 +1005,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 67),
         const_mul(x, 68),
         const_mul(x, 69),
-
         const_mul(x, 70),
         const_mul(x, 71),
         const_mul(x, 72),
@@ -1111,7 +1015,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 77),
         const_mul(x, 78),
         const_mul(x, 79),
-
         const_mul(x, 80),
         const_mul(x, 81),
         const_mul(x, 82),
@@ -1122,7 +1025,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 87),
         const_mul(x, 88),
         const_mul(x, 89),
-
         const_mul(x, 90),
         const_mul(x, 91),
         const_mul(x, 92),
@@ -1133,7 +1035,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 97),
         const_mul(x, 98),
         const_mul(x, 99),
-
         const_mul(x, 100),
         const_mul(x, 101),
         const_mul(x, 102),
@@ -1144,7 +1045,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 107),
         const_mul(x, 108),
         const_mul(x, 109),
-
         const_mul(x, 110),
         const_mul(x, 111),
         const_mul(x, 112),
@@ -1155,7 +1055,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 117),
         const_mul(x, 118),
         const_mul(x, 119),
-
         const_mul(x, 120),
         const_mul(x, 121),
         const_mul(x, 122),
@@ -1166,7 +1065,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 127),
         const_mul(x, 128),
         const_mul(x, 129),
-
         const_mul(x, 130),
         const_mul(x, 131),
         const_mul(x, 132),
@@ -1177,7 +1075,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 137),
         const_mul(x, 138),
         const_mul(x, 139),
-
         const_mul(x, 140),
         const_mul(x, 141),
         const_mul(x, 142),
@@ -1188,7 +1085,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 147),
         const_mul(x, 148),
         const_mul(x, 149),
-
         const_mul(x, 150),
         const_mul(x, 151),
         const_mul(x, 152),
@@ -1199,7 +1095,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 157),
         const_mul(x, 158),
         const_mul(x, 159),
-
         const_mul(x, 160),
         const_mul(x, 161),
         const_mul(x, 162),
@@ -1210,7 +1105,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 167),
         const_mul(x, 168),
         const_mul(x, 169),
-
         const_mul(x, 170),
         const_mul(x, 171),
         const_mul(x, 172),
@@ -1221,7 +1115,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 177),
         const_mul(x, 178),
         const_mul(x, 179),
-
         const_mul(x, 180),
         const_mul(x, 181),
         const_mul(x, 182),
@@ -1232,7 +1125,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 187),
         const_mul(x, 188),
         const_mul(x, 189),
-
         const_mul(x, 190),
         const_mul(x, 191),
         const_mul(x, 192),
@@ -1243,7 +1135,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 197),
         const_mul(x, 198),
         const_mul(x, 199),
-
         const_mul(x, 200),
         const_mul(x, 201),
         const_mul(x, 202),
@@ -1254,7 +1145,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 207),
         const_mul(x, 208),
         const_mul(x, 209),
-
         const_mul(x, 210),
         const_mul(x, 211),
         const_mul(x, 212),
@@ -1265,7 +1155,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 217),
         const_mul(x, 218),
         const_mul(x, 219),
-
         const_mul(x, 220),
         const_mul(x, 221),
         const_mul(x, 222),
@@ -1276,7 +1165,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 227),
         const_mul(x, 228),
         const_mul(x, 229),
-
         const_mul(x, 230),
         const_mul(x, 231),
         const_mul(x, 232),
@@ -1287,7 +1175,6 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 237),
         const_mul(x, 238),
         const_mul(x, 239),
-
         const_mul(x, 240),
         const_mul(x, 241),
         const_mul(x, 242),
@@ -1298,43 +1185,36 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
         const_mul(x, 247),
         const_mul(x, 248),
         const_mul(x, 249),
-
         const_mul(x, 250),
         const_mul(x, 251),
         const_mul(x, 252),
         const_mul(x, 253),
         const_mul(x, 254),
         const_mul(x, 255),
-    ]
+    ];
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Octet {
-    value: u8
+    value: u8,
 }
 
 impl Octet {
     pub fn new(value: u8) -> Octet {
-        Octet {
-            value
-        }
+        Octet { value }
     }
 
     pub fn zero() -> Octet {
-        Octet {
-            value: 0
-        }
+        Octet { value: 0 }
     }
 
     pub fn one() -> Octet {
-        Octet {
-            value: 1
-        }
+        Octet { value: 1 }
     }
 
     pub fn alpha(i: u8) -> Octet {
         Octet {
-            value: OCT_EXP[i as usize]
+            value: OCT_EXP[i as usize],
         }
     }
 
@@ -1361,7 +1241,7 @@ impl Add for Octet {
     fn add(self, other: Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
-            value: self.value ^ other.value
+            value: self.value ^ other.value,
         }
     }
 }
@@ -1372,7 +1252,7 @@ impl<'a, 'b> Add<&'b Octet> for &'a Octet {
     fn add(self, other: &'b Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
-            value: self.value ^ other.value
+            value: self.value ^ other.value,
         }
     }
 }
@@ -1395,7 +1275,7 @@ impl Sub for Octet {
     fn sub(self, rhs: Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, subtraction on octets is implemented as bitxor
-            value: self.value ^ rhs.value
+            value: self.value ^ rhs.value,
         }
     }
 }
@@ -1414,18 +1294,15 @@ impl<'a, 'b> Mul<&'b Octet> for &'a Octet {
     fn mul(self, other: &'b Octet) -> Octet {
         // As defined in section 5.7.2, multiplication is implemented via the tables above
         if self.value == 0 || other.value == 0 {
-            Octet {
-                value: 0
-            }
-        }
-        else {
+            Octet { value: 0 }
+        } else {
             unsafe {
                 // This is safe because value is a u8, and OCT_LOG is 256 elements long
                 let log_u = *OCT_LOG.get_unchecked(self.value as usize) as usize;
                 let log_v = *OCT_LOG.get_unchecked(other.value as usize) as usize;
                 // This is safe because the sum of two values in OCT_LOG cannot exceed 509
                 Octet {
-                    value: *OCT_EXP.get_unchecked(log_u + log_v)
+                    value: *OCT_EXP.get_unchecked(log_u + log_v),
                 }
             }
         }
@@ -1447,15 +1324,12 @@ impl<'a, 'b> Div<&'b Octet> for &'a Octet {
         assert_ne!(0, rhs.value);
         // As defined in section 5.7.2, division is implemented via the tables above
         if self.value == 0 {
-            Octet {
-                value: 0
-            }
-        }
-        else {
+            Octet { value: 0 }
+        } else {
             let log_u = OCT_LOG[self.value as usize] as usize;
             let log_v = OCT_LOG[rhs.value as usize] as usize;
             Octet {
-                value: OCT_EXP[255 + log_u - log_v]
+                value: OCT_EXP[255 + log_u - log_v],
             }
         }
     }
@@ -1466,10 +1340,10 @@ mod tests {
     use rand::Rng;
 
     use crate::octet::Octet;
-    use crate::octet::OCT_LOG;
-    use crate::octet::OCT_EXP;
-    use crate::octet::OCTET_MUL_LOW_BITS;
     use crate::octet::OCTET_MUL_HI_BITS;
+    use crate::octet::OCTET_MUL_LOW_BITS;
+    use crate::octet::OCT_EXP;
+    use crate::octet::OCT_LOG;
 
     #[test]
     fn multiplication_tables() {
@@ -1486,7 +1360,7 @@ mod tests {
     #[test]
     fn addition() {
         let octet = Octet {
-            value: rand::thread_rng().gen()
+            value: rand::thread_rng().gen(),
         };
         // See section 5.7.2. u is its own additive inverse
         assert_eq!(Octet::zero(), &octet + &octet);
@@ -1495,7 +1369,7 @@ mod tests {
     #[test]
     fn multiplication_identity() {
         let octet = Octet {
-            value: rand::thread_rng().gen()
+            value: rand::thread_rng().gen(),
         };
         assert_eq!(octet, &octet * &Octet::one());
     }
@@ -1503,7 +1377,7 @@ mod tests {
     #[test]
     fn multiplicative_inverse() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1, 255)
+            value: rand::thread_rng().gen_range(1, 255),
         };
         let one = Octet::one();
         assert_eq!(one, &octet * &(&one / &octet));
@@ -1512,7 +1386,7 @@ mod tests {
     #[test]
     fn division() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1, 255)
+            value: rand::thread_rng().gen_range(1, 255),
         };
         assert_eq!(Octet::one(), &octet / &octet);
     }
@@ -1520,7 +1394,7 @@ mod tests {
     #[test]
     fn unsafe_mul_gaurantees() {
         let max_value = *OCT_LOG.iter().max().unwrap() as usize;
-        assert!(2*max_value < OCT_EXP.len());
+        assert!(2 * max_value < OCT_EXP.len());
     }
 
     #[test]

@@ -1,9 +1,8 @@
 use rand::Rng;
 use raptorq::SourceBlockEncoder;
 
-
 fn main() {
-    let elements = 10*1024;
+    let elements = 10 * 1024;
     let symbol_size = 512;
     let mut data: Vec<u8> = vec![0; elements];
     for i in 0..elements {

@@ -1,5 +1,5 @@
-use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::arraymap::UsizeArrayMap;
+use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
 use crate::octets::count_ones_and_nonzeros;
@@ -19,13 +19,17 @@ struct FirstPhaseRowSelectionStats {
     hdpc_rows: Vec<bool>,
     start_col: usize,
     end_col: usize,
-    start_row: usize
+    start_row: usize,
 }
 
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new(matrix: &OctetMatrix, end_col: usize, num_source_symbols: u32) -> FirstPhaseRowSelectionStats {
+    pub fn new(
+        matrix: &OctetMatrix,
+        end_col: usize,
+        num_source_symbols: u32,
+    ) -> FirstPhaseRowSelectionStats {
         let S = num_ldpc_symbols(num_source_symbols);
         let H = num_hdpc_symbols(num_source_symbols);
 
@@ -43,7 +47,7 @@ impl FirstPhaseRowSelectionStats {
             hdpc_rows,
             start_col: 0,
             end_col,
-            start_row: 0
+            start_row: 0,
         };
 
         for row in 0..matrix.height() {
@@ -67,8 +71,10 @@ impl FirstPhaseRowSelectionStats {
 
     // Recompute all stored statistics for the given row
     pub fn recompute_row(&mut self, row: usize, matrix: &OctetMatrix) {
-        let (ones, non_zero) = count_ones_and_nonzeros(&matrix.get_row(row)[self.start_col..self.end_col]);
-        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(row));
+        let (ones, non_zero) =
+            count_ones_and_nonzeros(&matrix.get_row(row)[self.start_col..self.end_col]);
+        self.non_zeros_histogram
+            .decrement(self.non_zeros_per_row.get(row));
         self.non_zeros_histogram.increment(non_zero);
         self.non_zeros_per_row.insert(row, non_zero);
         self.ones_per_row.insert(row, ones);
@@ -87,13 +93,21 @@ impl FirstPhaseRowSelectionStats {
 
     // Set the valid columns, and recalculate statistics
     #[inline(never)]
-    pub fn resize(&mut self, start_row: usize, end_row: usize, start_col: usize, end_col: usize, matrix: &OctetMatrix) {
+    pub fn resize(
+        &mut self,
+        start_row: usize,
+        end_row: usize,
+        start_col: usize,
+        end_col: usize,
+        matrix: &OctetMatrix,
+    ) {
         // Only shrinking is supported
         assert!(start_col > self.start_col);
         assert!(end_col <= self.end_col);
         assert_eq!(self.start_row, start_row - 1);
 
-        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(self.start_row));
+        self.non_zeros_histogram
+            .decrement(self.non_zeros_per_row.get(self.start_row));
 
         for row in start_row..end_row {
             for col in self.start_col..start_col {
@@ -127,7 +141,11 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep_build_adjacency(&self, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> ArrayMap<Vec<(usize, usize)>> {
+    fn first_phase_graph_substep_build_adjacency(
+        &self,
+        rows_with_two_ones: &Vec<usize>,
+        matrix: &OctetMatrix,
+    ) -> ArrayMap<Vec<(usize, usize)>> {
         let mut adjacent_nodes = ArrayMap::new(self.start_col, self.end_col);
 
         for row in rows_with_two_ones.iter() {
@@ -157,8 +175,7 @@ impl FirstPhaseRowSelectionStats {
                 let mut new_nodes = Vec::with_capacity(10);
                 new_nodes.push((ones[1], *row));
                 adjacent_nodes.insert(ones[0], new_nodes);
-            }
-            else {
+            } else {
                 first.unwrap().push((ones[1], *row));
             }
             let second = adjacent_nodes.get_mut(ones[1]);
@@ -166,8 +183,7 @@ impl FirstPhaseRowSelectionStats {
                 let mut new_nodes = Vec::with_capacity(10);
                 new_nodes.push((ones[0], *row));
                 adjacent_nodes.insert(ones[1], new_nodes);
-            }
-            else {
+            } else {
                 second.unwrap().push((ones[0], *row));
             }
         }
@@ -176,8 +192,15 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>, matrix: &OctetMatrix) -> usize {
-        let adjacent_nodes = self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
+    fn first_phase_graph_substep(
+        &self,
+        start_row: usize,
+        end_row: usize,
+        rows_with_two_ones: &Vec<usize>,
+        matrix: &OctetMatrix,
+    ) -> usize {
+        let adjacent_nodes =
+            self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
         let mut visited = BoolArrayMap::new(start_row, end_row);
 
         let mut examplar_largest_component_row = None;
@@ -214,7 +237,12 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_original_degree_substep(&self, start_row: usize, end_row: usize, r: usize) -> usize {
+    fn first_phase_original_degree_substep(
+        &self,
+        start_row: usize,
+        end_row: usize,
+        r: usize,
+    ) -> usize {
         let mut chosen_hdpc = None;
         let mut chosen_hdpc_original_degree = std::usize::MAX;
         let mut chosen_non_hdpc = None;
@@ -228,8 +256,7 @@ impl FirstPhaseRowSelectionStats {
                         chosen_hdpc = Some(row);
                         chosen_hdpc_original_degree = row_original_degree;
                     }
-                }
-                else if row_original_degree < chosen_non_hdpc_original_degree {
+                } else if row_original_degree < chosen_non_hdpc_original_degree {
                     chosen_non_hdpc = Some(row);
                     chosen_non_hdpc_original_degree = row_original_degree;
                 }
@@ -237,8 +264,7 @@ impl FirstPhaseRowSelectionStats {
         }
         if chosen_non_hdpc != None {
             return chosen_non_hdpc.unwrap();
-        }
-        else {
+        } else {
             return chosen_hdpc.unwrap();
         }
     }
@@ -246,7 +272,12 @@ impl FirstPhaseRowSelectionStats {
     // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
     #[inline(never)]
     #[cfg(debug_assertions)]
-    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize, rows_with_two_ones: &Vec<usize>) {
+    fn first_phase_graph_substep_verify(
+        &self,
+        start_row: usize,
+        end_row: usize,
+        rows_with_two_ones: &Vec<usize>,
+    ) {
         for row in start_row..end_row {
             if self.non_zeros_per_row.get(row) == 2 {
                 assert!(rows_with_two_ones.contains(&row) || self.hdpc_rows[row]);
@@ -257,7 +288,12 @@ impl FirstPhaseRowSelectionStats {
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has)
-    pub fn first_phase_selection(&self, start_row: usize, end_row: usize, matrix: &OctetMatrix) -> (Option<usize>, Option<usize>) {
+    pub fn first_phase_selection(
+        &self,
+        start_row: usize,
+        end_row: usize,
+        matrix: &OctetMatrix,
+    ) -> (Option<usize>, Option<usize>) {
         let mut r = None;
         for i in 1..(self.end_col - self.start_col + 1) {
             if self.non_zeros_histogram.get(i) > 0 {
@@ -288,15 +324,24 @@ impl FirstPhaseRowSelectionStats {
             if rows_with_two_ones.len() > 0 {
                 #[cfg(debug_assertions)]
                 self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
-                return (Some(self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix)), r);
-            }
-            else {
+                return (
+                    Some(self.first_phase_graph_substep(
+                        start_row,
+                        end_row,
+                        &rows_with_two_ones,
+                        matrix,
+                    )),
+                    r,
+                );
+            } else {
                 // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
                 return (row_with_two_greater_than_one, r);
             }
-        }
-        else {
-            return (Some(self.first_phase_original_degree_substep(start_row, end_row, r.unwrap())), r);
+        } else {
+            return (
+                Some(self.first_phase_original_degree_substep(start_row, end_row, r.unwrap())),
+                r,
+            );
         }
     }
 }
@@ -316,11 +361,15 @@ pub struct IntermediateSymbolDecoder {
     debug_symbol_mul_ops: u32,
     debug_symbol_add_ops: u32,
     debug_symbol_mul_ops_by_phase: Vec<u32>,
-    debug_symbol_add_ops_by_phase: Vec<u32>
+    debug_symbol_add_ops_by_phase: Vec<u32>,
 }
 
 impl IntermediateSymbolDecoder {
-    pub fn new(matrix: OctetMatrix, symbols: Vec<Symbol>, num_source_symbols: u32) -> IntermediateSymbolDecoder {
+    pub fn new(
+        matrix: OctetMatrix,
+        symbols: Vec<Symbol>,
+        num_source_symbols: u32,
+    ) -> IntermediateSymbolDecoder {
         assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
         let mut c = Vec::with_capacity(matrix.width());
@@ -345,14 +394,20 @@ impl IntermediateSymbolDecoder {
             debug_symbol_mul_ops: 0,
             debug_symbol_add_ops: 0,
             debug_symbol_mul_ops_by_phase: vec![0; 5],
-            debug_symbol_add_ops_by_phase: vec![0; 5]
+            debug_symbol_add_ops_by_phase: vec![0; 5],
         }
     }
 
     // Returns true iff all elements in A between [start_row, end_row)
     // and [start_column, end_column) are zero
     #[cfg(debug_assertions)]
-    fn all_zeroes(&self, start_row: usize, end_row: usize, start_column: usize, end_column: usize) -> bool {
+    fn all_zeroes(
+        &self,
+        start_row: usize,
+        end_row: usize,
+        start_column: usize,
+        end_column: usize,
+    ) -> bool {
         for row in start_row..end_row {
             for column in start_column..end_column {
                 if self.A.get(row, column) != Octet::zero() {
@@ -372,8 +427,7 @@ impl IntermediateSymbolDecoder {
                 let dest;
                 if swapped_columns == 0 {
                     dest = self.i;
-                }
-                else {
+                } else {
                     dest = self.A.width() - self.u - swapped_columns;
                 }
                 // No need to swap the first i rows, as they are all zero (see submatrix above V)
@@ -408,13 +462,18 @@ impl IntermediateSymbolDecoder {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
-        let mut selection_helper = FirstPhaseRowSelectionStats::new(&self.A, self.A.width() - self.u, self.num_source_symbols);
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(
+            &self.A,
+            self.A.width() - self.u,
+            self.num_source_symbols,
+        );
 
         while self.i + self.u < self.L {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let (chosen_row, r) = selection_helper.first_phase_selection(self.i, self.A.height(), &self.A);
+            let (chosen_row, r) =
+                selection_helper.first_phase_selection(self.i, self.A.height(), &self.A);
 
             if r == None {
                 return false;
@@ -442,8 +501,7 @@ impl IntermediateSymbolDecoder {
                         // Hot path for r == 1, since it's very common due to maximum connected
                         // component selection, and recompute_row() is expensive
                         selection_helper.eliminate_leading_value(row, &leading_value);
-                    }
-                    else {
+                    } else {
                         selection_helper.recompute_row(row, &self.A);
                     }
                 }
@@ -451,7 +509,13 @@ impl IntermediateSymbolDecoder {
 
             self.i += 1;
             self.u += r - 1;
-            selection_helper.resize(self.i, self.A.height(), self.i, self.A.width() - self.u, &self.A);
+            selection_helper.resize(
+                self.i,
+                self.A.height(),
+                self.i,
+                self.A.width() - self.u,
+                &self.A,
+            );
             #[cfg(debug_assertions)]
             self.first_phase_verify();
         }
@@ -468,8 +532,7 @@ impl IntermediateSymbolDecoder {
             for col in 0..self.i {
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
-                }
-                else {
+                } else {
                     assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
@@ -540,8 +603,7 @@ impl IntermediateSymbolDecoder {
                     self.debug_symbol_add_ops += 1;
                     let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
                     *dest += temp;
-                }
-                else {
+                } else {
                     self.debug_symbol_mul_ops += 1;
                     self.debug_symbol_add_ops += 1;
                     let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
@@ -568,8 +630,7 @@ impl IntermediateSymbolDecoder {
                 // The rest of A should be identity matrix
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
-                }
-                else {
+                } else {
                     assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
@@ -629,8 +690,7 @@ impl IntermediateSymbolDecoder {
             for col in (self.A.width() - self.u)..self.A.width() {
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
-                }
-                else {
+                } else {
                     assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
@@ -673,8 +733,7 @@ impl IntermediateSymbolDecoder {
             for col in 0..self.A.width() {
                 if row == col {
                     assert_eq!(Octet::one(), self.A.get(row, col));
-                }
-                else {
+                } else {
                     assert_eq!(Octet::zero(), self.A.get(row, col));
                 }
             }
@@ -774,8 +833,7 @@ impl IntermediateSymbolDecoder {
             self.debug_symbol_add_ops += 1;
             let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
             *dest += temp;
-        }
-        else {
+        } else {
             self.debug_symbol_add_ops += 1;
             self.debug_symbol_mul_ops += 1;
             let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
@@ -797,7 +855,7 @@ impl IntermediateSymbolDecoder {
     #[inline(never)]
     pub fn execute(&mut self) -> Option<Vec<Symbol>> {
         if !self.first_phase() {
-            return None
+            return None;
         }
 
         if !self.second_phase() {
@@ -824,7 +882,11 @@ impl IntermediateSymbolDecoder {
 
 // Fused implementation for self.inverse().mul_symbols(symbols)
 // See section 5.4.2.1
-pub fn fused_inverse_mul_symbols(matrix: OctetMatrix, symbols: Vec<Symbol>, num_source_symbols: u32) -> Option<Vec<Symbol>> {
+pub fn fused_inverse_mul_symbols(
+    matrix: OctetMatrix,
+    symbols: Vec<Symbol>,
+    num_source_symbols: u32,
+) -> Option<Vec<Symbol>> {
     IntermediateSymbolDecoder::new(matrix, symbols, num_source_symbols).execute()
 }
 
@@ -837,15 +899,25 @@ mod tests {
 
     #[test]
     fn operations_per_symbol() {
-        for &(elements, expected_mul_ops, expected_add_ops) in [(10, 35.0, 50.0), (100, 16.0, 35.0)].iter() {
+        for &(elements, expected_mul_ops, expected_add_ops) in
+            [(10, 35.0, 50.0), (100, 16.0, 35.0)].iter()
+        {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
             let a = generate_constraint_matrix(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();
-            assert!((decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < expected_mul_ops, "mul ops per symbol = {}", (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64));
-            assert!((decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < expected_add_ops, "add ops per symbol = {}", (decoder.get_symbol_add_ops() as f64 / num_symbols as f64));
+            assert!(
+                (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < expected_mul_ops,
+                "mul ops per symbol = {}",
+                (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64)
+            );
+            assert!(
+                (decoder.get_symbol_add_ops() as f64 / num_symbols as f64) < expected_add_ops,
+                "add ops per symbol = {}",
+                (decoder.get_symbol_add_ops() as f64 / num_symbols as f64)
+            );
         }
     }
 }
