@@ -51,7 +51,7 @@ impl Decoder {
     }
 
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        let block_number = packet.payload_id().source_block_number() as usize;
+        let block_number = packet.payload_id.source_block_number() as usize;
         if self.blocks[block_number].is_none() {
             self.blocks[block_number] = self.block_decoders[block_number].decode(packet);
         }
@@ -103,22 +103,22 @@ impl SourceBlockDecoder {
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         assert_eq!(
             self.source_block_id,
-            packet.payload_id().source_block_number()
+            packet.payload_id.source_block_number()
         );
+
+        let (payload_id, payload) = packet.split();
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        if self
-            .received_esi
-            .insert(packet.payload_id().encoding_symbol_id())
-        {
-            if packet.payload_id().encoding_symbol_id() >= num_extended_symbols {
+        if self.received_esi.insert(payload_id.encoding_symbol_id()) {
+            if payload_id.encoding_symbol_id() >= num_extended_symbols {
                 // Repair symbol
-                self.repair_packets.push(packet);
+                self.repair_packets
+                    .push(EncodingPacket::new(payload_id, payload));
             } else {
                 // Check that this is not an extended symbol (which aren't explicitly sent)
-                assert!(packet.payload_id().encoding_symbol_id() < self.source_block_symbols);
+                assert!(payload_id.encoding_symbol_id() < self.source_block_symbols);
                 // Source symbol
-                self.source_symbols[packet.payload_id().encoding_symbol_id() as usize] =
-                    Some(Symbol::new(packet.data().clone()));
+                self.source_symbols[payload_id.encoding_symbol_id() as usize] =
+                    Some(Symbol::new(payload));
                 self.received_source_symbols += 1;
             }
         }
@@ -141,11 +141,10 @@ impl SourceBlockDecoder {
             let mut encoded_indices = vec![];
             // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
             let mut d = vec![Symbol::zero(self.symbol_size as usize); s + h];
-            for i in 0..self.source_symbols.len() {
-                let symbol = self.source_symbols[i].clone();
-                if symbol != None {
+            for (i, source) in self.source_symbols.iter().enumerate() {
+                if let Some(symbol) = source {
                     encoded_indices.push(i as u32);
-                    d.push(symbol.unwrap());
+                    d.push(symbol.clone());
                 }
             }
 
@@ -156,8 +155,8 @@ impl SourceBlockDecoder {
             }
 
             for repair_packet in self.repair_packets.iter() {
-                encoded_indices.push(repair_packet.payload_id().encoding_symbol_id());
-                d.push(Symbol::new(repair_packet.data().clone()));
+                encoded_indices.push(repair_packet.payload_id.encoding_symbol_id());
+                d.push(Symbol::new(repair_packet.data.clone()));
             }
 
             let constraint_matrix =
@@ -172,8 +171,8 @@ impl SourceBlockDecoder {
 
             let mut result = vec![];
             for i in 0..self.source_block_symbols as usize {
-                if self.source_symbols[i] != None {
-                    result.extend(self.source_symbols[i].clone().unwrap().bytes())
+                if let Some(ref symbol) = self.source_symbols[i] {
+                    result.extend(symbol.bytes())
                 } else {
                     let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
                     result.extend(rebuilt.bytes());

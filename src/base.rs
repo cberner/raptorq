@@ -48,11 +48,13 @@ impl PayloadId {
     }
 }
 
-// As defined in section 4.4.2
+/// Contains encoding symbols generated from a source block.
+///
+/// As defined in section [4.4.2](https://tools.ietf.org/html/rfc6330#section-4.4.2).
 #[derive(Clone, Debug, PartialEq)]
 pub struct EncodingPacket {
-    payload_id: PayloadId,
-    data: Vec<u8>,
+    pub(crate) payload_id: PayloadId,
+    pub(crate) data: Vec<u8>,
 }
 
 impl EncodingPacket {
@@ -75,12 +77,19 @@ impl EncodingPacket {
         return serialized;
     }
 
-    pub fn payload_id(&self) -> PayloadId {
-        self.payload_id.clone()
+    /// Retrieves packet payload ID.
+    pub fn payload_id(&self) -> &PayloadId {
+        &self.payload_id
     }
 
-    pub fn data(&self) -> &Vec<u8> {
+    /// Retrieves packet payload.
+    pub fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// Split a packet into its underlying ID and payload.
+    pub fn split(self) -> (PayloadId, Vec<u8>) {
+        (self.payload_id, self.data)
     }
 }
 
