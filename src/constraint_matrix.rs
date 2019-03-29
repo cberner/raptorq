@@ -31,9 +31,9 @@ fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
     let mut matrix = OctetMatrix::new(H, Kprime + S);
     for i in 0..H {
         for j in 0..=(Kprime + S - 2) {
-            if i == rand((j + 1) as u32, 6, H as u32) as usize
-                || i == ((rand((j + 1) as u32, 6, H as u32)
-                    + rand((j + 1) as u32, 7, (H - 1) as u32)
+            if i == rand((j + 1) as u32, 6u32, H as u32) as usize
+                || i == ((rand((j + 1) as u32, 6u32, H as u32)
+                    + rand((j + 1) as u32, 7u32, (H - 1) as u32)
                     + 1)
                     % (H as u32)) as usize
             {

@@ -905,7 +905,7 @@ mod tests {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
             let a = generate_constraint_matrix(num_symbols, &indices);
-            let symbols = vec![Symbol::zero(1); a.width()];
+            let symbols = vec![Symbol::zero(1usize); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();
             assert!(

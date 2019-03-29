@@ -20,18 +20,18 @@ pub struct Decoder {
 impl Decoder {
     pub fn new(config: ObjectTransmissionInformation) -> Decoder {
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
-        let (kl, ks, zl, zs) = partition(kt, config.source_blocks() as u32);
+        let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
         // TODO: support subblocks
         assert_eq!(1, config.sub_blocks());
-        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks() as u32);
+        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
 
         let mut decoders = vec![];
         for i in 0..zl {
             decoders.push(SourceBlockDecoder::new(
                 i as u8,
                 config.symbol_size(),
-                kl as u64 * config.symbol_size() as u64,
+                u64::from(kl) * u64::from(config.symbol_size()),
             ));
         }
 
@@ -39,7 +39,7 @@ impl Decoder {
             decoders.push(SourceBlockDecoder::new(
                 i as u8,
                 config.symbol_size(),
-                ks as u64 * config.symbol_size() as u64,
+                u64::from(ks) * u64::from(config.symbol_size()),
             ));
         }
 
@@ -140,7 +140,7 @@ impl SourceBlockDecoder {
 
             let mut encoded_indices = vec![];
             // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
-            let mut d = vec![Symbol::zero(self.symbol_size as usize); s + h];
+            let mut d = vec![Symbol::zero(self.symbol_size); s + h];
             for (i, source) in self.source_symbols.iter().enumerate() {
                 if let Some(symbol) = source {
                     encoded_indices.push(i as u32);
@@ -151,7 +151,7 @@ impl SourceBlockDecoder {
             // Append the extended padding symbols
             for i in self.source_block_symbols..num_extended_symbols {
                 encoded_indices.push(i);
-                d.push(Symbol::zero(self.symbol_size as usize));
+                d.push(Symbol::zero(self.symbol_size));
             }
 
             for repair_packet in self.repair_packets.iter() {
@@ -162,12 +162,10 @@ impl SourceBlockDecoder {
             let constraint_matrix =
                 generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
             let intermediate_symbols =
-                fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols);
-
-            if intermediate_symbols == None {
-                return None;
-            }
-            let intermediate_symbols = intermediate_symbols.unwrap();
+                match fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols) {
+                    None => return None,
+                    Some(s) => s,
+                };
 
             let mut result = vec![];
             for i in 0..self.source_block_symbols as usize {
@@ -187,12 +185,12 @@ impl SourceBlockDecoder {
 
     fn rebuild_source_symbol(
         &self,
-        intermediate_symbols: &Vec<Symbol>,
+        intermediate_symbols: &[Symbol],
         source_symbol_id: u32,
     ) -> Symbol {
         let tuple = intermediate_tuple(self.source_block_symbols, source_symbol_id);
 
-        let mut rebuilt = Symbol::zero(self.symbol_size as usize);
+        let mut rebuilt = Symbol::zero(self.symbol_size);
         for i in enc_indices(self.source_block_symbols, tuple) {
             rebuilt += &intermediate_symbols[i];
         }
