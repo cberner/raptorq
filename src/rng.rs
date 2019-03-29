@@ -223,12 +223,16 @@ const V3: [u32; 256] = [
     3432275192];
 
 // As defined in section 5.3.5.1
-pub fn rand(y: u32, i: u8, m: u32) -> u32 {
+pub fn rand<TI>(y: u32, i: TI, m: u32) -> u32
+where
+    TI: Into<u32>,
+{
     assert!(m > 0);
-    let x0 = (y + i as u32) % 256;
-    let x1 = ((y >> 8) + i as u32) % 256;
-    let x2 = ((y >> 16) + i as u32) % 256;
-    let x3 = ((y >> 24) + i as u32) % 256;
+    let i = i.into();
+    let x0 = (y + i) % 256;
+    let x1 = ((y >> 8) + i) % 256;
+    let x2 = ((y >> 16) + i) % 256;
+    let x3 = ((y >> 24) + i) % 256;
 
     (V0[x0 as usize] ^ V1[x1 as usize] ^ V2[x2 as usize] ^ V3[x3 as usize]) % m
 }

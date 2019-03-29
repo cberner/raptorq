@@ -25,7 +25,7 @@ fn main() {
             a.height() * a.width()
         );
 
-        let symbols = vec![Symbol::zero(1); a.width()];
+        let symbols = vec![Symbol::zero(1usize); a.width()];
         let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
         decoder.execute();
         println!(

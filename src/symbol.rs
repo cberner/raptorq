@@ -14,9 +14,12 @@ impl Symbol {
         Symbol { value }
     }
 
-    pub fn zero(size: usize) -> Symbol {
+    pub fn zero<T>(size: T) -> Symbol
+    where
+        T: Into<usize>,
+    {
         Symbol {
-            value: vec![0; size],
+            value: vec![0; size.into()],
         }
     }
 

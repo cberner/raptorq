@@ -27,11 +27,11 @@ impl Encoder {
         );
 
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
-        let (kl, ks, zl, zs) = partition(kt, config.source_blocks() as u32);
+        let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
         // TODO: support subblocks
         assert_eq!(1, config.sub_blocks());
-        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks() as u32);
+        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
 
         let mut data_index = 0;
         let mut blocks = vec![];

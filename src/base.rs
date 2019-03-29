@@ -217,7 +217,12 @@ impl ObjectTransmissionInformation {
 }
 
 // Partition[I, J] function, as defined in section 4.4.1.2
-pub fn partition(i: u32, j: u32) -> (u32, u32, u32, u32) {
+pub fn partition<TI, TJ>(i: TI, j: TJ) -> (u32, u32, u32, u32)
+where
+    TI: Into<u32>,
+    TJ: Into<u32>,
+{
+    let (i, j) = (i.into(), j.into());
     let il = (i as f64 / j as f64).ceil() as u32;
     let is = (i as f64 / j as f64).floor() as u32;
     let jl = i - is * j;
@@ -260,18 +265,18 @@ pub fn intermediate_tuple(
 
     let B = 10267 * (J + 1);
     let y: u32 = ((B as u64 + internal_symbol_id as u64 * A as u64) % 4294967296) as u32;
-    let v = rand(y, 0, 1048576);
+    let v = rand(y, 0u32, 1048576);
     let d = deg(v, W);
-    let a = 1 + rand(y, 1, W - 1);
-    let b = rand(y, 2, W);
+    let a = 1 + rand(y, 1u32, W - 1);
+    let b = rand(y, 2u32, W);
 
     let mut d1 = 2;
     if d < 4 {
-        d1 = 2 + rand(internal_symbol_id, 3, 2);
+        d1 = 2 + rand(internal_symbol_id, 3u32, 2);
     }
 
-    let a1 = 1 + rand(internal_symbol_id, 4, P1 - 1);
-    let b1 = rand(internal_symbol_id, 5, P1);
+    let a1 = 1 + rand(internal_symbol_id, 4u32, P1 - 1);
+    let b1 = rand(internal_symbol_id, 5u32, P1);
 
     (d, a, b, d1, a1, b1)
 }
