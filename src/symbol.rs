@@ -4,6 +4,7 @@ use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::mulassign_scalar;
 use std::ops::AddAssign;
 
+/// Elementary unit of data, for encoding/decoding purposes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
     value: Vec<u8>,
@@ -14,6 +15,7 @@ impl Symbol {
         Symbol { value }
     }
 
+    /// Initialize a zeroed symbol, with given size.
     pub fn zero<T>(size: T) -> Symbol
     where
         T: Into<usize>,
@@ -28,8 +30,14 @@ impl Symbol {
         self.value.len()
     }
 
-    pub fn bytes(&self) -> &Vec<u8> {
+    /// Return the underlying byte slice for a symbol.
+    pub fn as_bytes(&self) -> &[u8] {
         &self.value
+    }
+
+    /// Consume a symbol into a vector of bytes.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.value
     }
 
     pub fn mulassign_scalar(&mut self, scalar: &Octet) {
@@ -68,6 +76,6 @@ mod tests {
         let symbol2 = Symbol::new(data2);
 
         symbol1 += &symbol2;
-        assert_eq!(result, *symbol1.bytes());
+        assert_eq!(result, symbol1.into_bytes());
     }
 }

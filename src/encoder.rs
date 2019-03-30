@@ -121,7 +121,7 @@ impl SourceBlockEncoder {
                 esi += 1;
                 EncodingPacket::new(
                     PayloadId::new(self.source_block_id, esi as u32),
-                    symbol.bytes().clone(),
+                    symbol.as_bytes().to_vec(),
                 )
             })
             .collect()
@@ -144,8 +144,7 @@ impl SourceBlockEncoder {
                     &self.intermediate_symbols,
                     tuple,
                 )
-                .bytes()
-                .clone(),
+                .into_bytes(),
             ));
         }
         result
