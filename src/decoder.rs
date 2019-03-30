@@ -125,10 +125,13 @@ impl SourceBlockDecoder {
 
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
         if self.received_source_symbols == self.source_block_symbols {
-            let mut result = vec![];
-            for symbol in self.source_symbols.clone() {
-                result.extend(symbol.unwrap().bytes());
-            }
+            let result = self
+                .source_symbols
+                .iter()
+                .cloned()
+                .map(|symbol| symbol.unwrap().into_bytes())
+                .flatten()
+                .collect();
 
             self.decoded = true;
             return Some(result);
@@ -170,10 +173,10 @@ impl SourceBlockDecoder {
             let mut result = vec![];
             for i in 0..self.source_block_symbols as usize {
                 if let Some(ref symbol) = self.source_symbols[i] {
-                    result.extend(symbol.bytes())
+                    result.extend(symbol.as_bytes())
                 } else {
                     let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
-                    result.extend(rebuilt.bytes());
+                    result.extend(rebuilt.as_bytes());
                 }
             }
 

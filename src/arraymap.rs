@@ -25,13 +25,14 @@ impl<T: std::clone::Clone> ArrayMap<T> {
     }
 
     pub fn keys(&self) -> Vec<usize> {
-        let mut result = Vec::with_capacity(self.elements.len());
-        for i in 0..self.elements.len() {
-            if self.elements[i].is_some() {
-                result.push(i + self.offset);
-            }
-        }
-        return result;
+        self.elements
+            .iter()
+            .enumerate()
+            .filter_map(|(i, elem)| match elem {
+                Some(_) => Some(i + self.offset),
+                None => None,
+            })
+            .collect()
     }
 }
 
