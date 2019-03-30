@@ -6,13 +6,15 @@ use crate::octet::OCTET_MUL_HI_BITS;
 use crate::octet::OCTET_MUL_LOW_BITS;
 
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
-    let scalar_index = scalar.byte() as usize;
-    for i in 0..octets.len() {
-        unsafe {
-            *octets.get_unchecked_mut(i) = *OCTET_MUL
+    let scalar_index = usize::from(scalar.byte());
+    for item in octets {
+        let octet_index = usize::from(*item);
+        // SAFETY: `OCTET_MUL` is a 256x256 matrix, both indexes are `u8` inputs.
+        *item = unsafe {
+            *OCTET_MUL
                 .get_unchecked(scalar_index)
-                .get_unchecked(*octets.get_unchecked(i) as usize);
-        }
+                .get_unchecked(octet_index)
+        };
     }
 }
 
