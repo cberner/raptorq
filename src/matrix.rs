@@ -3,7 +3,6 @@ use crate::octets::{add_assign, mulassign_scalar, count_ones_and_nonzeros};
 use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
 use std::ops::Mul;
-use std::collections::HashMap;
 
 pub trait OctetMatrix: Clone {
     fn new(height: usize, width: usize) -> Self;
@@ -164,67 +163,112 @@ impl<'a, 'b> Mul<&'b DenseOctetMatrix> for &'a DenseOctetMatrix {
 
 #[derive(Clone, Debug, PartialEq)]
 struct SparseOctetVec {
-    elements: HashMap<usize, Octet>
+    // Kept sorted by the usize (key)
+    elements: Vec<(usize, Octet)>
 }
 
 impl SparseOctetVec {
     pub fn with_capacity(capacity: usize) -> SparseOctetVec {
         SparseOctetVec {
-            elements: HashMap::with_capacity(capacity)
+            elements: Vec::with_capacity(capacity)
         }
     }
 
     pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) {
-        for (col, value) in other.elements.iter() {
-            let optional_dest_value = self.elements.get_mut(&col);
-            if let Some(dest_value) = optional_dest_value {
-                dest_value.fma(value, scalar);
+        let mut result = Vec::with_capacity(self.elements.len() + other.elements.len());
+        let mut self_iter = self.elements.iter();
+        let mut other_iter = other.elements.iter();
+        let mut self_entry = self_iter.next();
+        let mut other_entry = other_iter.next();
+
+        loop {
+            if let Some((self_col, self_value)) = self_entry {
+                if let Some((other_col, other_value)) = other_entry {
+                    if self_col < other_col {
+                        result.push((*self_col, self_value.clone()));
+                        self_entry = self_iter.next();
+                    }
+                    else if self_col == other_col {
+                        result.push((*other_col, self_value + &(other_value * scalar)));
+                        self_entry = self_iter.next();
+                        other_entry = other_iter.next();
+                    }
+                    else {
+                        result.push((*other_col, other_value * scalar));
+                        other_entry = other_iter.next();
+                    }
+                }
+                else {
+                    result.push((*self_col, self_value.clone()));
+                    self_entry = self_iter.next();
+                }
             }
             else {
-                self.elements.insert(*col, value * scalar);
+                if let Some((other_col, other_value)) = other_entry {
+                    result.push((*other_col, other_value * scalar));
+                    other_entry = other_iter.next();
+                }
+                else {
+                    break;
+                }
             }
         }
+        self.elements = result;
     }
 
     pub fn truncate(&mut self, new_length: usize) {
-        let mut to_remove = Vec::with_capacity(self.elements.len());
-        for col in self.elements.keys() {
+        let mut to_remove = 0;
+        for (col, _) in self.elements.iter().rev() {
             if *col >= new_length {
-                to_remove.push(*col);
+                to_remove += 1;
+            }
+            else {
+                break;
             }
         }
-        for col in to_remove {
-            self.elements.remove(&col);
-        }
+        self.elements.truncate(self.elements.len() - to_remove);
     }
 
     pub fn swap(&mut self, i: usize, j: usize) {
-        let i_value = self.elements.remove(&i);
-        let j_value = self.elements.remove(&j);
+        let i_value = self.remove(&i);
+        let j_value = self.remove(&j);
         if let Some(value) = i_value {
-            self.elements.insert(j, value);
+            self.insert(j, value);
         }
         if let Some(value) = j_value {
-            self.elements.insert(i, value);
+            self.insert(i, value);
+        }
+    }
+
+    pub fn remove(&mut self, i: &usize) -> Option<Octet> {
+        match self.elements.binary_search_by_key(i, |(col, _)| *col) {
+            Ok(index) => Some(self.elements.remove(index).1),
+            Err(_) => None
         }
     }
 
     pub fn get(&self, i: &usize) -> Option<&Octet> {
-        self.elements.get(i)
-    }
-
-    pub fn mul_assign(&mut self, scalar: &Octet) {
-        for entry in self.elements.values_mut() {
-            *entry = entry as &Octet * scalar;
+        match self.elements.binary_search_by_key(i, |(col, _)| *col) {
+            Ok(index) => Some(&self.elements[index].1),
+            Err(_) => None
         }
     }
 
-    pub fn keys_values(&self) -> impl Iterator<Item=(&usize, &Octet)> {
+    pub fn mul_assign(&mut self, scalar: &Octet) {
+        for (_, value) in self.elements.iter_mut() {
+            *value = value as &Octet * scalar;
+        }
+    }
+
+    pub fn keys_values(&self) -> impl Iterator<Item=&(usize, Octet)> {
         self.elements.iter()
     }
 
     pub fn insert(&mut self, i: usize, value: Octet) {
-        self.elements.insert(i, value);
+        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+            Ok(index) => self.elements[index] = (i, value),
+            Err(index) => self.elements.insert(index, (i, value))
+        }
     }
 }
 
@@ -357,7 +401,7 @@ impl<'a, 'b> Mul<&'b SparseOctetMatrix> for &'a SparseOctetMatrix {
 mod tests {
     use rand::Rng;
 
-    use crate::matrix::{OctetMatrix, SparseOctetMatrix};
+    use crate::matrix::{OctetMatrix, SparseOctetMatrix, SparseOctetVec};
     use crate::matrix::DenseOctetMatrix;
     use crate::octet::Octet;
 
@@ -377,6 +421,108 @@ mod tests {
         result
     }
 
+    fn rand_dense_and_sparse(size: usize) -> (DenseOctetMatrix, SparseOctetMatrix) {
+        let mut dense = DenseOctetMatrix::new(size, size);
+        let mut sparse = SparseOctetMatrix::new(size, size);
+        // Generate 50% filled random matrices
+        for _ in 0..(size * size / 2) {
+            let i = rand::thread_rng().gen_range(0, size);
+            let j = rand::thread_rng().gen_range(0, size);
+            let value = rand::thread_rng().gen();
+            dense.set(i, j, Octet::new(value));
+            sparse.set(i, j, Octet::new(value));
+        }
+
+        return (dense, sparse);
+    }
+
+    fn assert_matrices_eq(dense: &DenseOctetMatrix, sparse: &SparseOctetMatrix) {
+        assert_eq!(dense.height(), sparse.height());
+        assert_eq!(dense.width(), sparse.width());
+        for i in 0..dense.height() {
+            for j in 0..dense.width() {
+                assert_eq!(dense.get(i, j), sparse.get(i, j));
+            }
+        }
+    }
+
+    #[test]
+    fn set() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (dense, sparse) = rand_dense_and_sparse(8);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn swap_rows() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        dense.swap_rows(0, 4);
+        dense.swap_rows(1, 6);
+        dense.swap_rows(1, 7);
+        sparse.swap_rows(0, 4);
+        sparse.swap_rows(1, 6);
+        sparse.swap_rows(1, 7);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn swap_columns() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        dense.swap_columns(0, 4, 0);
+        dense.swap_columns(1, 6, 1);
+        dense.swap_columns(1, 7, 5);
+        sparse.swap_columns(0, 4, 0);
+        sparse.swap_columns(1, 6, 1);
+        sparse.swap_columns(1, 7, 5);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn count_ones_and_nonzeros() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (dense, sparse) = rand_dense_and_sparse(8);
+        assert_eq!(dense.count_ones_and_nonzeros(0, 0, 8), sparse.count_ones_and_nonzeros(0, 0, 8));
+        assert_eq!(dense.count_ones_and_nonzeros(2, 2, 6), sparse.count_ones_and_nonzeros(2, 2, 6));
+        assert_eq!(dense.count_ones_and_nonzeros(3, 1, 2), sparse.count_ones_and_nonzeros(3, 1, 2));
+    }
+
+    #[test]
+    fn mul_assign_row() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        dense.mul_assign_row(0, &Octet::new(5));
+        dense.mul_assign_row(2, &Octet::one());
+        dense.mul_assign_row(7, &Octet::new(66));
+        sparse.mul_assign_row(0, &Octet::new(5));
+        sparse.mul_assign_row(2, &Octet::one());
+        sparse.mul_assign_row(7, &Octet::new(66));
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn fma_rows() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        dense.fma_rows(0, 1, &Octet::new(5));
+        dense.fma_rows(0, 2, &Octet::new(55));
+        dense.fma_rows(2, 1, &Octet::one());
+        sparse.fma_rows(0, 1, &Octet::new(5));
+        sparse.fma_rows(0, 2, &Octet::new(55));
+        sparse.fma_rows(2, 1, &Octet::one());
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn resize() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        dense.resize(5, 5);
+        sparse.resize(5, 5);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
     #[test]
     fn mul() {
         let identity = identity(4);
@@ -387,6 +533,10 @@ mod tests {
             }
         }
         assert_eq!(a, &identity * &a);
+
+        let (dense1, sparse1) = rand_dense_and_sparse(8);
+        let (dense2, sparse2) = rand_dense_and_sparse(8);
+        assert_matrices_eq(&(&dense1 * &dense2), &(&sparse1 * &sparse2));
     }
 
     #[test]
@@ -399,5 +549,44 @@ mod tests {
             }
         }
         assert_eq!(a, &identity * &a);
+    }
+
+    #[test]
+    fn sparse_vec_fma() {
+        let mut dense1 = vec![Octet::zero(); 8];
+        let mut sparse1 = SparseOctetVec::with_capacity(8);
+        for i in 0..4 {
+            let value = rand::thread_rng().gen();
+            dense1[i * 2] = Octet::new(value);
+            sparse1.insert(i * 2, Octet::new(value));
+        }
+
+        for i in 0..8 {
+            let actual = sparse1.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let expected = dense1[i].clone();
+            assert_eq!(actual, expected, "Mismatch at {}. {:?} != {:?}", i, actual, expected);
+        }
+
+        let mut dense2 = vec![Octet::zero(); 8];
+        let mut sparse2 = SparseOctetVec::with_capacity(8);
+        for i in 0..4 {
+            let value = rand::thread_rng().gen();
+            dense2[i] = Octet::new(value);
+            sparse2.insert(i, Octet::new(value));
+        }
+
+        for i in 0..8 {
+            let actual = sparse2.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let expected = dense2[i].clone();
+            assert_eq!(actual, expected, "Mismatch at {}. {:?} != {:?}", i, actual, expected);
+        }
+
+        sparse1.fma(&sparse2, &Octet::new(5));
+
+        for i in 0..8 {
+            let actual = sparse1.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let expected = &dense1[i] + &(&Octet::new(5) * &dense2[i]);
+            assert_eq!(actual, expected, "Mismatch at {}. {:?} != {:?}", i, actual, expected);
+        }
     }
 }
