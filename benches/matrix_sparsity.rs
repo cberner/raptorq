@@ -1,4 +1,4 @@
-use raptorq::extended_source_block_symbols;
+use raptorq::{extended_source_block_symbols, DenseOctetMatrix, OctetMatrix};
 use raptorq::generate_constraint_matrix;
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
@@ -8,7 +8,7 @@ fn main() {
     for elements in [10, 100, 1000, 10000].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let indices: Vec<u32> = (0..num_symbols).collect();
-        let a = generate_constraint_matrix(num_symbols, &indices);
+        let a = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
         let mut density = 0;
         for i in 0..a.height() {
             for j in 0..a.width() {

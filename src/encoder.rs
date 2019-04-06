@@ -13,6 +13,7 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::ObjectTransmissionInformation;
+use crate::matrix::DenseOctetMatrix;
 
 pub struct Encoder {
     config: ObjectTransmissionInformation,
@@ -173,7 +174,7 @@ fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize) -> V
     assert_eq!(D.len(), L as usize);
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
-    let A = generate_constraint_matrix(extended_source_symbols, &indices);
+    let A = generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
     fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
 }
 

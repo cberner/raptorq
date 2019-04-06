@@ -23,8 +23,8 @@ struct FirstPhaseRowSelectionStats {
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new(
-        matrix: &OctetMatrix,
+    pub fn new<T: OctetMatrix>(
+        matrix: &T,
         end_col: usize,
         num_source_symbols: u32,
     ) -> FirstPhaseRowSelectionStats {
@@ -68,7 +68,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     // Recompute all stored statistics for the given row
-    pub fn recompute_row(&mut self, row: usize, matrix: &OctetMatrix) {
+    pub fn recompute_row<T: OctetMatrix>(&mut self, row: usize, matrix: &T) {
         let (ones, non_zero) = matrix.count_ones_and_nonzeros(row, self.start_col, self.end_col);
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(row));
@@ -90,13 +90,13 @@ impl FirstPhaseRowSelectionStats {
 
     // Set the valid columns, and recalculate statistics
     #[inline(never)]
-    pub fn resize(
+    pub fn resize<T: OctetMatrix>(
         &mut self,
         start_row: usize,
         end_row: usize,
         start_col: usize,
         end_col: usize,
-        matrix: &OctetMatrix,
+        matrix: &T,
     ) {
         // Only shrinking is supported
         assert!(start_col > self.start_col);
@@ -138,10 +138,10 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep_build_adjacency(
+    fn first_phase_graph_substep_build_adjacency<T: OctetMatrix>(
         &self,
         rows_with_two_ones: &Vec<usize>,
-        matrix: &OctetMatrix,
+        matrix: &T,
     ) -> ArrayMap<Vec<(usize, usize)>> {
         let mut adjacent_nodes = ArrayMap::new(self.start_col, self.end_col);
 
@@ -189,12 +189,12 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep(
+    fn first_phase_graph_substep<T: OctetMatrix>(
         &self,
         start_row: usize,
         end_row: usize,
         rows_with_two_ones: &Vec<usize>,
-        matrix: &OctetMatrix,
+        matrix: &T,
     ) -> usize {
         let adjacent_nodes =
             self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
@@ -285,11 +285,11 @@ impl FirstPhaseRowSelectionStats {
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has)
-    pub fn first_phase_selection(
+    pub fn first_phase_selection<T: OctetMatrix>(
         &self,
         start_row: usize,
         end_row: usize,
-        matrix: &OctetMatrix,
+        matrix: &T,
     ) -> (Option<usize>, Option<usize>) {
         let mut r = None;
         for i in 1..(self.end_col - self.start_col + 1) {
@@ -345,9 +345,9 @@ impl FirstPhaseRowSelectionStats {
 
 // See section 5.4.2.1
 #[allow(non_snake_case)]
-pub struct IntermediateSymbolDecoder {
-    A: OctetMatrix,
-    X: OctetMatrix,
+pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
+    A: T,
+    X: T,
     D: Vec<Symbol>,
     c: Vec<usize>,
     d: Vec<usize>,
@@ -361,12 +361,12 @@ pub struct IntermediateSymbolDecoder {
     debug_symbol_add_ops_by_phase: Vec<u32>,
 }
 
-impl IntermediateSymbolDecoder {
+impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     pub fn new(
-        matrix: OctetMatrix,
+        matrix: T,
         symbols: Vec<Symbol>,
         num_source_symbols: u32,
-    ) -> IntermediateSymbolDecoder {
+    ) -> IntermediateSymbolDecoder<T> {
         assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
         let mut c = Vec::with_capacity(matrix.width());
@@ -879,8 +879,8 @@ impl IntermediateSymbolDecoder {
 
 // Fused implementation for self.inverse().mul_symbols(symbols)
 // See section 5.4.2.1
-pub fn fused_inverse_mul_symbols(
-    matrix: OctetMatrix,
+pub fn fused_inverse_mul_symbols<T: OctetMatrix>(
+    matrix: T,
     symbols: Vec<Symbol>,
     num_source_symbols: u32,
 ) -> Option<Vec<Symbol>> {
@@ -893,6 +893,8 @@ mod tests {
     use crate::constraint_matrix::generate_constraint_matrix;
     use crate::symbol::Symbol;
     use crate::systematic_constants::extended_source_block_symbols;
+    use crate::matrix::OctetMatrix;
+    use crate::matrix::DenseOctetMatrix;
 
     #[test]
     fn operations_per_symbol() {
@@ -901,7 +903,7 @@ mod tests {
         {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
-            let a = generate_constraint_matrix(num_symbols, &indices);
+            let a = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1usize); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
             decoder.execute();

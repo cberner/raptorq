@@ -10,6 +10,7 @@ use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use std::collections::HashSet;
+use crate::matrix::DenseOctetMatrix;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,
@@ -163,7 +164,7 @@ impl SourceBlockDecoder {
             }
 
             let constraint_matrix =
-                generate_constraint_matrix(self.source_block_symbols, &encoded_indices);
+                generate_constraint_matrix::<DenseOctetMatrix>(self.source_block_symbols, &encoded_indices);
             let intermediate_symbols =
                 match fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols) {
                     None => return None,

@@ -1,5 +1,5 @@
 use crate::base::intermediate_tuple;
-use crate::matrix::OctetMatrix;
+use crate::matrix::{OctetMatrix, DenseOctetMatrix};
 use crate::octet::Octet;
 use crate::rng::rand;
 use crate::systematic_constants::calculate_p1;
@@ -13,9 +13,9 @@ use crate::systematic_constants::num_pi_symbols;
 // Generates the GAMMA matrix
 // See section 5.3.3.3
 #[allow(non_snake_case)]
-fn generate_gamma(Kprime: usize, S: usize) -> OctetMatrix {
+fn generate_gamma(Kprime: usize, S: usize) -> DenseOctetMatrix {
     let size = Kprime + S;
-    let mut matrix = OctetMatrix::new(size, size);
+    let mut matrix = DenseOctetMatrix::new(size, size);
     for i in 0..size {
         for j in 0..=i {
             matrix.set(i, j, Octet::alpha((i - j) as u8));
@@ -27,8 +27,8 @@ fn generate_gamma(Kprime: usize, S: usize) -> OctetMatrix {
 // Generates the MT matrix
 // See section 5.3.3.3
 #[allow(non_snake_case)]
-fn generate_mt(H: usize, Kprime: usize, S: usize) -> OctetMatrix {
-    let mut matrix = OctetMatrix::new(H, Kprime + S);
+fn generate_mt(H: usize, Kprime: usize, S: usize) -> DenseOctetMatrix {
+    let mut matrix = DenseOctetMatrix::new(H, Kprime + S);
     for i in 0..H {
         for j in 0..=(Kprime + S - 2) {
             if i == rand((j + 1) as u32, 6u32, H as u32) as usize
@@ -88,10 +88,10 @@ pub fn enc_indices(
 
 // See section 5.3.3.4.2
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix(
+pub fn generate_constraint_matrix<T: OctetMatrix>(
     source_block_symbols: u32,
     encoded_symbol_indices: &[u32],
-) -> OctetMatrix {
+) -> T {
     let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
     let S = num_ldpc_symbols(source_block_symbols) as usize;
     let H = num_hdpc_symbols(source_block_symbols) as usize;
@@ -101,7 +101,7 @@ pub fn generate_constraint_matrix(
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
     assert!(S + H + encoded_symbol_indices.len() >= L);
-    let mut matrix = OctetMatrix::new(S + H + encoded_symbol_indices.len(), L);
+    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L);
 
     // G_LDPC,1
     // See section 5.3.3.3

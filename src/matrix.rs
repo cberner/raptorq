@@ -4,55 +4,83 @@ use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
 use std::ops::Mul;
 
+pub trait OctetMatrix: Clone {
+    fn new(height: usize, width: usize) -> Self;
+
+    fn set(&mut self, i: usize, j: usize, value: Octet);
+
+    fn height(&self) -> usize;
+
+    fn width(&self) -> usize;
+
+    fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize);
+
+    fn mul_assign_row(&mut self, row: usize, value: &Octet);
+
+    fn get(&self, i: usize, j: usize) -> Octet;
+
+    fn swap_rows(&mut self, i: usize, j: usize);
+
+    fn swap_columns(&mut self, i: usize, j: usize, start_row: usize);
+
+    // other must be a rows x rows matrix
+    // sets self[0..rows][..] = X * self[0..rows][..]
+    fn mul_assign_submatrix(&mut self, other: &Self, rows: usize);
+
+    fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet);
+
+    fn resize(&mut self, new_height: usize, new_width: usize);
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct OctetMatrix {
+pub struct DenseOctetMatrix {
     height: usize,
     width: usize,
     elements: Vec<Vec<u8>>,
 }
 
-impl OctetMatrix {
-    pub fn new(height: usize, width: usize) -> OctetMatrix {
+impl OctetMatrix for DenseOctetMatrix {
+    fn new(height: usize, width: usize) -> DenseOctetMatrix {
         let mut elements: Vec<Vec<u8>> = Vec::with_capacity(height);
         for _ in 0..height {
             elements.push(vec![0; width]);
         }
-        OctetMatrix {
+        DenseOctetMatrix {
             height,
             width,
             elements,
         }
     }
 
-    pub fn set(&mut self, i: usize, j: usize, value: Octet) {
+    fn set(&mut self, i: usize, j: usize, value: Octet) {
         self.elements[i][j] = value.byte();
     }
 
-    pub fn height(&self) -> usize {
+    fn height(&self) -> usize {
         self.height
     }
 
-    pub fn width(&self) -> usize {
+    fn width(&self) -> usize {
         self.width
     }
 
-    pub fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize) {
+    fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize) {
         count_ones_and_nonzeros(&self.elements[row][start_col..end_col])
     }
 
-    pub fn mul_assign_row(&mut self, row: usize, value: &Octet) {
+    fn mul_assign_row(&mut self, row: usize, value: &Octet) {
         mulassign_scalar(&mut self.elements[row], value);
     }
 
-    pub fn get(&self, i: usize, j: usize) -> Octet {
+    fn get(&self, i: usize, j: usize) -> Octet {
         Octet::new(self.elements[i][j])
     }
 
-    pub fn swap_rows(&mut self, i: usize, j: usize) {
+    fn swap_rows(&mut self, i: usize, j: usize) {
         self.elements.swap(i, j);
     }
 
-    pub fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
+    fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
         for row in start_row..self.elements.len() {
             self.elements[row].swap(i, j);
         }
@@ -60,7 +88,7 @@ impl OctetMatrix {
 
     // other must be a rows x rows matrix
     // sets self[0..rows][..] = X * self[0..rows][..]
-    pub fn mul_assign_submatrix(&mut self, other: &OctetMatrix, rows: usize) {
+    fn mul_assign_submatrix(&mut self, other: &DenseOctetMatrix, rows: usize) {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
@@ -83,7 +111,7 @@ impl OctetMatrix {
         }
     }
 
-    pub fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
+    fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
         assert_ne!(dest, multiplicand);
         let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, multiplicand);
 
@@ -94,7 +122,7 @@ impl OctetMatrix {
         }
     }
 
-    pub fn resize(&mut self, new_height: usize, new_width: usize) {
+    fn resize(&mut self, new_height: usize, new_width: usize) {
         assert!(new_height <= self.height);
         assert!(new_width <= self.width);
         self.elements.truncate(new_height);
@@ -106,12 +134,12 @@ impl OctetMatrix {
     }
 }
 
-impl<'a, 'b> Mul<&'b OctetMatrix> for &'a OctetMatrix {
-    type Output = OctetMatrix;
+impl<'a, 'b> Mul<&'b DenseOctetMatrix> for &'a DenseOctetMatrix {
+    type Output = DenseOctetMatrix;
 
-    fn mul(self, rhs: &'b OctetMatrix) -> OctetMatrix {
+    fn mul(self, rhs: &'b DenseOctetMatrix) -> DenseOctetMatrix {
         assert_eq!(self.width, rhs.height);
-        let mut result = OctetMatrix::new(self.height, rhs.width);
+        let mut result = DenseOctetMatrix::new(self.height, rhs.width);
         for row in 0..self.height {
             for i in 0..self.width {
                 let scalar = self.get(row, i);
@@ -138,10 +166,11 @@ mod tests {
     use rand::Rng;
 
     use crate::matrix::OctetMatrix;
+    use crate::matrix::DenseOctetMatrix;
     use crate::octet::Octet;
 
-    fn identity(size: usize) -> OctetMatrix {
-        let mut result = OctetMatrix::new(size, size);
+    fn identity(size: usize) -> DenseOctetMatrix {
+        let mut result = DenseOctetMatrix::new(size, size);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
@@ -151,7 +180,7 @@ mod tests {
     #[test]
     fn mul() {
         let identity = identity(4);
-        let mut a = OctetMatrix::new(4, 5);
+        let mut a = DenseOctetMatrix::new(4, 5);
         for i in 0..4 {
             for j in 0..5 {
                 a.set(i, j, Octet::new(rand::thread_rng().gen()));
