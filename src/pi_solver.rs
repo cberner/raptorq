@@ -2,8 +2,6 @@ use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
-use crate::octets::count_ones_and_nonzeros;
-use crate::octets::mulassign_scalar;
 use crate::symbol::Symbol;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -51,7 +49,7 @@ impl FirstPhaseRowSelectionStats {
         };
 
         for row in 0..matrix.height() {
-            let (ones, non_zero) = count_ones_and_nonzeros(&matrix.get_row(row)[0..end_col]);
+            let (ones, non_zero) = matrix.count_ones_and_nonzeros(row, 0, end_col);
             result.non_zeros_per_row.insert(row, non_zero);
             result.ones_per_row.insert(row, ones);
             result.non_zeros_histogram.increment(non_zero);
@@ -71,8 +69,7 @@ impl FirstPhaseRowSelectionStats {
 
     // Recompute all stored statistics for the given row
     pub fn recompute_row(&mut self, row: usize, matrix: &OctetMatrix) {
-        let (ones, non_zero) =
-            count_ones_and_nonzeros(&matrix.get_row(row)[self.start_col..self.end_col]);
+        let (ones, non_zero) = matrix.count_ones_and_nonzeros(row, self.start_col, self.end_col);
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(row));
         self.non_zeros_histogram.increment(non_zero);
@@ -825,7 +822,7 @@ impl IntermediateSymbolDecoder {
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
         self.D[self.d[i]].mulassign_scalar(&beta);
-        mulassign_scalar(self.A.get_row_mut(i), &beta);
+        self.A.mul_assign_row(i, &beta);
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {

@@ -1,5 +1,5 @@
 use crate::octet::Octet;
-use crate::octets::add_assign;
+use crate::octets::{add_assign, mulassign_scalar, count_ones_and_nonzeros};
 use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
 use std::ops::Mul;
@@ -36,12 +36,12 @@ impl OctetMatrix {
         self.width
     }
 
-    pub fn get_row(&self, i: usize) -> &Vec<u8> {
-        &self.elements[i]
+    pub fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize) {
+        count_ones_and_nonzeros(&self.elements[row][start_col..end_col])
     }
 
-    pub fn get_row_mut(&mut self, i: usize) -> &mut Vec<u8> {
-        &mut self.elements[i]
+    pub fn mul_assign_row(&mut self, row: usize, value: &Octet) {
+        mulassign_scalar(&mut self.elements[row], value);
     }
 
     pub fn get(&self, i: usize, j: usize) -> Octet {
