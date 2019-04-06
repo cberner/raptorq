@@ -230,20 +230,57 @@ impl SparseOctetVec {
     }
 
     pub fn swap(&mut self, i: usize, j: usize) {
-        let i_value = self.remove(&i);
-        let j_value = self.remove(&j);
-        if let Some(value) = i_value {
-            self.insert(j, value);
-        }
-        if let Some(value) = j_value {
-            self.insert(i, value);
-        }
-    }
+        let (i_index, i_present) = match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+            Ok(index) => (index, true),
+            Err(index) => (index, false)
+        };
+        let (j_index, j_present) = match self.elements.binary_search_by_key(&j, |(col, _)| *col) {
+            Ok(index) => (index, true),
+            Err(index) => (index, false)
+        };
 
-    pub fn remove(&mut self, i: &usize) -> Option<Octet> {
-        match self.elements.binary_search_by_key(i, |(col, _)| *col) {
-            Ok(index) => Some(self.elements.remove(index).1),
-            Err(_) => None
+        // If both keys are present, just swap the values
+        if i_present && j_present {
+            let temp = self.elements[i_index].1.clone();
+            self.elements[i_index].1 = self.elements[j_index].1.clone();
+            self.elements[j_index].1 = temp;
+            return;
+        }
+        // If neither is present, this is a no-op since we're swapping implicit zeros
+        if !i_present && !j_present {
+            return;
+        }
+
+        let from_index;
+        let to_index;
+        let entry;
+        if i_present {
+            from_index = i_index;
+            to_index = j_index;
+            entry = (j, self.elements[i_index].1.clone());
+        }
+        else {
+            from_index = j_index;
+            to_index = i_index;
+            entry = (i, self.elements[j_index].1.clone());
+        }
+
+        // Move all entries that are in between
+        if from_index < to_index {
+            let mut index = from_index;
+            while index < to_index - 1 {
+                self.elements[index] = self.elements[index + 1].clone();
+                index += 1;
+            }
+            self.elements[to_index - 1] = entry;
+        }
+        else {
+            let mut index = from_index;
+            while index > to_index {
+                self.elements[index] = self.elements[index - 1].clone();
+                index -= 1;
+            }
+            self.elements[to_index] = entry;
         }
     }
 
