@@ -20,6 +20,10 @@ harness = false
 name = "matrix_sparsity"
 harness = false
 
+[[bench]]
+name = "encode_benchmark"
+harness = false
+
 [profile.release]
 debug = true
 
