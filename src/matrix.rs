@@ -163,29 +163,83 @@ impl<'a, 'b> Mul<&'b DenseOctetMatrix> for &'a DenseOctetMatrix {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+struct SparseOctetVec {
+    elements: HashMap<usize, Octet>
+}
+
+impl SparseOctetVec {
+    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
+        SparseOctetVec {
+            elements: HashMap::with_capacity(capacity)
+        }
+    }
+
+    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) {
+        for (col, value) in other.elements.iter() {
+            let optional_dest_value = self.elements.get_mut(&col);
+            if let Some(dest_value) = optional_dest_value {
+                dest_value.fma(value, scalar);
+            }
+            else {
+                self.elements.insert(*col, value * scalar);
+            }
+        }
+    }
+
+    pub fn truncate(&mut self, new_length: usize) {
+        let mut to_remove = Vec::with_capacity(self.elements.len());
+        for col in self.elements.keys() {
+            if *col >= new_length {
+                to_remove.push(*col);
+            }
+        }
+        for col in to_remove {
+            self.elements.remove(&col);
+        }
+    }
+
+    pub fn swap(&mut self, i: usize, j: usize) {
+        let i_value = self.elements.remove(&i);
+        let j_value = self.elements.remove(&j);
+        if let Some(value) = i_value {
+            self.elements.insert(j, value);
+        }
+        if let Some(value) = j_value {
+            self.elements.insert(i, value);
+        }
+    }
+
+    pub fn get(&self, i: &usize) -> Option<&Octet> {
+        self.elements.get(i)
+    }
+
+    pub fn mul_assign(&mut self, scalar: &Octet) {
+        for entry in self.elements.values_mut() {
+            *entry = entry as &Octet * scalar;
+        }
+    }
+
+    pub fn keys_values(&self) -> impl Iterator<Item=(&usize, &Octet)> {
+        self.elements.iter()
+    }
+
+    pub fn insert(&mut self, i: usize, value: Octet) {
+        self.elements.insert(i, value);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct SparseOctetMatrix {
     height: usize,
     width: usize,
-    elements: Vec<HashMap<usize, Octet>>,
-}
-
-fn sparse_fma(dest: &mut HashMap<usize, Octet>, other: &HashMap<usize, Octet>, scalar: &Octet) {
-    for (col, value) in other {
-        let optional_dest_value = dest.get_mut(&col);
-        if let Some(dest_value) = optional_dest_value {
-            dest_value.fma(value, scalar);
-        }
-        else {
-            dest.insert(*col, value * scalar);
-        }
-    }
+    elements: Vec<SparseOctetVec>,
 }
 
 impl OctetMatrix for SparseOctetMatrix {
     fn new(height: usize, width: usize) -> SparseOctetMatrix {
-        let mut elements: Vec<HashMap<usize, Octet>> = Vec::with_capacity(height);
+        let mut elements = Vec::with_capacity(height);
         for _ in 0..height {
-            elements.push(HashMap::with_capacity(10));
+            elements.push(SparseOctetVec::with_capacity(10));
         }
         SparseOctetMatrix {
             height,
@@ -195,7 +249,7 @@ impl OctetMatrix for SparseOctetMatrix {
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
-        self.elements[i].insert(j,value);
+        self.elements[i].insert(j, value);
     }
 
     fn height(&self) -> usize {
@@ -209,7 +263,7 @@ impl OctetMatrix for SparseOctetMatrix {
     fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize) {
         let mut ones = 0;
         let mut nonzeros = 0;
-        for (col, value) in self.elements[row].iter() {
+        for (col, value) in self.elements[row].keys_values() {
             if *col >= start_col && *col < end_col {
                 if *value == Octet::one() {
                     ones += 1;
@@ -223,9 +277,7 @@ impl OctetMatrix for SparseOctetMatrix {
     }
 
     fn mul_assign_row(&mut self, row: usize, value: &Octet) {
-        for entry in self.elements[row].values_mut() {
-            *entry = entry as &Octet * value;
-        }
+        self.elements[row].mul_assign(value);
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -238,14 +290,7 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
         for row in start_row..self.elements.len() {
-            let i_value = self.elements[row].remove(&i);
-            let j_value = self.elements[row].remove(&j);
-            if let Some(value) = i_value {
-                self.elements[row].insert(j, value);
-            }
-            if let Some(value) = j_value {
-                self.elements[row].insert(i, value);
-            }
+            self.elements[row].swap(i, j);
         }
     }
 
@@ -255,14 +300,14 @@ impl OctetMatrix for SparseOctetMatrix {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
-        let mut temp = vec![HashMap::with_capacity(10); rows];
+        let mut temp = vec![SparseOctetVec::with_capacity(10); rows];
         for row in 0..rows {
             for i in 0..rows {
                 let scalar = other.get(row, i);
                 if scalar == Octet::zero() {
                     continue;
                 }
-                sparse_fma(&mut temp[row], &self.elements[i], &scalar);
+                temp[row].fma(&self.elements[i], &scalar);
             }
         }
         for row in (0..rows).rev() {
@@ -274,7 +319,7 @@ impl OctetMatrix for SparseOctetMatrix {
         assert_ne!(dest, multiplicand);
         let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, multiplicand);
 
-        sparse_fma(dest_row, temp_row, scalar);
+        dest_row.fma(temp_row, scalar);
     }
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
@@ -282,15 +327,7 @@ impl OctetMatrix for SparseOctetMatrix {
         assert!(new_width <= self.width);
         self.elements.truncate(new_height);
         for row in 0..self.elements.len() {
-            let mut to_remove = Vec::with_capacity(self.elements[row].len());
-            for col in self.elements[row].keys() {
-                if *col >= new_width {
-                    to_remove.push(*col);
-                }
-            }
-            for col in to_remove {
-                self.elements[row].remove(&col);
-            }
+            self.elements[row].truncate(new_width);
         }
         self.height = new_height;
         self.width = new_width;
@@ -309,7 +346,7 @@ impl<'a, 'b> Mul<&'b SparseOctetMatrix> for &'a SparseOctetMatrix {
                 if scalar == Octet::zero() {
                     continue;
                 }
-                sparse_fma(&mut result.elements[row], &rhs.elements[i], &scalar);
+                result.elements[row].fma(&rhs.elements[i], &scalar);
             }
         }
         result
