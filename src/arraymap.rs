@@ -24,15 +24,14 @@ impl<T: std::clone::Clone> ArrayMap<T> {
         self.elements[key - self.offset].as_mut()
     }
 
-    pub fn keys(&self) -> Vec<usize> {
+    pub fn keys<'s>(&'s self) -> impl DoubleEndedIterator<Item = usize> + 's {
         self.elements
             .iter()
             .enumerate()
-            .filter_map(|(i, elem)| match elem {
+            .filter_map(move |(i, elem)| match elem {
                 Some(_) => Some(i + self.offset),
                 None => None,
             })
-            .collect()
     }
 }
 
