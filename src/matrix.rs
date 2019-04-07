@@ -349,17 +349,22 @@ impl SparseOctetVec {
 
     // Returns a vector of new column indices that this row contains
     pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
-        // Fast path for a single value in the same column
-        if self.elements.elements.len() == 1 && other.elements.elements.len() == 1 {
-            let (self_col, self_value) = &mut self.elements.elements[0];
+        // Fast path for a single value that's being eliminated
+        // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
+        // required for the HDPC rows may be performed for all such rows in one
+        // process, by using the algorithm described in Section 5.3.3.3."
+        if other.elements.elements.len() == 1 {
             let (other_col, other_value) = &other.elements.elements[0];
-            if *self_col == *other_col {
-                *self_value = (self_value as &Octet) + &(other_value * scalar);
-                if *self_value == Octet::zero() {
-                    self.elements.elements.clear();
+            if let Some(self_value) = self.elements.remove(*other_col) {
+                let value = &self_value + &(other_value * scalar);
+                if value != Octet::zero() {
+                    self.elements.insert(*other_col, value);
                 }
-                return vec![];
             }
+            else {
+                self.elements.insert(*other_col, other_value * scalar);
+            }
+            return vec![];
         }
 
         let mut result = Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
