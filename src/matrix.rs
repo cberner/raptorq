@@ -67,6 +67,9 @@ pub trait OctetMatrix: Clone {
     // After calling this method swap_columns can no longer be called
     fn freeze_columns(&mut self);
 
+    // Hints that column i will not be swapped again, and is likely to become dense'ish
+    fn hint_column_dense_and_frozen(&mut self, i: usize);
+
     // other must be a rows x rows matrix
     // sets self[0..rows][..] = X * self[0..rows][..]
     fn mul_assign_submatrix(&mut self, other: &Self, rows: usize);
@@ -142,6 +145,10 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 
     fn freeze_columns(&mut self) {
+        // No-op
+    }
+
+    fn hint_column_dense_and_frozen(&mut self, _: usize) {
         // No-op
     }
 
@@ -246,6 +253,13 @@ impl <T: Clone> SparseVec<T> {
         self.elements.truncate(self.elements.len() - to_remove);
     }
 
+    pub fn remove(&mut self, i: usize) -> Option<T> {
+        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+            Ok(index) => Some(self.elements.remove(index).1),
+            Err(_) => None
+        }
+    }
+
     pub fn swap(&mut self, i: usize, j: usize) {
         let (i_index, i_present) = match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
             Ok(index) => (index, true),
@@ -335,6 +349,19 @@ impl SparseOctetVec {
 
     // Returns a vector of new column indices that this row contains
     pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
+        // Fast path for a single value in the same column
+        if self.elements.elements.len() == 1 && other.elements.elements.len() == 1 {
+            let (self_col, self_value) = &mut self.elements.elements[0];
+            let (other_col, other_value) = &other.elements.elements[0];
+            if *self_col == *other_col {
+                *self_value = (self_value as &Octet) + &(other_value * scalar);
+                if *self_value == Octet::zero() {
+                    self.elements.elements.clear();
+                }
+                return vec![];
+            }
+        }
+
         let mut result = Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
         let mut self_iter = self.elements.elements.iter();
         let mut other_iter = other.elements.elements.iter();
@@ -382,6 +409,10 @@ impl SparseOctetVec {
         self.elements.elements = result;
 
         return new_columns;
+    }
+
+    pub fn remove(&mut self, i: usize) -> Option<Octet> {
+        self.elements.remove(i)
     }
 
     pub fn truncate(&mut self, new_length: usize) {
@@ -628,6 +659,29 @@ impl OctetMatrix for SparseOctetMatrix {
     fn freeze_columns(&mut self) {
         self.columns_frozen = true;
         self.sparse_column_index.clear();
+    }
+
+    fn hint_column_dense_and_frozen(&mut self, i: usize) {
+        assert_eq!(self.width - self.num_dense_columns - 1, i, "Can only freeze the last sparse column");
+        let mut row = 0;
+        for (maybe_present_in_row, _) in self.sparse_column_index[i].keys_values() {
+            while row < *maybe_present_in_row {
+                self.dense_elements[row].push(0);
+                row += 1;
+            }
+            if let Some(value) = self.sparse_elements[row].remove(i) {
+                self.dense_elements[row].push(value.byte());
+            }
+            else {
+                self.dense_elements[row].push(0);
+            }
+            row += 1;
+        }
+        while row < self.height {
+            self.dense_elements[row].push(0);
+            row += 1;
+        }
+        self.num_dense_columns += 1;
     }
 
     // other must be a rows x rows matrix

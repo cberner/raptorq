@@ -494,6 +494,10 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 }
             }
 
+            for i in 0..(r - 1) {
+                self.A.hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
+            }
+
             self.i += 1;
             self.u += r - 1;
             selection_helper.resize(
