@@ -134,7 +134,9 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     let g_hdpc = &generate_mt(H, Kprime, S) * &generate_gamma(Kprime, S);
     for i in 0..H {
         for j in 0..(Kprime + S) {
-            matrix.set(i + S, j, g_hdpc.get(i, j));
+            if g_hdpc.get(i, j) != Octet::zero() {
+                matrix.set(i + S, j, g_hdpc.get(i, j));
+            }
         }
     }
 

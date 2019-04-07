@@ -441,9 +441,6 @@ impl OctetMatrix for SparseOctetMatrix {
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
-        if value == Octet::zero() {
-            return;
-        }
         self.elements[i].insert(j, value);
         if !self.columns_frozen {
             self.column_index[j].insert(i, ());
