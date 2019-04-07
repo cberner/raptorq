@@ -162,58 +162,16 @@ impl<'a, 'b> Mul<&'b DenseOctetMatrix> for &'a DenseOctetMatrix {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct SparseOctetVec {
+struct SparseVec<T: Clone> {
     // Kept sorted by the usize (key)
-    elements: Vec<(usize, Octet)>
+    elements: Vec<(usize, T)>
 }
 
-impl SparseOctetVec {
-    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
-        SparseOctetVec {
+impl <T: Clone> SparseVec<T> {
+    pub fn with_capacity(capacity: usize) -> SparseVec<T> {
+        SparseVec {
             elements: Vec::with_capacity(capacity)
         }
-    }
-
-    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) {
-        let mut result = Vec::with_capacity(self.elements.len() + other.elements.len());
-        let mut self_iter = self.elements.iter();
-        let mut other_iter = other.elements.iter();
-        let mut self_entry = self_iter.next();
-        let mut other_entry = other_iter.next();
-
-        loop {
-            if let Some((self_col, self_value)) = self_entry {
-                if let Some((other_col, other_value)) = other_entry {
-                    if self_col < other_col {
-                        result.push((*self_col, self_value.clone()));
-                        self_entry = self_iter.next();
-                    }
-                    else if self_col == other_col {
-                        result.push((*other_col, self_value + &(other_value * scalar)));
-                        self_entry = self_iter.next();
-                        other_entry = other_iter.next();
-                    }
-                    else {
-                        result.push((*other_col, other_value * scalar));
-                        other_entry = other_iter.next();
-                    }
-                }
-                else {
-                    result.push((*self_col, self_value.clone()));
-                    self_entry = self_iter.next();
-                }
-            }
-            else {
-                if let Some((other_col, other_value)) = other_entry {
-                    result.push((*other_col, other_value * scalar));
-                    other_entry = other_iter.next();
-                }
-                else {
-                    break;
-                }
-            }
-        }
-        self.elements = result;
     }
 
     pub fn truncate(&mut self, new_length: usize) {
@@ -284,28 +242,104 @@ impl SparseOctetVec {
         }
     }
 
-    pub fn get(&self, i: &usize) -> Option<&Octet> {
+    pub fn get(&self, i: &usize) -> Option<&T> {
         match self.elements.binary_search_by_key(i, |(col, _)| *col) {
             Ok(index) => Some(&self.elements[index].1),
             Err(_) => None
         }
     }
 
+    pub fn keys_values(&self) -> impl Iterator<Item=&(usize, T)> {
+        self.elements.iter()
+    }
+
+    pub fn insert(&mut self, i: usize, value: T) {
+        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+            Ok(index) => self.elements[index] = (i, value),
+            Err(index) => self.elements.insert(index, (i, value))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct SparseOctetVec {
+    // Kept sorted by the usize (key)
+    elements: SparseVec<Octet>
+}
+
+impl SparseOctetVec {
+    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
+        SparseOctetVec {
+            elements: SparseVec::with_capacity(capacity)
+        }
+    }
+
+    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) {
+        let mut result = Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
+        let mut self_iter = self.elements.elements.iter();
+        let mut other_iter = other.elements.elements.iter();
+        let mut self_entry = self_iter.next();
+        let mut other_entry = other_iter.next();
+
+        loop {
+            if let Some((self_col, self_value)) = self_entry {
+                if let Some((other_col, other_value)) = other_entry {
+                    if self_col < other_col {
+                        result.push((*self_col, self_value.clone()));
+                        self_entry = self_iter.next();
+                    }
+                    else if self_col == other_col {
+                        result.push((*other_col, self_value + &(other_value * scalar)));
+                        self_entry = self_iter.next();
+                        other_entry = other_iter.next();
+                    }
+                    else {
+                        result.push((*other_col, other_value * scalar));
+                        other_entry = other_iter.next();
+                    }
+                }
+                else {
+                    result.push((*self_col, self_value.clone()));
+                    self_entry = self_iter.next();
+                }
+            }
+            else {
+                if let Some((other_col, other_value)) = other_entry {
+                    result.push((*other_col, other_value * scalar));
+                    other_entry = other_iter.next();
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        self.elements.elements = result;
+    }
+
+    pub fn truncate(&mut self, new_length: usize) {
+        self.elements.truncate(new_length);
+    }
+
+    pub fn swap(&mut self, i: usize, j: usize) {
+        self.elements.swap(i, j);
+    }
+
+    pub fn get(&self, i: &usize) -> Option<&Octet> {
+        self.elements.get(i)
+    }
+
     pub fn mul_assign(&mut self, scalar: &Octet) {
-        for (_, value) in self.elements.iter_mut() {
+        for (_, value) in self.elements.elements.iter_mut() {
             *value = value as &Octet * scalar;
         }
     }
 
     pub fn keys_values(&self) -> impl Iterator<Item=&(usize, Octet)> {
-        self.elements.iter()
+        self.elements.keys_values()
     }
 
     pub fn insert(&mut self, i: usize, value: Octet) {
-        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
-            Ok(index) => self.elements[index] = (i, value),
-            Err(index) => self.elements.insert(index, (i, value))
-        }
+        self.elements.insert(i, value);
     }
 }
 
