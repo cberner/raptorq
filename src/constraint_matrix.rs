@@ -15,7 +15,7 @@ use crate::systematic_constants::num_pi_symbols;
 #[allow(non_snake_case)]
 fn generate_gamma(Kprime: usize, S: usize) -> DenseOctetMatrix {
     let size = Kprime + S;
-    let mut matrix = DenseOctetMatrix::new(size, size);
+    let mut matrix = DenseOctetMatrix::new(size, size, 0);
     for i in 0..size {
         for j in 0..=i {
             matrix.set(i, j, Octet::alpha((i - j) as u8));
@@ -28,7 +28,7 @@ fn generate_gamma(Kprime: usize, S: usize) -> DenseOctetMatrix {
 // See section 5.3.3.3
 #[allow(non_snake_case)]
 fn generate_mt(H: usize, Kprime: usize, S: usize) -> DenseOctetMatrix {
-    let mut matrix = DenseOctetMatrix::new(H, Kprime + S);
+    let mut matrix = DenseOctetMatrix::new(H, Kprime + S, 0);
     for i in 0..H {
         for j in 0..=(Kprime + S - 2) {
             if i == rand((j + 1) as u32, 6u32, H as u32) as usize
@@ -101,7 +101,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
     assert!(S + H + encoded_symbol_indices.len() >= L);
-    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L);
+    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P);
 
     // G_LDPC,1
     // See section 5.3.3.3
