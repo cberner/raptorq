@@ -10,7 +10,8 @@ use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use std::collections::HashSet;
-use crate::matrix::DenseOctetMatrix;
+use crate::matrix::{OctetMatrix, DenseOctetMatrix, SparseOctetMatrix};
+use crate::encoder::SPARSE_MATRIX_THRESHOLD;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,
@@ -51,6 +52,13 @@ impl Decoder {
         }
     }
 
+    #[cfg(any(test, feature = "benchmarking"))]
+    pub fn set_sparse_threshold(&mut self, value: u32) {
+        for block_decoder in self.block_decoders.iter_mut() {
+            block_decoder.set_sparse_threshold(value);
+        }
+    }
+
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         let block_number = packet.payload_id.source_block_number() as usize;
         if self.blocks[block_number].is_none() {
@@ -80,6 +88,7 @@ pub struct SourceBlockDecoder {
     received_source_symbols: u32,
     received_esi: HashSet<u32>,
     decoded: bool,
+    sparse_threshold: u32
 }
 
 impl SourceBlockDecoder {
@@ -98,7 +107,34 @@ impl SourceBlockDecoder {
             received_source_symbols: 0,
             received_esi,
             decoded: false,
+            sparse_threshold: SPARSE_MATRIX_THRESHOLD
         }
+    }
+
+    #[cfg(any(test, feature = "benchmarking"))]
+    pub fn set_sparse_threshold(&mut self, value: u32) {
+        self.sparse_threshold = value;
+    }
+
+    fn try_pi_decode(&mut self, constraint_matrix: impl OctetMatrix, symbols: Vec<Symbol>) -> Option<Vec<u8>> {
+        let intermediate_symbols =
+            match fused_inverse_mul_symbols(constraint_matrix, symbols, self.source_block_symbols) {
+                None => return None,
+                Some(s) => s,
+            };
+
+        let mut result = vec![];
+        for i in 0..self.source_block_symbols as usize {
+            if let Some(ref symbol) = self.source_symbols[i] {
+                result.extend(symbol.as_bytes())
+            } else {
+                let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
+                result.extend(rebuilt.as_bytes());
+            }
+        }
+
+        self.decoded = true;
+        return Some(result);
     }
 
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
@@ -163,26 +199,16 @@ impl SourceBlockDecoder {
                 d.push(Symbol::new(repair_packet.data.clone()));
             }
 
-            let constraint_matrix =
-                generate_constraint_matrix::<DenseOctetMatrix>(self.source_block_symbols, &encoded_indices);
-            let intermediate_symbols =
-                match fused_inverse_mul_symbols(constraint_matrix, d, self.source_block_symbols) {
-                    None => return None,
-                    Some(s) => s,
-                };
-
-            let mut result = vec![];
-            for i in 0..self.source_block_symbols as usize {
-                if let Some(ref symbol) = self.source_symbols[i] {
-                    result.extend(symbol.as_bytes())
-                } else {
-                    let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
-                    result.extend(rebuilt.as_bytes());
-                }
+            if extended_source_block_symbols(self.source_block_symbols) >= self.sparse_threshold {
+                let constraint_matrix =
+                    generate_constraint_matrix::<SparseOctetMatrix>(self.source_block_symbols, &encoded_indices);
+                return self.try_pi_decode(constraint_matrix, d);
             }
-
-            self.decoded = true;
-            return Some(result);
+            else {
+                let constraint_matrix =
+                    generate_constraint_matrix::<DenseOctetMatrix>(self.source_block_symbols, &encoded_indices);
+                return self.try_pi_decode(constraint_matrix, d);
+            }
         }
         None
     }

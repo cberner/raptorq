@@ -5,7 +5,7 @@ use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::calculate_p1;
+use crate::systematic_constants::{calculate_p1, MAX_SOURCE_SYMBOLS_PER_BLOCK};
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -13,7 +13,10 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::ObjectTransmissionInformation;
-use crate::matrix::DenseOctetMatrix;
+use crate::matrix::{DenseOctetMatrix, SparseOctetMatrix};
+
+// Currently disabled, until more testing has been done
+pub const SPARSE_MATRIX_THRESHOLD: u32 = MAX_SOURCE_SYMBOLS_PER_BLOCK + 1;
 
 pub struct Encoder {
     config: ObjectTransmissionInformation,
@@ -106,7 +109,7 @@ impl SourceBlockEncoder {
             .chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
-        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, symbol_size as usize);
+        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, symbol_size as usize, SPARSE_MATRIX_THRESHOLD);
         SourceBlockEncoder {
             source_block_id,
             source_symbols,
@@ -154,7 +157,7 @@ impl SourceBlockEncoder {
 
 // See section 5.3.3.4
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize) -> Vec<Symbol> {
+fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize, sparse_threshold: u32) -> Vec<Symbol> {
     let L = num_intermediate_symbols(source_block.len() as u32);
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
@@ -174,8 +177,14 @@ fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize) -> V
     assert_eq!(D.len(), L as usize);
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
-    let A = generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
-    fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
+    if extended_source_symbols >= sparse_threshold {
+        let A = generate_constraint_matrix::<SparseOctetMatrix>(extended_source_symbols, &indices);
+        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
+    }
+    else {
+        let A = generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
+        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
+    }
 }
 
 // Enc[] function, as defined in section 5.3.5.3
@@ -226,7 +235,7 @@ mod tests {
     use crate::encoder::enc;
     use crate::encoder::gen_intermediate_symbols;
     use crate::symbol::Symbol;
-    use crate::systematic_constants::num_ldpc_symbols;
+    use crate::systematic_constants::{num_ldpc_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
     use crate::systematic_constants::num_lt_symbols;
     use crate::systematic_constants::num_pi_symbols;
 
@@ -246,9 +255,18 @@ mod tests {
     }
 
     #[test]
-    fn enc_constraint() {
+    fn enc_constraint_dense() {
+        enc_constraint(MAX_SOURCE_SYMBOLS_PER_BLOCK + 1);
+    }
+
+    #[test]
+    fn enc_constraint_sparse() {
+        enc_constraint(0);
+    }
+
+    fn enc_constraint(sparse_threshold: u32) {
         let source_symbols = gen_test_symbols();
-        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE);
+        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
 
         // See section 5.3.3.4.1, item 1.
         for i in 0..source_symbols.len() {
@@ -258,10 +276,19 @@ mod tests {
         }
     }
 
-    #[allow(non_snake_case)]
     #[test]
-    fn ldpc_constraint() {
-        let C = gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE);
+    fn ldpc_constraint_dense() {
+        ldpc_constraint(MAX_SOURCE_SYMBOLS_PER_BLOCK + 1);
+    }
+
+    #[test]
+    fn ldpc_constraint_sparse() {
+        ldpc_constraint(0);
+    }
+
+    #[allow(non_snake_case)]
+    fn ldpc_constraint(sparse_threshold: u32) {
+        let C = gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold);
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;
         let W = num_lt_symbols(NUM_SYMBOLS) as usize;

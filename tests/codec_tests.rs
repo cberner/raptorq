@@ -8,7 +8,16 @@ mod codec_tests {
     use raptorq::SourceBlockEncoder;
 
     #[test]
-    fn random_erasure() {
+    fn random_erasure_dense() {
+        random_erasure(99_999);
+    }
+
+    #[test]
+    fn random_erasure_sparse() {
+        random_erasure(0);
+    }
+
+    fn random_erasure(sparse_threshold: u32) {
         let elements: usize = rand::thread_rng().gen_range(1, 1_000_000);
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -27,6 +36,7 @@ mod codec_tests {
         packets.truncate(length - 10);
 
         let mut decoder = Decoder::new(encoder.get_config());
+        decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
         while !packets.is_empty() {
@@ -40,7 +50,16 @@ mod codec_tests {
     }
 
     #[test]
-    fn round_trip() {
+    fn round_trip_dense() {
+        round_trip(99_999);
+    }
+
+    #[test]
+    fn round_trip_sparse() {
+        round_trip(0);
+    }
+
+    fn round_trip(sparse_threshold: u32) {
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -50,6 +69,7 @@ mod codec_tests {
         let encoder = SourceBlockEncoder::new(1, 8, &data);
 
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
+        decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
         for packet in encoder.source_packets() {
@@ -61,7 +81,16 @@ mod codec_tests {
     }
 
     #[test]
-    fn repair() {
+    fn repair_dense() {
+        repair(99_999);
+    }
+
+    #[test]
+    fn repair_sparse() {
+        repair(0);
+    }
+
+    fn repair(sparse_threshold: u32) {
         let elements = 1024;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -71,6 +100,7 @@ mod codec_tests {
         let encoder = SourceBlockEncoder::new(1, 8, &data);
 
         let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
+        decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
         let mut parsed_packets = 0;

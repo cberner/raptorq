@@ -1,5 +1,5 @@
 // K'_max as defined in section 5.1.2
-const MAX_SOURCE_SYMBOLS_PER_BLOCK: u32 = 56403;
+pub const MAX_SOURCE_SYMBOLS_PER_BLOCK: u32 = 56403;
 
 // Table 2, as defined in section 5.6
 pub const SYSTEMATIC_INDICES_AND_PARAMETERS: [(u32, u32, u32, u32, u32); 477] = [

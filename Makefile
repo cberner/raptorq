@@ -5,7 +5,7 @@ release:
 	cargo build --release
 
 test:
-	cargo test
+	cargo test --features benchmarking
 
 bench:
 	cargo bench --features benchmarking
