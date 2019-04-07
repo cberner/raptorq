@@ -89,6 +89,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     // Set the valid columns, and recalculate statistics
+    // All values in column "start_col - 1" in rows start_row..end_row must be zero
     #[inline(never)]
     pub fn resize<T: OctetMatrix>(
         &mut self,
@@ -99,26 +100,14 @@ impl FirstPhaseRowSelectionStats {
         matrix: &T,
     ) {
         // Only shrinking is supported
-        assert!(start_col > self.start_col);
         assert!(end_col <= self.end_col);
         assert_eq!(self.start_row, start_row - 1);
+        assert_eq!(self.start_col, start_col - 1);
 
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(self.start_row));
 
         for row in start_row..end_row {
-            for col in self.start_col..start_col {
-                if matrix.get(row, col) == Octet::one() {
-                    self.ones_per_row.decrement(row);
-                }
-                if matrix.get(row, col) != Octet::zero() {
-                    let non_zeros = self.non_zeros_per_row.get(row);
-                    self.non_zeros_histogram.decrement(non_zeros);
-                    self.non_zeros_histogram.increment(non_zeros - 1);
-                    self.non_zeros_per_row.decrement(row);
-                }
-            }
-
             for col in end_col..self.end_col {
                 if matrix.get(row, col) == Octet::one() {
                     self.ones_per_row.decrement(row);
