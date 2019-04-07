@@ -730,10 +730,19 @@ mod tests {
     }
 
     #[test]
-    fn set() {
-        // rand_dense_and_sparse uses set(), so just check that it works
-        let (dense, sparse) = rand_dense_and_sparse(8);
-        assert_matrices_eq(&dense, &sparse);
+    fn sparse_vec() {
+        let size = 100;
+        let mut dense = vec![0; size];
+        let mut sparse = SparseOctetVec::with_capacity(size);
+        for _ in 0..size {
+            let i = rand::thread_rng().gen_range(0, size);
+            let value = rand::thread_rng().gen();
+            dense[i] = value;
+            sparse.insert(i, Octet::new(value));
+        }
+        for i in 0..size {
+            assert_eq!(dense[i], sparse.get(&i).map(|x| x.byte()).unwrap_or(0));
+        }
     }
 
     #[test]
