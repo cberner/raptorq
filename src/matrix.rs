@@ -4,6 +4,43 @@ use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
 use std::ops::Mul;
 
+pub struct OctetIter<'a> {
+    sparse: bool,
+    end_col: usize,
+    dense_elements: Option<&'a Vec<u8>>,
+    dense_index: usize,
+    sparse_elements: Option<&'a Vec<(usize, Octet)>>,
+    sparse_index: usize
+}
+
+impl <'a> Iterator for OctetIter<'a> {
+    type Item = (usize, Octet);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sparse {
+            let elements = self.sparse_elements.unwrap();
+            if self.sparse_index == elements.len() || elements[self.sparse_index].0 >= self.end_col {
+                return None;
+            }
+            else {
+                let old_index = self.sparse_index;
+                self.sparse_index += 1;
+                return Some(elements[old_index].clone());
+            }
+        }
+        else {
+            if self.dense_index == self.end_col {
+                return None;
+            }
+            else {
+                let old_index = self.dense_index;
+                self.dense_index += 1;
+                return Some((old_index, Octet::new(self.dense_elements.unwrap()[old_index].clone())));
+            }
+        }
+    }
+}
+
 pub trait OctetMatrix: Clone {
     fn new(height: usize, width: usize) -> Self;
 
@@ -16,6 +53,9 @@ pub trait OctetMatrix: Clone {
     fn count_ones_and_nonzeros(&self, row: usize, start_col: usize, end_col: usize) -> (usize, usize);
 
     fn mul_assign_row(&mut self, row: usize, value: &Octet);
+
+    // Once "impl Trait" is supported in traits, it would be better to return "impl Iterator<...>"
+    fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
 
     fn get(&self, i: usize, j: usize) -> Octet;
 
@@ -73,6 +113,17 @@ impl OctetMatrix for DenseOctetMatrix {
 
     fn mul_assign_row(&mut self, row: usize, value: &Octet) {
         mulassign_scalar(&mut self.elements[row], value);
+    }
+
+    fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
+        OctetIter {
+            sparse: false,
+            end_col,
+            dense_elements: Some(&self.elements[row]),
+            dense_index: start_col,
+            sparse_elements: None,
+            sparse_index: 0
+        }
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -390,6 +441,9 @@ impl OctetMatrix for SparseOctetMatrix {
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
+        if value == Octet::zero() {
+            return;
+        }
         self.elements[i].insert(j, value);
         if !self.columns_frozen {
             self.column_index[j].insert(i, ());
@@ -426,6 +480,22 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn get(&self, i: usize, j: usize) -> Octet {
         self.elements[i].get(&j).unwrap_or(&Octet::zero()).clone()
+    }
+
+    fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
+        let sparse_elements = &self.elements[row].elements.elements;
+        let sparse_index = match sparse_elements.binary_search_by_key(&start_col, |(col, _)| *col) {
+            Ok(index) => index,
+            Err(index) => index
+        };
+        OctetIter {
+            sparse: true,
+            end_col,
+            dense_elements: None,
+            dense_index: 0,
+            sparse_elements: Some(sparse_elements),
+            sparse_index
+        }
     }
 
     fn swap_rows(&mut self, i: usize, j: usize) {
@@ -537,12 +607,10 @@ impl OctetMatrix for SparseOctetMatrix {
         assert!(rows <= self.height());
         let mut temp = vec![SparseOctetVec::with_capacity(10); rows];
         for row in 0..rows {
-            for i in 0..rows {
-                let scalar = other.get(row, i);
-                if scalar == Octet::zero() {
-                    continue;
+            for (i, scalar) in other.get_row_iter(row, 0, rows) {
+                if scalar != Octet::zero() {
+                    temp[row].fma(&self.elements[i], &scalar);
                 }
-                temp[row].fma(&self.elements[i], &scalar);
             }
         }
         for row in (0..rows).rev() {

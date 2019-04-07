@@ -140,15 +140,14 @@ impl FirstPhaseRowSelectionStats {
             }
             let mut ones = [0; 2];
             let mut found = 0;
-            // TODO: optimize for sparse
-            for col in self.start_col..self.end_col {
+            for (col, value) in matrix.get_row_iter(*row, self.start_col, self.end_col) {
                 // "The following graph defined by the structure of V is used in determining which
                 // row of A is chosen. The columns that intersect V are the nodes in the graph,
                 // and the rows that have exactly 2 nonzero entries in V and are not HDPC rows
                 // are the edges of the graph that connect the two columns (nodes) in the positions
                 // of the two ones."
                 // This part of the matrix is over GF(2), so "nonzero entries" is equivalent to "ones"
-                if matrix.get(*row, col) == Octet::one() {
+                if value == Octet::one() {
                     ones[found] = col;
                     found += 1;
                 }
@@ -583,12 +582,11 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 self.D[self.d[row]].mulassign_scalar(&self.X.get(row, row));
             }
 
-            // TODO: optimize for sparse
-            for col in 0..row {
-                if self.X.get(row, col) == Octet::zero() {
+            for (col, value) in self.X.get_row_iter(row, 0, row) {
+                if value == Octet::zero() {
                     continue;
                 }
-                if self.X.get(row, col) == Octet::one() {
+                if value == Octet::one() {
                     self.debug_symbol_add_ops += 1;
                     let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
                     *dest += temp;
