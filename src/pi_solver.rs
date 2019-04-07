@@ -140,6 +140,7 @@ impl FirstPhaseRowSelectionStats {
             }
             let mut ones = [0; 2];
             let mut found = 0;
+            // TODO: optimize for sparse
             for col in self.start_col..self.end_col {
                 // "The following graph defined by the structure of V is used in determining which
                 // row of A is chosen. The columns that intersect V are the nodes in the graph,
@@ -408,6 +409,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     fn first_phase_swap_columns_substep(&mut self, r: usize) {
         let mut swapped_columns = 0;
+        // TODO: optimize for sparse
         for col in self.i..(self.A.width() - self.u) {
             if self.A.get(self.i, col) != Octet::zero() {
                 let dest;
@@ -581,6 +583,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 self.D[self.d[row]].mulassign_scalar(&self.X.get(row, row));
             }
 
+            // TODO: optimize for sparse
             for col in 0..row {
                 if self.X.get(row, col) == Octet::zero() {
                     continue;
@@ -638,6 +641,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     fn fourth_phase(&mut self) {
         for i in 0..self.i {
+            // TODO: optimize for sparse
             for j in 0..self.u {
                 let b = self.A.get(i, j + self.i);
                 if b != Octet::zero() {
@@ -696,6 +700,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
             // "For l from 1 to j-1". This means the lower triangular columns, not including the
             // diagonal, which is [0, j)
+            // TODO: optimize for sparse
             for l in 0..j {
                 let temp = self.A.get(j, l);
                 if temp != Octet::zero() {
@@ -738,6 +743,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     // Reduces the size x size submatrix, starting at row_offset and col_offset as the upper left
     // corner, to row echelon form
     #[inline(never)]
+    // TODO: optimize for sparse
     fn reduce_to_row_echelon(&mut self, row_offset: usize, col_offset: usize, size: usize) -> bool {
         for i in 0..size {
             // Swap a row with leading coefficient i into place
@@ -774,6 +780,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     // Performs backwards elimination in a size x size submatrix, starting at
     // row_offset and col_offset as the upper left corner of the submatrix
     #[inline(never)]
+    // TODO: optimize for sparse
     fn backwards_elimination(&mut self, row_offset: usize, col_offset: usize, size: usize) {
         // Perform backwards elimination
         for i in (0..size).rev() {
