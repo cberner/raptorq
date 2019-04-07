@@ -855,6 +855,9 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             return None;
         }
 
+        self.A.freeze_columns();
+        self.X.freeze_columns();
+
         if !self.second_phase() {
             return None;
         }

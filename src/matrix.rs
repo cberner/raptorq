@@ -23,6 +23,9 @@ pub trait OctetMatrix: Clone {
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row: usize);
 
+    // After calling this method swap_columns can no longer be called
+    fn freeze_columns(&mut self);
+
     // other must be a rows x rows matrix
     // sets self[0..rows][..] = X * self[0..rows][..]
     fn mul_assign_submatrix(&mut self, other: &Self, rows: usize);
@@ -84,6 +87,10 @@ impl OctetMatrix for DenseOctetMatrix {
         for row in start_row..self.elements.len() {
             self.elements[row].swap(i, j);
         }
+    }
+
+    fn freeze_columns(&mut self) {
+        // No-op
     }
 
     // other must be a rows x rows matrix
@@ -274,13 +281,15 @@ impl SparseOctetVec {
         }
     }
 
-    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) {
+    // Returns a vector of new column indices that this row contains
+    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
         let mut result = Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
         let mut self_iter = self.elements.elements.iter();
         let mut other_iter = other.elements.elements.iter();
         let mut self_entry = self_iter.next();
         let mut other_entry = other_iter.next();
 
+        let mut new_indices = Vec::with_capacity(10);
         loop {
             if let Some((self_col, self_value)) = self_entry {
                 if let Some((other_col, other_value)) = other_entry {
@@ -294,6 +303,7 @@ impl SparseOctetVec {
                         other_entry = other_iter.next();
                     }
                     else {
+                        new_indices.push(*other_col);
                         result.push((*other_col, other_value * scalar));
                         other_entry = other_iter.next();
                     }
@@ -305,6 +315,7 @@ impl SparseOctetVec {
             }
             else {
                 if let Some((other_col, other_value)) = other_entry {
+                    new_indices.push(*other_col);
                     result.push((*other_col, other_value * scalar));
                     other_entry = other_iter.next();
                 }
@@ -314,6 +325,8 @@ impl SparseOctetVec {
             }
         }
         self.elements.elements = result;
+
+        return new_indices;
     }
 
     pub fn truncate(&mut self, new_length: usize) {
@@ -348,6 +361,10 @@ pub struct SparseOctetMatrix {
     height: usize,
     width: usize,
     elements: Vec<SparseOctetVec>,
+    // Sparse vector indicating which rows may have a non-zero value in the given column
+    // Does not guarantee that the row has a non-zero value, since FMA may have added to zero
+    column_index: Vec<SparseVec<()>>,
+    columns_frozen: bool
 }
 
 impl OctetMatrix for SparseOctetMatrix {
@@ -356,15 +373,24 @@ impl OctetMatrix for SparseOctetMatrix {
         for _ in 0..height {
             elements.push(SparseOctetVec::with_capacity(10));
         }
+        let mut column_index = Vec::with_capacity(width);
+        for _ in 0..width {
+            column_index.push(SparseVec::with_capacity(10));
+        }
         SparseOctetMatrix {
             height,
             width,
             elements,
+            column_index,
+            columns_frozen: false
         }
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
         self.elements[i].insert(j, value);
+        if !self.columns_frozen {
+            self.column_index[j].insert(i, ());
+        }
     }
 
     fn height(&self) -> usize {
@@ -401,12 +427,103 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn swap_rows(&mut self, i: usize, j: usize) {
         self.elements.swap(i, j);
+
+        if self.columns_frozen {
+            // No need to update the column index, if they are frozen
+            return;
+        }
+
+        let mut i_iter = self.elements[i].keys_values().map(|(col, _)| col);
+        let mut j_iter = self.elements[j].keys_values().map(|(col, _)| col);
+        let mut i_entry = i_iter.next();
+        let mut j_entry = j_iter.next();
+
+        loop {
+            if let Some(&i_col) = i_entry {
+                if let Some(&j_col) = j_entry {
+                    if i_col < j_col {
+                        self.column_index[i_col].swap(i, j);
+                        i_entry = i_iter.next();
+                    }
+                    else if i_col == j_col {
+                        self.column_index[i_col].swap(i, j);
+                        i_entry = i_iter.next();
+                        j_entry = j_iter.next();
+                    }
+                    else {
+                        self.column_index[j_col].swap(i, j);
+                        j_entry = j_iter.next();
+                    }
+                }
+                else {
+                    self.column_index[i_col].swap(i, j);
+                    i_entry = i_iter.next();
+                }
+            }
+            else {
+                if let Some(&j_col) = j_entry {
+                    self.column_index[j_col].swap(i, j);
+                    j_entry = j_iter.next();
+                }
+                else {
+                    break;
+                }
+            }
+        }
     }
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
-        for row in start_row..self.elements.len() {
-            self.elements[row].swap(i, j);
+        assert_eq!(self.columns_frozen, false);
+
+        self.column_index.swap(i, j);
+        let mut i_iter = self.column_index[i]
+            .keys_values()
+            .map(|(row, _)| row)
+            .filter(|row| **row >= start_row);
+        let mut j_iter = self.column_index[j]
+            .keys_values()
+            .map(|(row, _)| row)
+            .filter(|row| **row >= start_row);
+        let mut i_entry = i_iter.next();
+        let mut j_entry = j_iter.next();
+
+        loop {
+            if let Some(&i_row) = i_entry {
+                if let Some(&j_row) = j_entry {
+                    if i_row < j_row {
+                        self.elements[i_row].swap(i, j);
+                        i_entry = i_iter.next();
+                    }
+                    else if i_row == j_row {
+                        self.elements[i_row].swap(i, j);
+                        i_entry = i_iter.next();
+                        j_entry = j_iter.next();
+                    }
+                    else {
+                        self.elements[j_row].swap(i, j);
+                        j_entry = j_iter.next();
+                    }
+                }
+                else {
+                    self.elements[i_row].swap(i, j);
+                    i_entry = i_iter.next();
+                }
+            }
+            else {
+                if let Some(&j_row) = j_entry {
+                    self.elements[j_row].swap(i, j);
+                    j_entry = j_iter.next();
+                }
+                else {
+                    break;
+                }
+            }
         }
+    }
+
+    fn freeze_columns(&mut self) {
+        self.columns_frozen = true;
+        self.column_index.clear();
     }
 
     // other must be a rows x rows matrix
@@ -427,6 +544,11 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         for row in (0..rows).rev() {
             self.elements[row] = temp.pop().unwrap();
+            if !self.columns_frozen {
+                for (col, _) in self.elements[row].keys_values() {
+                    self.column_index[*col].insert(row, ())
+                }
+            }
         }
     }
 
@@ -434,7 +556,12 @@ impl OctetMatrix for SparseOctetMatrix {
         assert_ne!(dest, multiplicand);
         let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, multiplicand);
 
-        dest_row.fma(temp_row, scalar);
+        let new_columns = dest_row.fma(temp_row, scalar);
+        if !self.columns_frozen {
+            for new_col in new_columns {
+                self.column_index[new_col].insert(dest, ());
+            }
+        }
     }
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
@@ -443,6 +570,12 @@ impl OctetMatrix for SparseOctetMatrix {
         self.elements.truncate(new_height);
         for row in 0..self.elements.len() {
             self.elements[row].truncate(new_width);
+        }
+        if !self.columns_frozen {
+            self.column_index.truncate(new_width);
+            for col in 0..self.column_index.len() {
+                self.column_index[col].truncate(new_height);
+            }
         }
         self.height = new_height;
         self.width = new_width;
@@ -455,6 +588,9 @@ impl<'a, 'b> Mul<&'b SparseOctetMatrix> for &'a SparseOctetMatrix {
     fn mul(self, rhs: &'b SparseOctetMatrix) -> SparseOctetMatrix {
         assert_eq!(self.width, rhs.height);
         let mut result = SparseOctetMatrix::new(self.height, rhs.width);
+        if self.columns_frozen && rhs.columns_frozen {
+            result.freeze_columns();
+        }
         for row in 0..self.height {
             for i in 0..self.width {
                 let scalar = self.get(row, i);
@@ -462,6 +598,11 @@ impl<'a, 'b> Mul<&'b SparseOctetMatrix> for &'a SparseOctetMatrix {
                     continue;
                 }
                 result.elements[row].fma(&rhs.elements[i], &scalar);
+            }
+            if !result.columns_frozen {
+                for (col, _) in result.elements[row].keys_values() {
+                    result.column_index[*col].insert(row, ())
+                }
             }
         }
         result
@@ -512,7 +653,7 @@ mod tests {
         assert_eq!(dense.width(), sparse.width());
         for i in 0..dense.height() {
             for j in 0..dense.width() {
-                assert_eq!(dense.get(i, j), sparse.get(i, j));
+                assert_eq!(dense.get(i, j), sparse.get(i, j), "Matrices are not equal at row={} col={}", i, j);
             }
         }
     }
