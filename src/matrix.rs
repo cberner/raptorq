@@ -289,7 +289,7 @@ impl SparseOctetVec {
         let mut self_entry = self_iter.next();
         let mut other_entry = other_iter.next();
 
-        let mut new_indices = Vec::with_capacity(10);
+        let mut new_columns = Vec::with_capacity(10);
         loop {
             if let Some((self_col, self_value)) = self_entry {
                 if let Some((other_col, other_value)) = other_entry {
@@ -298,12 +298,15 @@ impl SparseOctetVec {
                         self_entry = self_iter.next();
                     }
                     else if self_col == other_col {
-                        result.push((*other_col, self_value + &(other_value * scalar)));
+                        let value = self_value + &(other_value * scalar);
+                        if value != Octet::zero() {
+                            result.push((*self_col, value));
+                        }
                         self_entry = self_iter.next();
                         other_entry = other_iter.next();
                     }
                     else {
-                        new_indices.push(*other_col);
+                        new_columns.push(*other_col);
                         result.push((*other_col, other_value * scalar));
                         other_entry = other_iter.next();
                     }
@@ -315,7 +318,7 @@ impl SparseOctetVec {
             }
             else {
                 if let Some((other_col, other_value)) = other_entry {
-                    new_indices.push(*other_col);
+                    new_columns.push(*other_col);
                     result.push((*other_col, other_value * scalar));
                     other_entry = other_iter.next();
                 }
@@ -326,7 +329,7 @@ impl SparseOctetVec {
         }
         self.elements.elements = result;
 
-        return new_indices;
+        return new_columns;
     }
 
     pub fn truncate(&mut self, new_length: usize) {
