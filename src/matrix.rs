@@ -32,6 +32,43 @@ impl Iterator for KeyIter {
     }
 }
 
+pub struct ClonedOctetIter {
+    sparse: bool,
+    end_col: usize,
+    dense_elements: Option<Vec<u8>>,
+    dense_index: usize,
+    sparse_elements: Option<Vec<(usize, Octet)>>,
+    sparse_index: usize
+}
+
+impl Iterator for ClonedOctetIter {
+    type Item = (usize, Octet);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sparse {
+            let elements = self.sparse_elements.as_ref().unwrap();
+            if self.sparse_index == elements.len() || elements[self.sparse_index].0 >= self.end_col {
+                return None;
+            }
+            else {
+                let old_index = self.sparse_index;
+                self.sparse_index += 1;
+                return Some(elements[old_index].clone());
+            }
+        }
+        else {
+            if self.dense_index == self.end_col {
+                return None;
+            }
+            else {
+                let old_index = self.dense_index;
+                self.dense_index += 1;
+                return Some((old_index, Octet::new(self.dense_elements.as_ref().unwrap()[old_index].clone())));
+            }
+        }
+    }
+}
+
 pub struct OctetIter<'a> {
     sparse: bool,
     end_col: usize,
@@ -39,6 +76,19 @@ pub struct OctetIter<'a> {
     dense_index: usize,
     sparse_elements: Option<&'a Vec<(usize, Octet)>>,
     sparse_index: usize
+}
+
+impl <'a> OctetIter<'a> {
+    pub fn clone(&self) -> ClonedOctetIter {
+        ClonedOctetIter {
+            sparse: self.sparse,
+            end_col: self.end_col,
+            dense_elements: self.dense_elements.map(|x| x.clone()),
+            dense_index: self.dense_index,
+            sparse_elements: self.sparse_elements.map(|x| x.clone()),
+            sparse_index: self.sparse_index
+        }
+    }
 }
 
 impl <'a> Iterator for OctetIter<'a> {

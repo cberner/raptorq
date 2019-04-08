@@ -702,9 +702,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
             // "For l from 1 to j-1". This means the lower triangular columns, not including the
             // diagonal, which is [0, j)
-            // TODO: optimize for sparse
-            for l in 0..j {
-                let temp = self.A.get(j, l);
+            for (l, temp) in self.A.get_row_iter(j, 0, j).clone() {
                 if temp != Octet::zero() {
                     self.fma_rows(l, j, temp);
                 }
