@@ -5,7 +5,7 @@ use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::{calculate_p1, MAX_SOURCE_SYMBOLS_PER_BLOCK};
+use crate::systematic_constants::calculate_p1;
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -15,8 +15,7 @@ use crate::systematic_constants::num_pi_symbols;
 use crate::ObjectTransmissionInformation;
 use crate::matrix::{DenseOctetMatrix, SparseOctetMatrix};
 
-// Currently disabled, until more testing has been done
-pub const SPARSE_MATRIX_THRESHOLD: u32 = MAX_SOURCE_SYMBOLS_PER_BLOCK + 1;
+pub const SPARSE_MATRIX_THRESHOLD: u32 = 1000;
 
 pub struct Encoder {
     config: ObjectTransmissionInformation,
