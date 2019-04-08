@@ -107,8 +107,8 @@ impl FirstPhaseRowSelectionStats {
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(self.start_row));
 
-        for row in start_row..end_row {
-            for col in end_col..self.end_col {
+        for col in end_col..self.end_col {
+            for row in matrix.get_col_index_iter(col, start_row, end_row) {
                 if matrix.get(row, col) == Octet::one() {
                     self.ones_per_row.decrement(row);
                 }
