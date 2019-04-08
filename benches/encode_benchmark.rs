@@ -3,8 +3,7 @@ use raptorq::SourceBlockEncoder;
 use std::time::Instant;
 
 const TARGET_TOTAL_BYTES: usize = 100 * 1024 * 1024;
-const SYMBOL_COUNTS: [usize; 2] = [10, 100];
-//const SYMBOL_COUNTS: [usize; 11] = [10, 100, 250, 500, 1000, 2000, 4000, 10000, 20000, 40000, 56403];
+const SYMBOL_COUNTS: [usize; 11] = [10, 100, 250, 500, 1000, 2000, 4000, 10000, 20000, 40000, 56403];
 
 fn main() {
     let mut junk = 0;
