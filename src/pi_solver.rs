@@ -865,8 +865,8 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             return None;
         }
 
-        self.A.freeze_columns();
-        self.X.freeze_columns();
+        self.A.disable_column_acccess_acceleration();
+        self.X.disable_column_acccess_acceleration();
 
         if !self.second_phase() {
             return None;

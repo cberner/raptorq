@@ -144,8 +144,8 @@ pub trait OctetMatrix: Clone {
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row: usize);
 
-    // After calling this method swap_columns can no longer be called
-    fn freeze_columns(&mut self);
+    // After calling this method swap_columns() and other column oriented methods, may be much slower
+    fn disable_column_acccess_acceleration(&mut self);
 
     // Hints that column i will not be swapped again, and is likely to become dense'ish
     fn hint_column_dense_and_frozen(&mut self, i: usize);
@@ -233,7 +233,7 @@ impl OctetMatrix for DenseOctetMatrix {
         }
     }
 
-    fn freeze_columns(&mut self) {
+    fn disable_column_acccess_acceleration(&mut self) {
         // No-op
     }
 
@@ -576,7 +576,7 @@ pub struct SparseOctetMatrix {
     // Sparse vector indicating which rows may have a non-zero value in the given column
     // Does not guarantee that the row has a non-zero value, since FMA may have added to zero
     sparse_column_index: Vec<SparseVec<()>>,
-    columns_frozen: bool,
+    column_index_disabled: bool,
     num_dense_columns: usize
 }
 
@@ -600,7 +600,7 @@ impl OctetMatrix for SparseOctetMatrix {
             sparse_elements: elements,
             dense_elements,
             sparse_column_index: column_index,
-            columns_frozen: false,
+            column_index_disabled: false,
             num_dense_columns: trailing_dense_column_hint
         }
     }
@@ -612,7 +612,7 @@ impl OctetMatrix for SparseOctetMatrix {
         else {
             self.sparse_elements[i].insert(j, value);
         }
-        if !self.columns_frozen {
+        if !self.column_index_disabled {
             self.sparse_column_index[j].insert(i, ());
         }
     }
@@ -695,7 +695,7 @@ impl OctetMatrix for SparseOctetMatrix {
         self.sparse_elements.swap(i, j);
         self.dense_elements.swap(i, j);
 
-        if self.columns_frozen {
+        if self.column_index_disabled {
             // No need to update the column index, if they are frozen
             return;
         }
@@ -743,7 +743,7 @@ impl OctetMatrix for SparseOctetMatrix {
         if j >= self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
-        assert_eq!(self.columns_frozen, false);
+        assert_eq!(self.column_index_disabled, false);
 
         self.sparse_column_index.swap(i, j);
         let mut i_iter = self.sparse_column_index[i]
@@ -791,8 +791,8 @@ impl OctetMatrix for SparseOctetMatrix {
         }
     }
 
-    fn freeze_columns(&mut self) {
-        self.columns_frozen = true;
+    fn disable_column_acccess_acceleration(&mut self) {
+        self.column_index_disabled = true;
         self.sparse_column_index.clear();
     }
 
@@ -845,7 +845,7 @@ impl OctetMatrix for SparseOctetMatrix {
         for row in (0..rows).rev() {
             self.sparse_elements[row] = temp_sparse.pop().unwrap();
             self.dense_elements[row] = temp_dense.pop().unwrap();
-            if !self.columns_frozen {
+            if !self.column_index_disabled {
                 for (col, _) in self.sparse_elements[row].keys_values() {
                     self.sparse_column_index[*col].insert(row, ())
                 }
@@ -868,7 +868,7 @@ impl OctetMatrix for SparseOctetMatrix {
         let (dest_row, temp_row) = get_both_indices(&mut self.sparse_elements, dest, multiplicand);
 
         let new_columns = dest_row.fma(temp_row, scalar);
-        if !self.columns_frozen {
+        if !self.column_index_disabled {
             for new_col in new_columns {
                 self.sparse_column_index[new_col].insert(dest, ());
             }
@@ -898,7 +898,7 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         self.num_dense_columns -= dense_columns_to_remove;
 
-        if !self.columns_frozen {
+        if !self.column_index_disabled {
             self.sparse_column_index.truncate(new_width);
             for col in 0..self.sparse_column_index.len() {
                 self.sparse_column_index[col].truncate(new_height);
