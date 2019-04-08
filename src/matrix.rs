@@ -5,6 +5,33 @@ use crate::util::get_both_indices;
 use std::ops::Mul;
 use std::cmp::min;
 
+pub struct KeyIter {
+    sparse: bool,
+    dense_index: usize,
+    dense_end: usize,
+    sparse_rows: Option<Vec<usize>>
+}
+
+impl Iterator for KeyIter {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sparse {
+            return self.sparse_rows.as_mut().unwrap().pop();
+        }
+        else {
+            if self.dense_index == self.dense_end {
+                return None;
+            }
+            else {
+                let old_index = self.dense_index;
+                self.dense_index += 1;
+                return Some(old_index);
+            }
+        }
+    }
+}
+
 pub struct OctetIter<'a> {
     sparse: bool,
     end_col: usize,
@@ -57,6 +84,9 @@ pub trait OctetMatrix: Clone {
 
     // Once "impl Trait" is supported in traits, it would be better to return "impl Iterator<...>"
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
+
+    // An iterator over rows for the given col, that may have non-zero values
+    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> KeyIter;
 
     fn get(&self, i: usize, j: usize) -> Octet;
 
@@ -127,6 +157,15 @@ impl OctetMatrix for DenseOctetMatrix {
             dense_index: start_col,
             sparse_elements: None,
             sparse_index: 0
+        }
+    }
+
+    fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> KeyIter {
+        KeyIter {
+            sparse: false,
+            dense_index: start_row,
+            dense_end: end_row,
+            sparse_rows: None
         }
     }
 
@@ -558,6 +597,20 @@ impl OctetMatrix for SparseOctetMatrix {
             dense_index: 0,
             sparse_elements: Some(sparse_elements),
             sparse_index
+        }
+    }
+
+    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> KeyIter {
+        let rows = self.sparse_column_index[col]
+            .keys_values()
+            .map(|(row, _)| *row)
+            .filter(|row| *row >= start_row && *row < end_row)
+            .collect();
+        KeyIter {
+            sparse: true,
+            dense_index: 0,
+            dense_end: 0,
+            sparse_rows: Some(rows)
         }
     }
 
