@@ -408,22 +408,35 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     fn first_phase_swap_columns_substep(&mut self, r: usize) {
         let mut swapped_columns = 0;
-        // TODO: optimize for sparse
-        for col in self.i..(self.A.width() - self.u) {
-            if self.A.get(self.i, col) != Octet::zero() {
-                let dest;
-                if swapped_columns == 0 {
-                    dest = self.i;
-                } else {
-                    dest = self.A.width() - self.u - swapped_columns;
+        // Fast path when r == 1, since this is very common
+        if r == 1 {
+            for (col, value) in self.A.get_row_iter(self.i, self.i, self.A.width() - self.u).clone() {
+                if value != Octet::zero() {
+                    // No need to swap the first i rows, as they are all zero (see submatrix above V)
+                    self.swap_columns(self.i, col, self.i);
+                    // Also apply to X
+                    self.X.swap_columns(self.i, col, 0);
+                    return;
                 }
-                // No need to swap the first i rows, as they are all zero (see submatrix above V)
-                self.swap_columns(dest, col, self.i);
-                // Also apply to X
-                self.X.swap_columns(dest, col, 0);
-                swapped_columns += 1;
-                if swapped_columns == r {
-                    break;
+            }
+        }
+        else {
+            for col in self.i..(self.A.width() - self.u) {
+                if self.A.get(self.i, col) != Octet::zero() {
+                    let dest;
+                    if swapped_columns == 0 {
+                        dest = self.i;
+                    } else {
+                        dest = self.A.width() - self.u - swapped_columns;
+                    }
+                    // No need to swap the first i rows, as they are all zero (see submatrix above V)
+                    self.swap_columns(dest, col, self.i);
+                    // Also apply to X
+                    self.X.swap_columns(dest, col, 0);
+                    swapped_columns += 1;
+                    if swapped_columns == r {
+                        break;
+                    }
                 }
             }
         }
