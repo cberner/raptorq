@@ -1,14 +1,14 @@
-use raptorq::{extended_source_block_symbols, DenseOctetMatrix, OctetMatrix};
+use raptorq::{extended_source_block_symbols, OctetMatrix, SparseOctetMatrix};
 use raptorq::generate_constraint_matrix;
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
 
 fn main() {
-    for elements in [10, 100, 1000, 10000].iter() {
+    for elements in [10, 100, 1000, 10000, 40000, 56403].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let indices: Vec<u32> = (0..num_symbols).collect();
-        let a = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
+        let a = generate_constraint_matrix::<SparseOctetMatrix>(num_symbols, &indices);
         let mut density = 0;
         for i in 0..a.height() {
             for j in 0..a.width() {
@@ -18,11 +18,12 @@ fn main() {
             }
         }
         println!(
-            "Original density for {}x{}: {} of {}",
+            "Original density for {}x{}: {} of {} ({:.3}%)",
             a.height(),
             a.width(),
             density,
-            a.height() * a.width()
+            a.height() * a.width(),
+            100.0 * density as f64 / (a.height() * a.width()) as f64
         );
 
         let symbols = vec![Symbol::zero(1usize); a.width()];
@@ -40,5 +41,6 @@ fn main() {
             decoder.get_symbol_mul_ops_by_phase(),
             decoder.get_symbol_add_ops_by_phase()
         );
+        println!();
     }
 }
