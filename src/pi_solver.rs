@@ -18,6 +18,7 @@ struct FirstPhaseRowSelectionStats {
     start_col: usize,
     end_col: usize,
     start_row: usize,
+    rows_with_single_nonzero: Vec<usize>
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -46,6 +47,7 @@ impl FirstPhaseRowSelectionStats {
             start_col: 0,
             end_col,
             start_row: 0,
+            rows_with_single_nonzero: vec![]
         };
 
         for row in 0..matrix.height() {
@@ -53,6 +55,9 @@ impl FirstPhaseRowSelectionStats {
             result.non_zeros_per_row.insert(row, non_zero);
             result.ones_per_row.insert(row, ones);
             result.non_zeros_histogram.increment(non_zero);
+            if non_zero == 1 {
+                result.rows_with_single_nonzero.push(row);
+            }
         }
         // Original degree is the degree of each row before processing begins
         result.original_degree = result.non_zeros_per_row.clone();
@@ -65,13 +70,24 @@ impl FirstPhaseRowSelectionStats {
         self.ones_per_row.swap(i, j);
         self.original_degree.swap(i, j);
         self.hdpc_rows.swap(i, j);
+        for row in self.rows_with_single_nonzero.iter_mut() {
+            if *row == i {
+                *row = j;
+            }
+            else if *row == j {
+                *row = i;
+            }
+        }
     }
 
     // Recompute all stored statistics for the given row
     pub fn recompute_row<T: OctetMatrix>(&mut self, row: usize, matrix: &T) {
         let (ones, non_zero) = matrix.count_ones_and_nonzeros(row, self.start_col, self.end_col);
-        self.non_zeros_histogram
-            .decrement(self.non_zeros_per_row.get(row));
+        self.rows_with_single_nonzero.retain(|x| *x != row);
+        if non_zero == 1 {
+            self.rows_with_single_nonzero.push(row);
+        }
+        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(row));
         self.non_zeros_histogram.increment(non_zero);
         self.non_zeros_per_row.insert(row, non_zero);
         self.ones_per_row.insert(row, ones);
@@ -83,6 +99,12 @@ impl FirstPhaseRowSelectionStats {
             self.ones_per_row.decrement(row);
         }
         let non_zeros = self.non_zeros_per_row.get(row);
+        if non_zeros == 1 {
+            self.rows_with_single_nonzero.retain(|x| *x != row);
+        }
+        else if non_zeros == 2 {
+            self.rows_with_single_nonzero.push(row);
+        }
         self.non_zeros_histogram.decrement(non_zeros);
         self.non_zeros_histogram.increment(non_zeros - 1);
         self.non_zeros_per_row.decrement(row);
@@ -106,6 +128,7 @@ impl FirstPhaseRowSelectionStats {
 
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(self.start_row));
+        self.rows_with_single_nonzero.retain(|x| *x != start_row - 1);
 
         for col in end_col..self.end_col {
             for row in matrix.get_col_index_iter(col, start_row, end_row) {
@@ -114,6 +137,12 @@ impl FirstPhaseRowSelectionStats {
                 }
                 if matrix.get(row, col) != Octet::zero() {
                     let non_zeros = self.non_zeros_per_row.get(row);
+                    if non_zeros == 1 {
+                        self.rows_with_single_nonzero.retain(|x| *x != row);
+                    }
+                    else if non_zeros == 2 {
+                        self.rows_with_single_nonzero.push(row);
+                    }
                     self.non_zeros_histogram.decrement(non_zeros);
                     self.non_zeros_histogram.increment(non_zeros - 1);
                     self.non_zeros_per_row.decrement(row);
@@ -233,18 +262,39 @@ impl FirstPhaseRowSelectionStats {
         let mut chosen_hdpc_original_degree = std::usize::MAX;
         let mut chosen_non_hdpc = None;
         let mut chosen_non_hdpc_original_degree = std::usize::MAX;
-        for row in start_row..end_row {
-            let non_zero = self.non_zeros_per_row.get(row);
-            let row_original_degree = self.original_degree.get(row);
-            if non_zero == r {
-                if self.hdpc_rows[row] {
-                    if row_original_degree < chosen_hdpc_original_degree {
-                        chosen_hdpc = Some(row);
-                        chosen_hdpc_original_degree = row_original_degree;
+        // Fast path for r=1, since this is super common
+        if r == 1 {
+            assert_ne!(0, self.rows_with_single_nonzero.len());
+            for &row in self.rows_with_single_nonzero.iter() {
+                let non_zero = self.non_zeros_per_row.get(row);
+                let row_original_degree = self.original_degree.get(row);
+                if non_zero == r {
+                    if self.hdpc_rows[row] {
+                        if row_original_degree < chosen_hdpc_original_degree {
+                            chosen_hdpc = Some(row);
+                            chosen_hdpc_original_degree = row_original_degree;
+                        }
+                    } else if row_original_degree < chosen_non_hdpc_original_degree {
+                        chosen_non_hdpc = Some(row);
+                        chosen_non_hdpc_original_degree = row_original_degree;
                     }
-                } else if row_original_degree < chosen_non_hdpc_original_degree {
-                    chosen_non_hdpc = Some(row);
-                    chosen_non_hdpc_original_degree = row_original_degree;
+                }
+            }
+        }
+        else {
+            for row in start_row..end_row {
+                let non_zero = self.non_zeros_per_row.get(row);
+                let row_original_degree = self.original_degree.get(row);
+                if non_zero == r {
+                    if self.hdpc_rows[row] {
+                        if row_original_degree < chosen_hdpc_original_degree {
+                            chosen_hdpc = Some(row);
+                            chosen_hdpc_original_degree = row_original_degree;
+                        }
+                    } else if row_original_degree < chosen_non_hdpc_original_degree {
+                        chosen_non_hdpc = Some(row);
+                        chosen_non_hdpc_original_degree = row_original_degree;
+                    }
                 }
             }
         }
