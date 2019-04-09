@@ -1,5 +1,5 @@
 use crate::base::intermediate_tuple;
-use crate::matrix::{OctetMatrix, DenseOctetMatrix};
+use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
 use crate::rng::rand;
 use crate::systematic_constants::calculate_p1;
@@ -9,41 +9,7 @@ use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
-
-// Generates the GAMMA matrix
-// See section 5.3.3.3
-#[allow(non_snake_case)]
-fn generate_gamma(Kprime: usize, S: usize) -> DenseOctetMatrix {
-    let size = Kprime + S;
-    let mut matrix = DenseOctetMatrix::new(size, size, 0);
-    for i in 0..size {
-        for j in 0..=i {
-            matrix.set(i, j, Octet::alpha((i - j) as u8));
-        }
-    }
-    matrix
-}
-
-// Generates the MT matrix
-// See section 5.3.3.3
-#[allow(non_snake_case)]
-fn generate_mt(H: usize, Kprime: usize, S: usize) -> DenseOctetMatrix {
-    let mut matrix = DenseOctetMatrix::new(H, Kprime + S, 0);
-    for i in 0..H {
-        for j in 0..=(Kprime + S - 2) {
-            if i == rand((j + 1) as u32, 6u32, H as u32) as usize
-                || i == ((rand((j + 1) as u32, 6u32, H as u32)
-                    + rand((j + 1) as u32, 7u32, (H - 1) as u32)
-                    + 1)
-                    % (H as u32)) as usize
-            {
-                matrix.set(i, j, Octet::one());
-            }
-        }
-        matrix.set(i, Kprime + S - 1, Octet::alpha(i as u8));
-    }
-    matrix
-}
+use crate::octets::{add_assign, fused_addassign_mul_scalar};
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
 pub fn enc_indices(
@@ -131,11 +97,46 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     }
 
     // G_HDPC
-    let g_hdpc = &generate_mt(H, Kprime, S) * &generate_gamma(Kprime, S);
+
+    // Generates the MT matrix
+    // See section 5.3.3.3
+    let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
     for i in 0..H {
+        for j in 0..=(Kprime + S - 2) {
+            if i == rand((j + 1) as u32, 6u32, H as u32) as usize
+                || i == ((rand((j + 1) as u32, 6u32, H as u32)
+                + rand((j + 1) as u32, 7u32, (H - 1) as u32)
+                + 1)
+                % (H as u32)) as usize
+            {
+                mt[i][j] = 1;
+            }
+        }
+        mt[i][Kprime + S - 1] = Octet::alpha(i as u8).byte();
+    }
+    // Multiply by the GAMMA matrix
+    // See section 5.3.3.3
+    let mut gamma_row = vec![0; Kprime + S];
+    // We only create the last row of the GAMMA matrix, as all preceding rows are just a shift left
+    for j in 0..(Kprime + S) {
+        gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) as u8).byte();
+    }
+    for i in 0..H {
+        let mut result_row = vec![0; Kprime + S];
         for j in 0..(Kprime + S) {
-            if g_hdpc.get(i, j) != Octet::zero() {
-                matrix.set(i + S, j, g_hdpc.get(i, j));
+            let scalar = Octet::new(mt[i][j]);
+            if scalar == Octet::zero() {
+                continue;
+            }
+            if scalar == Octet::one() {
+                add_assign(&mut result_row[0..=j], &gamma_row[(Kprime + S - j - 1)..(Kprime + S)]);
+            } else {
+                fused_addassign_mul_scalar( &mut result_row[0..=j], &gamma_row[(Kprime + S - j - 1)..(Kprime + S)], &scalar);
+            }
+        }
+        for j in 0..(Kprime + S) {
+            if result_row[j] != 0 {
+                matrix.set(i + S, j, Octet::new(result_row[j]));
             }
         }
     }
