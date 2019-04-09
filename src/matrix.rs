@@ -2,7 +2,6 @@ use crate::octet::Octet;
 use crate::octets::{add_assign, mulassign_scalar, count_ones_and_nonzeros};
 use crate::octets::fused_addassign_mul_scalar;
 use crate::util::get_both_indices;
-use std::ops::Mul;
 use std::cmp::min;
 
 pub struct KeyIter {
@@ -286,33 +285,6 @@ impl OctetMatrix for DenseOctetMatrix {
         }
         self.height = new_height;
         self.width = new_width;
-    }
-}
-
-impl<'a, 'b> Mul<&'b DenseOctetMatrix> for &'a DenseOctetMatrix {
-    type Output = DenseOctetMatrix;
-
-    fn mul(self, rhs: &'b DenseOctetMatrix) -> DenseOctetMatrix {
-        assert_eq!(self.width, rhs.height);
-        let mut result = DenseOctetMatrix::new(self.height, rhs.width, 0);
-        for row in 0..self.height {
-            for i in 0..self.width {
-                let scalar = self.get(row, i);
-                if scalar == Octet::zero() {
-                    continue;
-                }
-                if scalar == Octet::one() {
-                    add_assign(&mut result.elements[row], &rhs.elements[i]);
-                } else {
-                    fused_addassign_mul_scalar(
-                        &mut result.elements[row],
-                        &rhs.elements[i],
-                        &scalar,
-                    );
-                }
-            }
-        }
-        result
     }
 }
 
