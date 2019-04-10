@@ -15,7 +15,7 @@ use crate::systematic_constants::num_pi_symbols;
 use crate::ObjectTransmissionInformation;
 use crate::matrix::{DenseOctetMatrix, SparseOctetMatrix};
 
-pub const SPARSE_MATRIX_THRESHOLD: u32 = 1000;
+pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
 pub struct Encoder {
     config: ObjectTransmissionInformation,
