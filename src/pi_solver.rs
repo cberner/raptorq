@@ -541,11 +541,12 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             self.first_phase_swap_columns_substep(r);
             // Zero out leading value in following rows
             let temp = self.i;
+            let temp_value = self.A.get(temp, temp);
             for row in self.A.get_col_index_iter(temp, self.i + 1, self.A.height()) {
                 let leading_value = self.A.get(row, temp);
                 if leading_value != Octet::zero() {
                     // Addition is equivalent to subtraction
-                    let beta = &leading_value / &self.A.get(temp, temp);
+                    let beta = &leading_value / &temp_value;
                     self.fma_rows(temp, row, beta);
                     if r == 1 {
                         // Hot path for r == 1, since it's very common due to maximum connected
