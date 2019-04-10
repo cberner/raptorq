@@ -46,7 +46,7 @@ impl Iterator for ClonedOctetIter {
     fn next(&mut self) -> Option<Self::Item> {
         if self.sparse {
             let elements = self.sparse_elements.as_ref().unwrap();
-            if self.sparse_index == elements.len() || elements[self.sparse_index].0 >= self.end_col {
+            if self.sparse_index == elements.len() {
                 return None;
             }
             else {
@@ -70,21 +70,28 @@ impl Iterator for ClonedOctetIter {
 
 pub struct OctetIter<'a> {
     sparse: bool,
+    start_col: usize,
     end_col: usize,
     dense_elements: Option<&'a Vec<u8>>,
     dense_index: usize,
     sparse_elements: Option<&'a Vec<(usize, Octet)>>,
-    sparse_index: usize
+    sparse_index: usize,
+    sparse_physical_col_to_logical: Option<&'a Vec<usize>>
 }
 
 impl <'a> OctetIter<'a> {
     pub fn clone(&self) -> ClonedOctetIter {
+        // Convert to logical indices, since ClonedOctetIter doesn't handle physical
+        let sparse_elements = self.sparse_elements.map(|x| x.iter()
+            .map(|(physical_col, value)| (self.sparse_physical_col_to_logical.unwrap()[*physical_col], value.clone()))
+            .filter(|(logical_col, _)| *logical_col >= self.start_col && *logical_col < self.end_col)
+            .collect());
         ClonedOctetIter {
             sparse: self.sparse,
             end_col: self.end_col,
             dense_elements: self.dense_elements.map(|x| x.clone()),
             dense_index: self.dense_index,
-            sparse_elements: self.sparse_elements.map(|x| x.clone()),
+            sparse_elements,
             sparse_index: self.sparse_index
         }
     }
@@ -96,13 +103,20 @@ impl <'a> Iterator for OctetIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.sparse {
             let elements = self.sparse_elements.unwrap();
-            if self.sparse_index == elements.len() || elements[self.sparse_index].0 >= self.end_col {
+            // Need to iterate over the whole array, since they're not sorted by logical col
+            if self.sparse_index >= elements.len() {
                 return None;
             }
             else {
-                let old_index = self.sparse_index;
-                self.sparse_index += 1;
-                return Some(elements[old_index].clone());
+                while self.sparse_index < elements.len() {
+                    let entry = &elements[self.sparse_index];
+                    self.sparse_index += 1;
+                    let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
+                    if logical_col >= self.start_col && logical_col < self.end_col {
+                        return Some((logical_col, entry.1.clone()));
+                    }
+                }
+                return None;
             }
         }
         else {
@@ -141,7 +155,9 @@ pub trait OctetMatrix: Clone {
 
     fn swap_rows(&mut self, i: usize, j: usize);
 
-    fn swap_columns(&mut self, i: usize, j: usize, start_row: usize);
+    // start_row_hint indicates that all preceding rows don't need to be swapped, because they have
+    // identical values
+    fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize);
 
     // After calling this method swap_columns() and other column oriented methods, may be much slower
     fn disable_column_acccess_acceleration(&mut self);
@@ -201,11 +217,13 @@ impl OctetMatrix for DenseOctetMatrix {
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
         OctetIter {
             sparse: false,
+            start_col,
             end_col,
             dense_elements: Some(&self.elements[row]),
             dense_index: start_col,
             sparse_elements: None,
-            sparse_index: 0
+            sparse_index: 0,
+            sparse_physical_col_to_logical: None
         }
     }
 
@@ -226,8 +244,8 @@ impl OctetMatrix for DenseOctetMatrix {
         self.elements.swap(i, j);
     }
 
-    fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
-        for row in start_row..self.elements.len() {
+    fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize) {
+        for row in start_row_hint..self.elements.len() {
             self.elements[row].swap(i, j);
         }
     }
@@ -301,78 +319,14 @@ impl <T: Clone> SparseVec<T> {
         }
     }
 
-    pub fn truncate(&mut self, new_length: usize) {
-        let mut to_remove = 0;
-        for (col, _) in self.elements.iter().rev() {
-            if *col >= new_length {
-                to_remove += 1;
-            }
-            else {
-                break;
-            }
-        }
-        self.elements.truncate(self.elements.len() - to_remove);
+    pub fn retain<P: Fn(&(usize, T)) -> bool>(&mut self, predicate: P) {
+        self.elements.retain(predicate);
     }
 
     pub fn remove(&mut self, i: usize) -> Option<T> {
         match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
             Ok(index) => Some(self.elements.remove(index).1),
             Err(_) => None
-        }
-    }
-
-    pub fn swap(&mut self, i: usize, j: usize) {
-        let (i_index, i_present) = match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
-            Ok(index) => (index, true),
-            Err(index) => (index, false)
-        };
-        let (j_index, j_present) = match self.elements.binary_search_by_key(&j, |(col, _)| *col) {
-            Ok(index) => (index, true),
-            Err(index) => (index, false)
-        };
-
-        // If both keys are present, just swap the values
-        if i_present && j_present {
-            let temp = self.elements[i_index].1.clone();
-            self.elements[i_index].1 = self.elements[j_index].1.clone();
-            self.elements[j_index].1 = temp;
-            return;
-        }
-        // If neither is present, this is a no-op since we're swapping implicit zeros
-        if !i_present && !j_present {
-            return;
-        }
-
-        let from_index;
-        let to_index;
-        let entry;
-        if i_present {
-            from_index = i_index;
-            to_index = j_index;
-            entry = (j, self.elements[i_index].1.clone());
-        }
-        else {
-            from_index = j_index;
-            to_index = i_index;
-            entry = (i, self.elements[j_index].1.clone());
-        }
-
-        // Move all entries that are in between
-        if from_index < to_index {
-            let mut index = from_index;
-            while index < to_index - 1 {
-                self.elements[index] = self.elements[index + 1].clone();
-                index += 1;
-            }
-            self.elements[to_index - 1] = entry;
-        }
-        else {
-            let mut index = from_index;
-            while index > to_index {
-                self.elements[index] = self.elements[index - 1].clone();
-                index -= 1;
-            }
-            self.elements[to_index] = entry;
         }
     }
 
@@ -508,12 +462,8 @@ impl SparseOctetVec {
         self.elements.remove(i)
     }
 
-    pub fn truncate(&mut self, new_length: usize) {
-        self.elements.truncate(new_length);
-    }
-
-    pub fn swap(&mut self, i: usize, j: usize) {
-        self.elements.swap(i, j);
+    pub fn retain<P: Fn(&(usize, Octet)) -> bool>(&mut self, predicate: P) {
+        self.elements.retain(predicate);
     }
 
     pub fn get(&self, i: &usize) -> Option<&Octet> {
@@ -551,6 +501,8 @@ pub struct SparseOctetMatrix {
     // Mapping of logical row numbers to index in sparse_elements, dense_elements, and sparse_column_index
     logical_row_to_physical: Vec<usize>,
     physical_row_to_logical: Vec<usize>,
+    logical_col_to_physical: Vec<usize>,
+    physical_col_to_logical: Vec<usize>,
     column_index_disabled: bool,
     num_dense_columns: usize
 }
@@ -558,6 +510,7 @@ pub struct SparseOctetMatrix {
 impl OctetMatrix for SparseOctetMatrix {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseOctetMatrix {
         let mut row_mapping = vec![0; height];
+        let mut col_mapping = vec![0; width];
         let mut elements = Vec::with_capacity(height);
         for i in 0..height {
             elements.push(SparseOctetVec::with_capacity(10));
@@ -568,8 +521,9 @@ impl OctetMatrix for SparseOctetMatrix {
             dense_elements.push(vec![0; trailing_dense_column_hint]);
         }
         let mut column_index = Vec::with_capacity(width);
-        for _ in 0..width {
+        for i in 0..width {
             column_index.push(SparseVec::with_capacity(10));
+            col_mapping[i] = i;
         }
         SparseOctetMatrix {
             height,
@@ -579,6 +533,8 @@ impl OctetMatrix for SparseOctetMatrix {
             sparse_column_index: column_index,
             logical_row_to_physical: row_mapping.clone(),
             physical_row_to_logical: row_mapping,
+            logical_col_to_physical: col_mapping.clone(),
+            physical_col_to_logical: col_mapping,
             column_index_disabled: false,
             num_dense_columns: trailing_dense_column_hint
         }
@@ -586,14 +542,15 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
         let physical_i = self.logical_row_to_physical[i];
+        let physical_j = self.logical_col_to_physical[j];
         if self.width - j <= self.num_dense_columns {
             self.dense_elements[physical_i][self.width - j - 1] = value.byte();
         }
         else {
-            self.sparse_elements[physical_i].insert(j, value);
+            self.sparse_elements[physical_i].insert(physical_j, value);
         }
         if !self.column_index_disabled {
-            self.sparse_column_index[j].insert(physical_i, ());
+            self.sparse_column_index[physical_j].insert(physical_i, ());
         }
     }
 
@@ -612,8 +569,9 @@ impl OctetMatrix for SparseOctetMatrix {
         let mut ones = 0;
         let mut nonzeros = 0;
         let physical_row = self.logical_row_to_physical[row];
-        for (col, value) in self.sparse_elements[physical_row].keys_values() {
-            if *col >= start_col && *col < end_col {
+        for (physical_col, value) in self.sparse_elements[physical_row].keys_values() {
+            let col = self.physical_col_to_logical[*physical_col];
+            if col >= start_col && col < end_col {
                 if *value == Octet::one() {
                     ones += 1;
                 }
@@ -633,11 +591,12 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn get(&self, i: usize, j: usize) -> Octet {
         let physical_i = self.logical_row_to_physical[i];
+        let physical_j = self.logical_col_to_physical[j];
         if self.width - j <= self.num_dense_columns {
             return Octet::new(self.dense_elements[physical_i][self.width - j - 1]);
         }
         else {
-            return self.sparse_elements[physical_i].get(&j).unwrap_or(&Octet::zero()).clone();
+            return self.sparse_elements[physical_i].get(&physical_j).unwrap_or(&Octet::zero()).clone();
         }
     }
 
@@ -647,22 +606,21 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         let physical_row = self.logical_row_to_physical[row];
         let sparse_elements = &self.sparse_elements[physical_row].elements.elements;
-        let sparse_index = match sparse_elements.binary_search_by_key(&start_col, |(col, _)| *col) {
-            Ok(index) => index,
-            Err(index) => index
-        };
         OctetIter {
             sparse: true,
+            start_col,
             end_col,
             dense_elements: None,
             dense_index: 0,
             sparse_elements: Some(sparse_elements),
-            sparse_index
+            sparse_index: 0,
+            sparse_physical_col_to_logical: Some(&self.physical_col_to_logical)
         }
     }
 
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> KeyIter {
-        let rows = self.sparse_column_index[col]
+        let physical_col = self.logical_col_to_physical[col];
+        let rows = self.sparse_column_index[physical_col]
             .keys_values()
             .map(|(physical_row, _)| self.physical_row_to_logical[*physical_row])
             .filter(|row| *row >= start_row && *row < end_row)
@@ -682,57 +640,16 @@ impl OctetMatrix for SparseOctetMatrix {
         self.physical_row_to_logical.swap(physical_i, physical_j);
     }
 
-    fn swap_columns(&mut self, i: usize, j: usize, start_row: usize) {
+    fn swap_columns(&mut self, i: usize, j: usize, _: usize) {
         if j >= self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
         assert_eq!(self.column_index_disabled, false);
 
-        self.sparse_column_index.swap(i, j);
-        let row_mapping = &self.physical_row_to_logical;
-        let mut i_iter = self.sparse_column_index[i]
-            .keys_values()
-            .map(|(row, _)| row)
-            .filter(|row| row_mapping[**row] >= start_row);
-        let mut j_iter = self.sparse_column_index[j]
-            .keys_values()
-            .map(|(row, _)| row)
-            .filter(|row| row_mapping[**row] >= start_row);
-        let mut i_entry = i_iter.next();
-        let mut j_entry = j_iter.next();
-
-        loop {
-            if let Some(&i_row) = i_entry {
-                if let Some(&j_row) = j_entry {
-                    if i_row < j_row {
-                        self.sparse_elements[i_row].swap(i, j);
-                        i_entry = i_iter.next();
-                    }
-                    else if i_row == j_row {
-                        self.sparse_elements[i_row].swap(i, j);
-                        i_entry = i_iter.next();
-                        j_entry = j_iter.next();
-                    }
-                    else {
-                        self.sparse_elements[j_row].swap(i, j);
-                        j_entry = j_iter.next();
-                    }
-                }
-                else {
-                    self.sparse_elements[i_row].swap(i, j);
-                    i_entry = i_iter.next();
-                }
-            }
-            else {
-                if let Some(&j_row) = j_entry {
-                    self.sparse_elements[j_row].swap(i, j);
-                    j_entry = j_iter.next();
-                }
-                else {
-                    break;
-                }
-            }
-        }
+        let physical_i = self.logical_col_to_physical[i];
+        let physical_j = self.logical_col_to_physical[j];
+        self.logical_col_to_physical.swap(i, j);
+        self.physical_col_to_logical.swap(physical_i, physical_j);
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
@@ -743,12 +660,13 @@ impl OctetMatrix for SparseOctetMatrix {
     fn hint_column_dense_and_frozen(&mut self, i: usize) {
         assert_eq!(self.width - self.num_dense_columns - 1, i, "Can only freeze the last sparse column");
         let mut physical_row = 0;
-        for (maybe_present_in_row, _) in self.sparse_column_index[i].keys_values() {
+        let physical_i = self.logical_col_to_physical[i];
+        for (maybe_present_in_row, _) in self.sparse_column_index[physical_i].keys_values() {
             while physical_row < *maybe_present_in_row {
                 self.dense_elements[physical_row].push(0);
                 physical_row += 1;
             }
-            if let Some(value) = self.sparse_elements[physical_row].remove(i) {
+            if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 self.dense_elements[physical_row].push(value.byte());
             }
             else {
@@ -865,9 +783,11 @@ impl OctetMatrix for SparseOctetMatrix {
 
         // Next remove sparse columns
         if columns_to_remove > 0 {
+            let physical_to_logical = &self.physical_col_to_logical;
             for row in 0..self.sparse_elements.len() {
                 // Current number of sparse columns - number to remove
-                self.sparse_elements[row].truncate(self.width - self.num_dense_columns - columns_to_remove);
+                let sparse_width = self.width - self.num_dense_columns - columns_to_remove;
+                self.sparse_elements[row].retain(|(col, _)| physical_to_logical[*col] < sparse_width);
             }
         }
         self.num_dense_columns -= dense_columns_to_remove;
@@ -960,11 +880,11 @@ mod tests {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (mut dense, mut sparse) = rand_dense_and_sparse(8);
         dense.swap_columns(0, 4, 0);
-        dense.swap_columns(1, 6, 1);
-        dense.swap_columns(1, 1, 5);
+        dense.swap_columns(1, 6, 0);
+        dense.swap_columns(1, 1, 0);
         sparse.swap_columns(0, 4, 0);
-        sparse.swap_columns(1, 6, 1);
-        sparse.swap_columns(1, 1, 5);
+        sparse.swap_columns(1, 6, 0);
+        sparse.swap_columns(1, 1, 0);
         assert_matrices_eq(&dense, &sparse);
     }
 
