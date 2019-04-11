@@ -352,16 +352,13 @@ impl <T: Clone> SparseVec<T> {
 #[derive(Clone, Debug, PartialEq)]
 struct SparseOctetVec {
     // Kept sorted by the usize (key)
-    elements: SparseVec<Octet>,
-    // Number of zero elements in elements vec
-    zeros: usize
+    elements: SparseVec<Octet>
 }
 
 impl SparseOctetVec {
     pub fn with_capacity(capacity: usize) -> SparseOctetVec {
         SparseOctetVec {
-            elements: SparseVec::with_capacity(capacity),
-            zeros: 0
+            elements: SparseVec::with_capacity(capacity)
         }
     }
 
@@ -371,8 +368,7 @@ impl SparseOctetVec {
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
         // process, by using the algorithm described in Section 5.3.3.3."
-        if other.elements.elements.len() == 1 &&
-            (self.zeros as f32 <= 0.9 * self.elements.elements.len() as f32) { // Heuristic to compress out the zeros, if they are 90% of the vector
+        if other.elements.elements.len() == 1 {
             let (other_col, other_value) = &other.elements.elements[0];
             // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
             if self.elements.elements.len() > 1000 {
@@ -381,11 +377,7 @@ impl SparseOctetVec {
                     .unwrap_or(Octet::zero());
                 let value = &self_value + &(other_value * scalar);
                 self.elements.insert(*other_col, value.clone());
-                if value == Octet::zero() {
-                    // Keep track of stored zeros, so they can be GC'ed later
-                    self.zeros += 1;
-                }
-                else {
+                if value != Octet::zero() {
                     return vec![*other_col];
                 }
             }
@@ -457,7 +449,6 @@ impl SparseOctetVec {
             }
         }
         self.elements.elements = result;
-        self.zeros = 0;
 
         return new_columns;
     }
