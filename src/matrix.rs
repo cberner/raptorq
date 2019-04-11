@@ -502,6 +502,22 @@ pub struct SparseOctetMatrix {
     num_dense_columns: usize
 }
 
+impl SparseOctetMatrix {
+    #[cfg(debug_assertions)]
+    fn verify(&self) {
+        if self.column_index_disabled {
+            return;
+        }
+        for row in 0..self.height {
+            for (col, value) in self.sparse_elements[row].keys_values() {
+                if *value != Octet::zero() {
+                    self.sparse_column_index[*col].get(&row).unwrap();
+                }
+            }
+        }
+    }
+}
+
 impl OctetMatrix for SparseOctetMatrix {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseOctetMatrix {
         let mut row_mapping = vec![0; height];
@@ -711,6 +727,9 @@ impl OctetMatrix for SparseOctetMatrix {
                 }
             }
         }
+
+        #[cfg(debug_assertions)]
+        self.verify();
     }
 
     fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
@@ -735,6 +754,9 @@ impl OctetMatrix for SparseOctetMatrix {
                 self.sparse_column_index[new_col].insert(physical_dest, ());
             }
         }
+
+        #[cfg(debug_assertions)]
+        self.verify();
     }
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
@@ -789,6 +811,9 @@ impl OctetMatrix for SparseOctetMatrix {
 
         self.height = new_height;
         self.width = new_width;
+
+        #[cfg(debug_assertions)]
+        self.verify();
     }
 }
 
@@ -949,6 +974,15 @@ mod tests {
         sparse.disable_column_acccess_acceleration();
         dense.resize(5, 5);
         sparse.resize(5, 5);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn hint_column_dense_and_frozen() {
+        // rand_dense_and_sparse uses set(), so just check that it works
+        let (dense, mut sparse) = rand_dense_and_sparse(8);
+        sparse.hint_column_dense_and_frozen(6);
+        sparse.hint_column_dense_and_frozen(5);
         assert_matrices_eq(&dense, &sparse);
     }
 
