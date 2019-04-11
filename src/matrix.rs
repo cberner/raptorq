@@ -380,11 +380,14 @@ impl SparseOctetVec {
                     .map(|x| x.clone())
                     .unwrap_or(Octet::zero());
                 let value = &self_value + &(other_value * scalar);
+                self.elements.insert(*other_col, value.clone());
                 if value == Octet::zero() {
                     // Keep track of stored zeros, so they can be GC'ed later
                     self.zeros += 1;
                 }
-                self.elements.insert(*other_col, value);
+                else {
+                    return vec![*other_col];
+                }
             }
             else {
                 if let Some(self_value) = self.elements.remove(*other_col) {
@@ -395,6 +398,7 @@ impl SparseOctetVec {
                 }
                 else {
                     self.elements.insert(*other_col, other_value * scalar);
+                    return vec![*other_col];
                 }
             }
             return vec![];
