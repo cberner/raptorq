@@ -555,6 +555,7 @@ pub struct SparseOctetMatrix {
     // Note these are stored with the right-most element first in the vec.
     // That is, for a matrix with width 10 and num_dense 3, the last three will be stored in these
     // Vecs, and will be in the order: [9, 8, 7]
+    // There may be extra zeros padded at the end too, for efficiency
     dense_elements: Vec<Vec<u8>>,
     // Sparse vector indicating which rows may have a non-zero value in the given column
     // Does not guarantee that the row has a non-zero value, since FMA may have added to zero
@@ -595,7 +596,7 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         let mut dense_elements = Vec::with_capacity(height);
         for _ in 0..height {
-            dense_elements.push(vec![0; trailing_dense_column_hint]);
+            dense_elements.push(vec![0; 2 * trailing_dense_column_hint]);
         }
         let mut column_index = Vec::with_capacity(width);
         for i in 0..width {
@@ -663,7 +664,7 @@ impl OctetMatrix for SparseOctetMatrix {
     fn mul_assign_row(&mut self, row: usize, value: &Octet) {
         let physical_row = self.logical_row_to_physical[row];
         self.sparse_elements[physical_row].mul_assign(value);
-        mulassign_scalar(&mut self.dense_elements[physical_row], value);
+        mulassign_scalar(&mut self.dense_elements[physical_row][..self.num_dense_columns], value);
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -735,26 +736,24 @@ impl OctetMatrix for SparseOctetMatrix {
 
     fn hint_column_dense_and_frozen(&mut self, i: usize) {
         assert_eq!(self.width - self.num_dense_columns - 1, i, "Can only freeze the last sparse column");
+        self.num_dense_columns += 1;
+        for i in 0..self.dense_elements.len() {
+            if self.dense_elements[i].len() < self.num_dense_columns {
+                // Add 10 more zeros at a time to amortize the cost
+                self.dense_elements[i].extend_from_slice(&[0; 10]);
+            }
+        }
         let mut physical_row = 0;
         let physical_i = self.logical_col_to_physical[i];
         for (maybe_present_in_row, _) in self.sparse_column_index[physical_i].keys_values() {
             while physical_row < *maybe_present_in_row {
-                self.dense_elements[physical_row].push(0);
                 physical_row += 1;
             }
             if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
-                self.dense_elements[physical_row].push(value.byte());
-            }
-            else {
-                self.dense_elements[physical_row].push(0);
+                self.dense_elements[physical_row][self.num_dense_columns - 1] = value.byte();
             }
             physical_row += 1;
         }
-        while physical_row < self.height {
-            self.dense_elements[physical_row].push(0);
-            physical_row += 1;
-        }
-        self.num_dense_columns += 1;
     }
 
     // other must be a rows x rows matrix
@@ -775,9 +774,9 @@ impl OctetMatrix for SparseOctetMatrix {
                 if scalar != Octet::zero() {
                     temp_sparse[row].fma(&self.sparse_elements[physical_i], &scalar);
                     if scalar == Octet::one() {
-                        add_assign(&mut temp_dense[row], &self.dense_elements[physical_i]);
+                        add_assign(&mut temp_dense[row], &self.dense_elements[physical_i][..self.num_dense_columns]);
                     } else {
-                        fused_addassign_mul_scalar(&mut temp_dense[row], &self.dense_elements[physical_i], &scalar);
+                        fused_addassign_mul_scalar(&mut temp_dense[row], &self.dense_elements[physical_i][..self.num_dense_columns], &scalar);
                     }
                 }
             }
@@ -805,9 +804,9 @@ impl OctetMatrix for SparseOctetMatrix {
         let (dest_row, temp_row) = get_both_indices(&mut self.dense_elements, physical_dest, physical_multiplicand);
 
         if *scalar == Octet::one() {
-            add_assign(dest_row, temp_row);
+            add_assign(&mut dest_row[..self.num_dense_columns], &temp_row[..self.num_dense_columns]);
         } else {
-            fused_addassign_mul_scalar(dest_row, temp_row, scalar);
+            fused_addassign_mul_scalar(&mut dest_row[..self.num_dense_columns], &temp_row[..self.num_dense_columns], scalar);
         }
 
         // Then the sparse columns
