@@ -542,7 +542,9 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             // Zero out leading value in following rows
             let temp = self.i;
             let temp_value = self.A.get(temp, temp);
-            for row in self.A.get_col_index_iter(temp, self.i + 1, self.A.height()) {
+            // Cloning the iterator is safe here, because we don't re-read any of the rows that
+            // we add to
+            for row in self.A.get_col_index_iter(temp, self.i + 1, self.A.height()).clone() {
                 let leading_value = self.A.get(row, temp);
                 if leading_value != Octet::zero() {
                     // Addition is equivalent to subtraction

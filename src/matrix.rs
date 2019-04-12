@@ -31,6 +31,68 @@ impl Iterator for KeyIter {
     }
 }
 
+pub struct BorrowedKeyIter<'a> {
+    sparse: bool,
+    dense_index: usize,
+    dense_end: usize,
+    sparse_rows: Option<&'a Vec<(usize, ())>>,
+    sparse_start_row: usize,
+    sparse_end_row: usize,
+    sparse_index: usize,
+    physical_row_to_logical: Option<&'a Vec<usize>>
+}
+
+impl <'a> BorrowedKeyIter<'a> {
+    pub fn clone(&self) -> KeyIter {
+        // Convert to logical indices, since ClonedOctetIter doesn't handle physical
+        let sparse_rows = self.sparse_rows.map(|x| x.iter()
+            .map(|(physical_row, _)| self.physical_row_to_logical.unwrap()[*physical_row])
+            .filter(|logical_row| *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row)
+            .collect());
+        KeyIter {
+            sparse: self.sparse,
+            dense_index: self.dense_index,
+            dense_end: self.dense_end,
+            sparse_rows
+        }
+    }
+}
+
+impl <'a> Iterator for BorrowedKeyIter<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sparse {
+            let elements = self.sparse_rows.unwrap();
+            // Need to iterate over the whole array, since they're not sorted by logical row
+            if self.sparse_index >= elements.len() {
+                return None;
+            }
+            else {
+                while self.sparse_index < elements.len() {
+                    let (physical_row, _) = &elements[self.sparse_index];
+                    self.sparse_index += 1;
+                    let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
+                    if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
+                        return Some(logical_row);
+                    }
+                }
+                return None;
+            }
+        }
+        else {
+            if self.dense_index == self.dense_end {
+                return None;
+            }
+            else {
+                let old_index = self.dense_index;
+                self.dense_index += 1;
+                return Some(old_index);
+            }
+        }
+    }
+}
+
 pub struct ClonedOctetIter {
     sparse: bool,
     end_col: usize,
@@ -149,7 +211,7 @@ pub trait OctetMatrix: Clone {
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
 
     // An iterator over rows for the given col, that may have non-zero values
-    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> KeyIter;
+    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter;
 
     fn get(&self, i: usize, j: usize) -> Octet;
 
@@ -227,12 +289,16 @@ impl OctetMatrix for DenseOctetMatrix {
         }
     }
 
-    fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> KeyIter {
-        KeyIter {
+    fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
+        BorrowedKeyIter {
             sparse: false,
             dense_index: start_row,
             dense_end: end_row,
-            sparse_rows: None
+            sparse_rows: None,
+            sparse_start_row: 0,
+            sparse_end_row: 0,
+            sparse_index: 0,
+            physical_row_to_logical: None
         }
     }
 
@@ -629,18 +695,17 @@ impl OctetMatrix for SparseOctetMatrix {
         }
     }
 
-    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> KeyIter {
+    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
         let physical_col = self.logical_col_to_physical[col];
-        let rows = self.sparse_column_index[physical_col]
-            .keys_values()
-            .map(|(physical_row, _)| self.physical_row_to_logical[*physical_row])
-            .filter(|row| *row >= start_row && *row < end_row)
-            .collect();
-        KeyIter {
+        BorrowedKeyIter {
             sparse: true,
             dense_index: 0,
             dense_end: 0,
-            sparse_rows: Some(rows)
+            sparse_rows: Some(&self.sparse_column_index[physical_col].elements),
+            sparse_start_row: start_row,
+            sparse_end_row: end_row,
+            sparse_index: 0,
+            physical_row_to_logical: Some(&self.physical_row_to_logical)
         }
     }
 
