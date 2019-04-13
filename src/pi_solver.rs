@@ -471,13 +471,18 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
         }
         else {
-            for col in self.i..(self.A.width() - self.u) {
+            for col in self.i..(self.A.width() - self.u - (r - 1)) {
                 if self.A.get(self.i, col) != Octet::zero() {
-                    let dest;
+                    let mut dest;
                     if swapped_columns == 0 {
                         dest = self.i;
                     } else {
                         dest = self.A.width() - self.u - swapped_columns;
+                        // Some of the right most columns may already contain non-zeros
+                        while self.A.get(self.i, dest) != Octet::zero() {
+                            dest -= 1;
+                            swapped_columns += 1;
+                        }
                     }
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(dest, col, self.i);
