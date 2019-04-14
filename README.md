@@ -11,6 +11,9 @@ Reconstruction probability after receiving K + h packets = 1 - 1/256^(h + 1). Wh
 original message, and h is the number of additional packets received.
 See "RaptorQ Technical Overview" by Qualcomm
 
+### Examples
+See the `examples/` directory for usage.
+
 ### Benchmarks
 
 The following were run on an Intel Core i5-6600K @ 3.50GHz
