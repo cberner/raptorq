@@ -24,6 +24,10 @@ harness = false
 name = "encode_benchmark"
 harness = false
 
+[[bench]]
+name = "decode_benchmark"
+harness = false
+
 [profile.release]
 debug = true
 
