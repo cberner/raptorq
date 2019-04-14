@@ -13,7 +13,7 @@ fn black_box(value: u64) {
 
 fn benchmark(symbol_size: u16, overhead: f64) -> u64 {
     let mut black_box_value = 0;
-    for symbol_count in SYMBOL_COUNTS.iter() {
+    for &symbol_count in SYMBOL_COUNTS.iter() {
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
         for i in 0..elements {
@@ -22,14 +22,14 @@ fn benchmark(symbol_size: u16, overhead: f64) -> u64 {
 
         let iterations = TARGET_TOTAL_BYTES / elements;
         let encoder = SourceBlockEncoder::new(1, symbol_size, &data);
-        let mut packets = encoder.repair_packets(0, (iterations * symbol_count) as u32);
+        let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
+        let mut packets = encoder.repair_packets(0, (iterations as u32 * elements_and_overhead) as u32);
         let now = Instant::now();
         for _ in 0..iterations {
             let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
-            for _ in 0..*symbol_count {
-                if let Some(result) = decoder.decode(packets.pop().unwrap()) {
-                    black_box_value += result[0] as u64;
-                }
+            let start = packets.len() - elements_and_overhead as usize;
+            if let Some(result) = decoder.decode(packets.drain(start..)) {
+                black_box_value += result[0] as u64;
             }
         }
         let elapsed = now.elapsed();
@@ -39,7 +39,7 @@ fn benchmark(symbol_size: u16, overhead: f64) -> u64 {
                  symbol_count,
                  elements * iterations / 1024 / 1024,
                  elapsed,
-                 overhead,
+                 100.0 * overhead,
                  throughput);
     }
 
@@ -50,4 +50,6 @@ fn main() {
     let symbol_size = 1280;
     println!("Symbol size: {} bytes", symbol_size);
     black_box(benchmark(symbol_size, 0.0));
+    println!();
+    black_box(benchmark(symbol_size, 0.05));
 }

@@ -62,7 +62,7 @@ impl Decoder {
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         let block_number = packet.payload_id.source_block_number() as usize;
         if self.blocks[block_number].is_none() {
-            self.blocks[block_number] = self.block_decoders[block_number].decode(packet);
+            self.blocks[block_number] = self.block_decoders[block_number].decode(vec![packet]);
         }
         for block in self.blocks.iter() {
             if block.is_none() {
@@ -137,26 +137,28 @@ impl SourceBlockDecoder {
         return Some(result);
     }
 
-    pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
-        assert_eq!(
-            self.source_block_id,
-            packet.payload_id.source_block_number()
-        );
+    pub fn decode<T: IntoIterator<Item=EncodingPacket>>(&mut self, packets: T) -> Option<Vec<u8>> {
+        for packet in packets {
+            assert_eq!(
+                self.source_block_id,
+                packet.payload_id.source_block_number()
+            );
 
-        let (payload_id, payload) = packet.split();
-        let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        if self.received_esi.insert(payload_id.encoding_symbol_id()) {
-            if payload_id.encoding_symbol_id() >= num_extended_symbols {
-                // Repair symbol
-                self.repair_packets
-                    .push(EncodingPacket::new(payload_id, payload));
-            } else {
-                // Check that this is not an extended symbol (which aren't explicitly sent)
-                assert!(payload_id.encoding_symbol_id() < self.source_block_symbols);
-                // Source symbol
-                self.source_symbols[payload_id.encoding_symbol_id() as usize] =
-                    Some(Symbol::new(payload));
-                self.received_source_symbols += 1;
+            let (payload_id, payload) = packet.split();
+            let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
+            if self.received_esi.insert(payload_id.encoding_symbol_id()) {
+                if payload_id.encoding_symbol_id() >= num_extended_symbols {
+                    // Repair symbol
+                    self.repair_packets
+                        .push(EncodingPacket::new(payload_id, payload));
+                } else {
+                    // Check that this is not an extended symbol (which aren't explicitly sent)
+                    assert!(payload_id.encoding_symbol_id() < self.source_block_symbols);
+                    // Source symbol
+                    self.source_symbols[payload_id.encoding_symbol_id() as usize] =
+                        Some(Symbol::new(payload));
+                    self.received_source_symbols += 1;
+                }
             }
         }
 
@@ -304,7 +306,7 @@ mod codec_tests {
         let mut result = None;
         for packet in encoder.source_packets() {
             assert_eq!(result, None);
-            result = decoder.decode(packet);
+            result = decoder.decode(vec![packet]);
         }
 
         assert_eq!(result.unwrap(), data);
@@ -339,7 +341,7 @@ mod codec_tests {
             if parsed_packets < elements / 8 {
                 assert_eq!(result, None);
             }
-            result = decoder.decode(packet);
+            result = decoder.decode(vec![packet]);
             parsed_packets += 1;
         }
 
