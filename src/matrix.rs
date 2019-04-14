@@ -436,29 +436,23 @@ impl SparseOctetVec {
         // process, by using the algorithm described in Section 5.3.3.3."
         if other.elements.elements.len() == 1 {
             let (other_col, other_value) = &other.elements.elements[0];
-            // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
-            if self.elements.elements.len() > 1000 {
-                let self_value= self.elements.get(other_col)
-                    .map(|x| x.clone())
-                    .unwrap_or(Octet::zero());
-                let value = &self_value + &(other_value * scalar);
-                self.elements.insert(*other_col, value.clone());
-                if value != Octet::zero() {
-                    return vec![*other_col];
-                }
-            }
-            else {
-                if let Some(self_value) = self.elements.remove(*other_col) {
-                    let value = &self_value + &(other_value * scalar);
-                    if value != Octet::zero() {
-                        self.elements.insert(*other_col, value);
+            match self.elements.elements.binary_search_by_key(other_col, |(col, _)| *col) {
+                Ok(index) => {
+                    let elements_len = self.elements.elements.len();
+                    let self_value= &mut self.elements.elements[index].1;
+                    self_value.fma(other_value, scalar);
+                    // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
+                    // It would be very expensive to always remove from those rows
+                    if elements_len < 1000 && *self_value == Octet::zero() {
+                        self.elements.elements.remove(index);
                     }
-                }
-                else {
-                    self.elements.insert(*other_col, other_value * scalar);
+                },
+                Err(index) => {
+                    let value = other_value * scalar;
+                    self.elements.elements.insert(index, (*other_col, value));
                     return vec![*other_col];
                 }
-            }
+            };
             return vec![];
         }
 
