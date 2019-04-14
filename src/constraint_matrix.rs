@@ -2,7 +2,7 @@ use crate::base::intermediate_tuple;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
 use crate::rng::rand;
-use crate::systematic_constants::calculate_p1;
+use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -13,12 +13,13 @@ use crate::octets::{add_assign, fused_addassign_mul_scalar};
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
 pub fn enc_indices(
-    source_block_symbols: u32,
     source_tuple: (u32, u32, u32, u32, u32, u32),
+    lt_symbols: u32,
+    pi_symbols: u32,
+    p1: u32
 ) -> Vec<usize> {
-    let w = num_lt_symbols(source_block_symbols);
-    let p = num_pi_symbols(source_block_symbols);
-    let p1 = calculate_p1(source_block_symbols);
+    let w = lt_symbols;
+    let p = pi_symbols;
     let (d, a, mut b, d1, a1, mut b1) = source_tuple;
 
     assert!(1 <= a && a < w);
@@ -148,11 +149,15 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
 
     // G_ENC
     let mut row = 0;
+    let lt_symbols = num_lt_symbols(Kprime as u32);
+    let pi_symbols = num_pi_symbols(Kprime as u32);
+    let sys_index = systematic_index(Kprime as u32);
+    let p1 = calculate_p1(Kprime as u32);
     for &i in encoded_symbol_indices.iter() {
         // row != i, because i is the ESI
-        let tuple = intermediate_tuple(Kprime as u32, i);
+        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
 
-        for j in enc_indices(Kprime as u32, tuple) {
+        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
             matrix.set(row as usize + S + H, j, Octet::one());
         }
         row += 1;

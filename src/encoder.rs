@@ -5,7 +5,7 @@ use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::calculate_p1;
+use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -135,10 +135,15 @@ impl SourceBlockEncoder {
         let start_encoding_symbol_id = start_repair_symbol_id
             + extended_source_block_symbols(self.source_symbols.len() as u32);
         let mut result = vec![];
+        let lt_symbols = num_lt_symbols(self.source_symbols.len() as u32);
+        let sys_index = systematic_index(self.source_symbols.len() as u32);
+        let p1 = calculate_p1(self.source_symbols.len() as u32);
         for i in 0..packets {
             let tuple = intermediate_tuple(
-                self.source_symbols.len() as u32,
                 start_encoding_symbol_id + i,
+                lt_symbols,
+                sys_index,
+                p1
             );
             result.push(EncodingPacket::new(
                 PayloadId::new(self.source_block_id, start_encoding_symbol_id + i),
@@ -234,7 +239,7 @@ mod tests {
     use crate::encoder::enc;
     use crate::encoder::gen_intermediate_symbols;
     use crate::symbol::Symbol;
-    use crate::systematic_constants::{num_ldpc_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
+    use crate::systematic_constants::{num_ldpc_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK, calculate_p1, systematic_index};
     use crate::systematic_constants::num_lt_symbols;
     use crate::systematic_constants::num_pi_symbols;
 
@@ -267,9 +272,12 @@ mod tests {
         let source_symbols = gen_test_symbols();
         let intermediate_symbols = gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
 
+        let lt_symbols = num_lt_symbols(NUM_SYMBOLS);
+        let sys_index = systematic_index(NUM_SYMBOLS);
+        let p1 = calculate_p1(NUM_SYMBOLS);
         // See section 5.3.3.4.1, item 1.
         for i in 0..source_symbols.len() {
-            let tuple = intermediate_tuple(NUM_SYMBOLS, i as u32);
+            let tuple = intermediate_tuple(i as u32, lt_symbols, sys_index, p1);
             let encoded = enc(NUM_SYMBOLS, &intermediate_symbols, tuple);
             assert_eq!(source_symbols[i], encoded);
         }

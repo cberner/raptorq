@@ -1,9 +1,6 @@
 use std::cmp::min;
 
 use crate::rng::rand;
-use crate::systematic_constants::calculate_p1;
-use crate::systematic_constants::num_lt_symbols;
-use crate::systematic_constants::systematic_index;
 use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 
 // As defined in section 3.2
@@ -250,12 +247,14 @@ pub fn deg(v: u32, lt_symbols: u32) -> u32 {
 // Tuple[K', X] as defined in section 5.3.5.4
 #[allow(non_snake_case)]
 pub fn intermediate_tuple(
-    source_block_symbols: u32,
     internal_symbol_id: u32,
+    lt_symbols: u32,
+    systematic_index: u32,
+    p1: u32
 ) -> (u32, u32, u32, u32, u32, u32) {
-    let J = systematic_index(source_block_symbols);
-    let W = num_lt_symbols(source_block_symbols);
-    let P1 = calculate_p1(source_block_symbols);
+    let J = systematic_index;
+    let W = lt_symbols;
+    let P1 = p1;
 
     let mut A = 53591 + J * 997;
 

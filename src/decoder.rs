@@ -6,7 +6,7 @@ use crate::constraint_matrix::enc_indices;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::extended_source_block_symbols;
+use crate::systematic_constants::{extended_source_block_symbols, num_lt_symbols, num_pi_symbols, calculate_p1, systematic_index};
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use std::collections::HashSet;
@@ -124,11 +124,15 @@ impl SourceBlockDecoder {
             };
 
         let mut result = vec![];
+        let lt_symbols = num_lt_symbols(self.source_block_symbols);
+        let pi_symbols = num_pi_symbols(self.source_block_symbols);
+        let sys_index = systematic_index(self.source_block_symbols);
+        let p1 = calculate_p1(self.source_block_symbols);
         for i in 0..self.source_block_symbols as usize {
             if let Some(ref symbol) = self.source_symbols[i] {
                 result.extend(symbol.as_bytes())
             } else {
-                let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32);
+                let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32, lt_symbols, pi_symbols, sys_index, p1);
                 result.extend(rebuilt.as_bytes());
             }
         }
@@ -219,11 +223,15 @@ impl SourceBlockDecoder {
         &self,
         intermediate_symbols: &[Symbol],
         source_symbol_id: u32,
+        lt_symbols: u32,
+        pi_symbols: u32,
+        sys_index: u32,
+        p1: u32
     ) -> Symbol {
-        let tuple = intermediate_tuple(self.source_block_symbols, source_symbol_id);
-
         let mut rebuilt = Symbol::zero(self.symbol_size);
-        for i in enc_indices(self.source_block_symbols, tuple) {
+        let tuple = intermediate_tuple(source_symbol_id, lt_symbols, sys_index, p1);
+
+        for i in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
             rebuilt += &intermediate_symbols[i];
         }
         rebuilt
