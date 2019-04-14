@@ -466,12 +466,13 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                     self.swap_columns(self.i, col, self.i);
                     // Also apply to X
                     self.X.swap_columns(self.i, col, 0);
-                    return;
+                    swapped_columns += 1;
+                    break;
                 }
             }
         }
         else {
-            for col in self.i..(self.A.width() - self.u - (r - 1)) {
+            for col in self.i..(self.A.width() - self.u) {
                 if self.A.get(self.i, col) != Octet::zero() {
                     let mut dest;
                     if swapped_columns == 0 {
@@ -484,6 +485,9 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                             swapped_columns += 1;
                         }
                     }
+                    if swapped_columns == r {
+                        break;
+                    }
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(dest, col, self.i);
                     // Also apply to X
@@ -495,6 +499,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 }
             }
         }
+        assert_eq!(r, swapped_columns);
     }
 
     // First phase (section 5.4.2.2)
@@ -535,6 +540,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
             let r = r.unwrap();
             let chosen_row = chosen_row.unwrap();
+            assert!(chosen_row >= self.i);
 
             // See paragraph beginning: "After the row is chosen in this step..."
             // Reorder rows
