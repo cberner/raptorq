@@ -77,6 +77,28 @@ impl Decoder {
         result.truncate(self.config.transfer_length() as usize);
         Some(result)
     }
+
+    pub fn add_new_packet(&mut self, packet: EncodingPacket) {
+        let block_number = packet.payload_id.source_block_number() as usize;
+        if self.blocks[block_number].is_none() {
+            self.blocks[block_number] = self.block_decoders[block_number].decode(vec![packet]);
+        }
+    }
+
+    pub fn get_result(&self) -> Option<Vec<u8>> {
+        for block in self.blocks.iter() {
+            if block.is_none() {
+                return None;
+            }
+        }
+
+        let mut result = vec![];
+        for block in self.blocks.iter() {
+            result.extend(block.clone().unwrap());
+        }
+        result.truncate(self.config.transfer_length() as usize);
+        Some(result)
+    }
 }
 
 pub struct SourceBlockDecoder {
