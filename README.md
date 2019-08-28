@@ -3,6 +3,7 @@
 [![Crates](https://img.shields.io/crates/v/raptorq.svg)](https://crates.io/crates/raptorq)
 [![Documentation](https://docs.rs/raptorq/badge.svg)](https://docs.rs/raptorq)
 [![dependency status](https://deps.rs/repo/github/cberner/raptorq/status.svg)](https://deps.rs/repo/github/cberner/raptorq)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcberner%2Fraptorq.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcberner%2Fraptorq?ref=badge_shield)
 
 Rust implementation of RaptorQ (RFC6330)
 
@@ -54,3 +55,6 @@ symbol count = 10000, decoded 122 MB in 2.006secs using 5.0% overhead, throughpu
 symbol count = 20000, decoded 122 MB in 2.729secs using 5.0% overhead, throughput: 357.8Mbit/s
 symbol count = 50000, decoded 122 MB in 4.498secs using 5.0% overhead, throughput: 217.1Mbit/s
 ```
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcberner%2Fraptorq.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcberner%2Fraptorq?ref=badge_large)
