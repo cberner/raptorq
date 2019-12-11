@@ -1,5 +1,6 @@
 use rand::Rng;
 use raptorq::SourceBlockEncoder;
+use raptorq::SourceBlockEncoderCache;
 use std::time::Instant;
 
 const TARGET_TOTAL_BYTES: usize = 128 * 1024 * 1024;
@@ -11,10 +12,8 @@ fn black_box(value: u64) {
     }
 }
 
-fn main() {
+fn benchmark(symbol_size: u16, cache: Option<&SourceBlockEncoderCache>) -> u64 {
     let mut black_box_value = 0;
-    let symbol_size = 1280;
-    println!("Symbol size: {} bytes", symbol_size);
     for symbol_count in SYMBOL_COUNTS.iter() {
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
@@ -22,10 +21,15 @@ fn main() {
             data[i] = rand::thread_rng().gen();
         }
 
+        if cache.is_some() {
+            // Create and store the operation vector to measure performance when the cache is in use for all blocks.
+            SourceBlockEncoder::new(1, symbol_size, &data, cache);
+        }
+
         let now = Instant::now();
         let iterations = TARGET_TOTAL_BYTES / elements;
         for _ in 0..iterations {
-            let encoder = SourceBlockEncoder::new(1, symbol_size, &data);
+            let encoder = SourceBlockEncoder::new(1, symbol_size, &data, cache);
             let packets = encoder.repair_packets(0, 1);
             black_box_value += packets[0].data()[0] as u64;
         }
@@ -40,5 +44,21 @@ fn main() {
             throughput
         );
     }
-    black_box(black_box_value);
+    return black_box_value;
+}
+
+fn main() {
+    let symbol_size = 1280;
+    println!(
+        "Symbol size: {} bytes (without operation vectors)",
+        symbol_size
+    );
+    black_box(benchmark(symbol_size, None));
+    println!();
+    let cache = SourceBlockEncoderCache::new();
+    println!(
+        "Symbol size: {} bytes (with operation vectors)",
+        symbol_size
+    );
+    black_box(benchmark(symbol_size, Some(&cache)));
 }

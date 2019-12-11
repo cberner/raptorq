@@ -4,6 +4,7 @@ use crate::base::EncodingPacket;
 use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::matrix::DenseBinaryMatrix;
+use crate::operation_vector::{perform_op, SymbolOps};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
@@ -16,6 +17,8 @@ use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::ObjectTransmissionInformation;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
@@ -39,6 +42,7 @@ impl Encoder {
         assert_eq!(1, config.sub_blocks());
         //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
 
+        let cache = SourceBlockEncoderCache::new();
         let mut data_index = 0;
         let mut blocks = vec![];
         for i in 0..zl {
@@ -47,6 +51,7 @@ impl Encoder {
                 i as u8,
                 config.symbol_size(),
                 &data[data_index..(data_index + offset)],
+                Some(&cache),
             ));
             data_index += offset;
         }
@@ -58,6 +63,7 @@ impl Encoder {
                     i as u8,
                     config.symbol_size(),
                     &data[data_index..(data_index + offset)],
+                    Some(&cache),
                 ));
             } else {
                 // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
@@ -72,6 +78,7 @@ impl Encoder {
                     i as u8,
                     config.symbol_size(),
                     &padded,
+                    Some(&cache),
                 ));
             }
             data_index += offset;
@@ -98,6 +105,18 @@ impl Encoder {
     }
 }
 
+#[derive(Default)]
+pub struct SourceBlockEncoderCache {
+    cache: Arc<RwLock<HashMap<usize, Vec<SymbolOps>>>>,
+}
+
+impl SourceBlockEncoderCache {
+    pub fn new() -> SourceBlockEncoderCache {
+        let cache = Arc::new(RwLock::new(HashMap::new()));
+        SourceBlockEncoderCache { cache }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SourceBlockEncoder {
     source_block_id: u8,
@@ -106,17 +125,60 @@ pub struct SourceBlockEncoder {
 }
 
 impl SourceBlockEncoder {
-    pub fn new(source_block_id: u8, symbol_size: u16, data: &[u8]) -> SourceBlockEncoder {
+    pub fn new(
+        source_block_id: u8,
+        symbol_size: u16,
+        data: &[u8],
+        cache: Option<&SourceBlockEncoderCache>,
+    ) -> SourceBlockEncoder {
         assert_eq!(data.len() % symbol_size as usize, 0);
         let source_symbols: Vec<Symbol> = data
             .chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
-        let intermediate_symbols = gen_intermediate_symbols(
-            &source_symbols,
-            symbol_size as usize,
-            SPARSE_MATRIX_THRESHOLD,
-        );
+
+        let intermediate_symbols = match cache {
+            Some(c) => {
+                let key = source_symbols.len();
+                let read_map = c.cache.read().unwrap();
+                let value = read_map.get(&key);
+
+                match value {
+                    None => {
+                        drop(read_map);
+                        let (is, ops_vec) = gen_intermediate_symbols(
+                            &source_symbols,
+                            symbol_size as usize,
+                            SPARSE_MATRIX_THRESHOLD,
+                            true,
+                        );
+                        let mut write_map = c.cache.write().unwrap();
+                        write_map.insert(key, ops_vec.unwrap());
+                        drop(write_map);
+                        is.unwrap()
+                    }
+                    Some(operation_vector) => {
+                        let is = gen_intermediate_symbols_ops_vec(
+                            &source_symbols,
+                            symbol_size as usize,
+                            &(*operation_vector),
+                        );
+                        drop(read_map);
+                        is
+                    }
+                }
+            }
+            None => {
+                let (is, _ops_vec) = gen_intermediate_symbols(
+                    &source_symbols,
+                    symbol_size as usize,
+                    SPARSE_MATRIX_THRESHOLD,
+                    false,
+                );
+                is.unwrap()
+            }
+        };
+
         SourceBlockEncoder {
             source_block_id,
             source_symbols,
@@ -162,17 +224,15 @@ impl SourceBlockEncoder {
     }
 }
 
-// See section 5.3.3.4
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols(
+fn create_d(
     source_block: &[Symbol],
     symbol_size: usize,
-    sparse_threshold: u32,
+    extended_source_symbols: usize,
 ) -> Vec<Symbol> {
     let L = num_intermediate_symbols(source_block.len() as u32);
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
-    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
 
     let mut D = Vec::with_capacity(L as usize);
     for _ in 0..(S + H) {
@@ -186,17 +246,45 @@ fn gen_intermediate_symbols(
         D.push(Symbol::zero(symbol_size));
     }
     assert_eq!(D.len(), L as usize);
+    D
+}
+
+// See section 5.3.3.4
+#[allow(non_snake_case)]
+fn gen_intermediate_symbols(
+    source_block: &[Symbol],
+    symbol_size: usize,
+    sparse_threshold: u32,
+    store_operations: bool,
+) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
+    let D = create_d(source_block, symbol_size, extended_source_symbols as usize);
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
     if extended_source_symbols >= sparse_threshold {
         let (A, hdpc) =
             generate_constraint_matrix::<SparseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, store_operations);
     } else {
         let (A, hdpc) =
             generate_constraint_matrix::<DenseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, store_operations);
     }
+}
+
+#[allow(non_snake_case)]
+fn gen_intermediate_symbols_ops_vec(
+    source_block: &[Symbol],
+    symbol_size: usize,
+    operation_vector: &[SymbolOps],
+) -> Vec<Symbol> {
+    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
+    let mut D = create_d(source_block, symbol_size, extended_source_symbols as usize);
+
+    for op in operation_vector {
+        perform_op(op, &mut D);
+    }
+    D
 }
 
 // Enc[] function, as defined in section 5.3.5.3
@@ -287,8 +375,10 @@ mod tests {
 
     fn enc_constraint(sparse_threshold: u32) {
         let source_symbols = gen_test_symbols();
-        let intermediate_symbols =
-            gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
+
+        let (is, _ops_vec) =
+            gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold, false);
+        let intermediate_symbols = is.unwrap();
 
         let lt_symbols = num_lt_symbols(NUM_SYMBOLS);
         let sys_index = systematic_index(NUM_SYMBOLS);
@@ -313,7 +403,9 @@ mod tests {
 
     #[allow(non_snake_case)]
     fn ldpc_constraint(sparse_threshold: u32) {
-        let C = gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold);
+        let (is, _ops_vec) =
+            gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold, false);
+        let C = is.unwrap();
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;
         let W = num_lt_symbols(NUM_SYMBOLS) as usize;
