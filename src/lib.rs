@@ -11,6 +11,7 @@ mod matrix;
 mod octet;
 mod octet_matrix;
 mod octets;
+mod operation_vector;
 mod pi_solver;
 mod rng;
 mod sparse_matrix;
@@ -26,6 +27,7 @@ pub use crate::decoder::Decoder;
 pub use crate::decoder::SourceBlockDecoder;
 pub use crate::encoder::Encoder;
 pub use crate::encoder::SourceBlockEncoder;
+pub use crate::encoder::SourceBlockEncoderCache;
 
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;
