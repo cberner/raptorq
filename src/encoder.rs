@@ -50,7 +50,7 @@ impl Encoder {
 
         for i in 0..zs {
             let offset = ks as usize * config.symbol_size() as usize;
-            if data_index + offset < data.len() {
+            if data_index + offset <= data.len() {
                 blocks.push(SourceBlockEncoder::new(
                     i as u8,
                     config.symbol_size(),
@@ -242,17 +242,23 @@ mod tests {
     use crate::systematic_constants::{num_ldpc_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK, calculate_p1, systematic_index};
     use crate::systematic_constants::num_lt_symbols;
     use crate::systematic_constants::num_pi_symbols;
+    use crate::{Encoder, EncodingPacket};
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
 
+    fn gen_test_data(size: usize) -> Vec<u8> {
+        let mut data: Vec<u8> = vec![0; size];
+        for i in 0..size {
+            data[i] = rand::thread_rng().gen();
+        }
+        data
+    }
+
     fn gen_test_symbols() -> Vec<Symbol> {
         let mut source_block: Vec<Symbol> = vec![];
         for _ in 0..NUM_SYMBOLS {
-            let mut data: Vec<u8> = vec![0; SYMBOL_SIZE];
-            for i in 0..SYMBOL_SIZE {
-                data[i] = rand::thread_rng().gen();
-            }
+            let data = gen_test_data(SYMBOL_SIZE);
             source_block.push(Symbol::new(data));
         }
         source_block
@@ -330,4 +336,40 @@ mod tests {
             assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
         }
     }
+
+    #[test]
+    fn padding_constraint_exact() {
+        let packet_size: u16 = 1024;
+        let padding_size: usize = 0;
+        let data_size: usize = packet_size as usize * 2 - padding_size;
+        padding_constraint(packet_size, padding_size, data_size);
+    }
+
+    #[test]
+    fn padding_constraint_42_bytes() {
+        let packet_size: u16 = 1024;
+        let padding_size: usize = 42;
+        let data_size: usize = packet_size as usize * 2 - padding_size;
+        padding_constraint(packet_size, padding_size, data_size);
+    }
+
+    fn padding_constraint(packet_size: u16, padding_size: usize, data_size: usize) {
+        let data = gen_test_data(data_size);
+        let encoder = Encoder::with_defaults(&data, packet_size);
+
+        fn accumulate_data(acc: Vec<u8>, packet: EncodingPacket) -> Vec<u8> {
+            let mut updated_acc = acc.clone();
+            updated_acc.extend_from_slice(packet.data());
+            updated_acc
+        }
+
+        let padded_data = encoder.get_block_encoders()
+            .iter()
+            .flat_map(|block| block.source_packets())
+            .fold(vec![], accumulate_data);
+
+        assert_eq!(data_size + padding_size, padded_data.len());
+        assert_eq!(data[..], padded_data[..data_size]);
+    }
+
 }
