@@ -3,17 +3,17 @@ use crate::base::partition;
 use crate::base::EncodingPacket;
 use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
+use crate::matrix::{DenseOctetMatrix, SparseOctetMatrix};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
+use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::ObjectTransmissionInformation;
-use crate::matrix::{DenseOctetMatrix, SparseOctetMatrix};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
@@ -108,7 +108,11 @@ impl SourceBlockEncoder {
             .chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
-        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, symbol_size as usize, SPARSE_MATRIX_THRESHOLD);
+        let intermediate_symbols = gen_intermediate_symbols(
+            &source_symbols,
+            symbol_size as usize,
+            SPARSE_MATRIX_THRESHOLD,
+        );
         SourceBlockEncoder {
             source_block_id,
             source_symbols,
@@ -139,12 +143,7 @@ impl SourceBlockEncoder {
         let sys_index = systematic_index(self.source_symbols.len() as u32);
         let p1 = calculate_p1(self.source_symbols.len() as u32);
         for i in 0..packets {
-            let tuple = intermediate_tuple(
-                start_encoding_symbol_id + i,
-                lt_symbols,
-                sys_index,
-                p1
-            );
+            let tuple = intermediate_tuple(start_encoding_symbol_id + i, lt_symbols, sys_index, p1);
             result.push(EncodingPacket::new(
                 PayloadId::new(self.source_block_id, start_encoding_symbol_id + i),
                 enc(
@@ -161,7 +160,11 @@ impl SourceBlockEncoder {
 
 // See section 5.3.3.4
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize, sparse_threshold: u32) -> Vec<Symbol> {
+fn gen_intermediate_symbols(
+    source_block: &Vec<Symbol>,
+    symbol_size: usize,
+    sparse_threshold: u32,
+) -> Vec<Symbol> {
     let L = num_intermediate_symbols(source_block.len() as u32);
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
@@ -183,11 +186,10 @@ fn gen_intermediate_symbols(source_block: &Vec<Symbol>, symbol_size: usize, spar
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
     if extended_source_symbols >= sparse_threshold {
         let A = generate_constraint_matrix::<SparseOctetMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
-    }
-    else {
+        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap();
+    } else {
         let A = generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap()
+        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap();
     }
 }
 
@@ -239,9 +241,11 @@ mod tests {
     use crate::encoder::enc;
     use crate::encoder::gen_intermediate_symbols;
     use crate::symbol::Symbol;
-    use crate::systematic_constants::{num_ldpc_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK, calculate_p1, systematic_index};
     use crate::systematic_constants::num_lt_symbols;
     use crate::systematic_constants::num_pi_symbols;
+    use crate::systematic_constants::{
+        calculate_p1, num_ldpc_symbols, systematic_index, MAX_SOURCE_SYMBOLS_PER_BLOCK,
+    };
     use crate::{Encoder, EncodingPacket};
 
     const SYMBOL_SIZE: usize = 4;
@@ -276,7 +280,8 @@ mod tests {
 
     fn enc_constraint(sparse_threshold: u32) {
         let source_symbols = gen_test_symbols();
-        let intermediate_symbols = gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
+        let intermediate_symbols =
+            gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
 
         let lt_symbols = num_lt_symbols(NUM_SYMBOLS);
         let sys_index = systematic_index(NUM_SYMBOLS);
@@ -363,7 +368,8 @@ mod tests {
             updated_acc
         }
 
-        let padded_data = encoder.get_block_encoders()
+        let padded_data = encoder
+            .get_block_encoders()
             .iter()
             .flat_map(|block| block.source_packets())
             .fold(vec![], accumulate_data);
@@ -371,5 +377,4 @@ mod tests {
         assert_eq!(data_size + padding_size, padded_data.len());
         assert_eq!(data[..], padded_data[..data_size]);
     }
-
 }

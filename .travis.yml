@@ -3,6 +3,6 @@ rust:
   - stable
 before_script:
   - cargo install cargo-lichking
+  - rustup component add rustfmt
 script:
-  - cargo test
-  - cargo lichking check
+  - make test

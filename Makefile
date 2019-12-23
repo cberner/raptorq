@@ -1,16 +1,20 @@
-build:
+build: pre
 	cargo build
 
-release:
+pre:
+	cargo lichking check
+	cargo fmt --all -- --check
+
+release: pre
 	cargo build --release
 
-test:
+test: pre
 	cargo test --features benchmarking
 
-test_extended:
+test_extended: pre
 	RUSTFLAGS="-C opt-level=3" cargo test --features benchmarking -- --ignored --nocapture
 
-bench:
+bench: pre
 	cargo bench --features benchmarking
 
 profile:
