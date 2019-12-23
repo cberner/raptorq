@@ -259,7 +259,7 @@ pub fn intermediate_tuple(
     let mut A = 53591 + J * 997;
 
     if A % 2 == 0 {
-        A = A + 1
+        A = A + 1;
     }
 
     let B = 10267 * (J + 1);
