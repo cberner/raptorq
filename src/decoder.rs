@@ -313,33 +313,52 @@ mod codec_tests {
 
     #[test]
     fn round_trip_dense() {
-        round_trip(99_999);
+        round_trip(99_999, 100, false);
     }
 
     #[test]
     fn round_trip_sparse() {
-        round_trip(0);
+        round_trip(0, 100, false);
     }
 
-    fn round_trip(sparse_threshold: u32) {
-        let elements = 1024;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
+    #[test]
+    #[ignore]
+    fn round_trip_dense_extended() {
+        round_trip(99_999, 56403, true);
+    }
+
+    #[test]
+    #[ignore]
+    fn round_trip_sparse_extended() {
+        round_trip(0, 56403, true);
+    }
+
+    fn round_trip(sparse_threshold: u32, max_symbols: usize, progress: bool) {
+        let symbol_size = 8;
+        for symbol_count in 1..=max_symbols {
+            let elements = symbol_size * symbol_count;
+            let mut data: Vec<u8> = vec![0; elements];
+            for i in 0..elements {
+                data[i] = rand::thread_rng().gen();
+            }
+
+            if progress && symbol_count % 100 == 0 {
+                println!("Completed {} symbols", symbol_count)
+            }
+
+            let encoder = SourceBlockEncoder::new(1, symbol_size as u16, &data);
+
+            let mut decoder = SourceBlockDecoder::new(1, symbol_size as u16, elements as u64);
+            decoder.set_sparse_threshold(sparse_threshold);
+
+            let mut result = None;
+            for packet in encoder.source_packets() {
+                assert_eq!(result, None);
+                result = decoder.decode(vec![packet]);
+            }
+
+            assert_eq!(result.unwrap(), data);
         }
-
-        let encoder = SourceBlockEncoder::new(1, 8, &data);
-
-        let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
-        decoder.set_sparse_threshold(sparse_threshold);
-
-        let mut result = None;
-        for packet in encoder.source_packets() {
-            assert_eq!(result, None);
-            result = decoder.decode(vec![packet]);
-        }
-
-        assert_eq!(result.unwrap(), data);
     }
 
     #[test]
