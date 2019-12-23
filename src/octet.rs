@@ -1212,9 +1212,10 @@ impl Octet {
         Octet { value: 1 }
     }
 
-    pub fn alpha(i: u8) -> Octet {
+    pub fn alpha(i: usize) -> Octet {
+        assert!(i < 256);
         Octet {
-            value: OCT_EXP[i as usize],
+            value: OCT_EXP[i],
         }
     }
 
