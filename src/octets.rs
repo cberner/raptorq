@@ -28,10 +28,7 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
 
     let low_mask = _mm256_set1_epi8(0x0F);
     let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
-    // Safe because _mm256_loadu_si256 loads from unaligned memory, and _mm256_storeu_si256
-    // stores to unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
+    let self_avx_ptr = octets.as_mut_ptr();
     // Safe because _mm256_loadu_si256 loads from unaligned memory
     #[allow(clippy::cast_ptr_alignment)]
     let low_table =
@@ -42,14 +39,16 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
         _mm256_loadu_si256(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m256i);
 
     for i in 0..(octets.len() / 32) {
-        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = _mm256_loadu_si256((self_avx_ptr as *const __m256i).add(i));
         let low = _mm256_and_si256(self_vec, low_mask);
         let low_result = _mm256_shuffle_epi8(low_table, low);
         let hi = _mm256_and_si256(self_vec, hi_mask);
         let hi = _mm256_srli_epi64(hi, 4);
         let hi_result = _mm256_shuffle_epi8(hi_table, hi);
         let result = _mm256_xor_si256(hi_result, low_result);
-        _mm256_storeu_si256(self_avx_ptr.add(i), result);
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm256_storeu_si256((self_avx_ptr as *mut __m256i).add(i), result);
     }
 
     let remainder = octets.len() % 32;
@@ -95,13 +94,8 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
 
     let low_mask = _mm256_set1_epi8(0x0F);
     let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
-    // Safe because _mm256_loadu_si256 loads from unaligned memory, and _mm256_storeu_si256
-    // stores to unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
-    // Safe because _mm256_loadu_si256 loads from unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let other_avx_ptr = other.as_ptr() as *const __m256i;
+    let self_avx_ptr = octets.as_mut_ptr();
+    let other_avx_ptr = other.as_ptr();
     // Safe because _mm256_loadu_si256 loads from unaligned memory
     #[allow(clippy::cast_ptr_alignment)]
     let low_table =
@@ -113,7 +107,8 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
 
     for i in 0..(octets.len() / 32) {
         // Multiply by scalar
-        let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let other_vec = _mm256_loadu_si256((other_avx_ptr as *const __m256i).add(i));
         let low = _mm256_and_si256(other_vec, low_mask);
         let low_result = _mm256_shuffle_epi8(low_table, low);
         let hi = _mm256_and_si256(other_vec, hi_mask);
@@ -122,9 +117,11 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
         let other_vec = _mm256_xor_si256(hi_result, low_result);
 
         // Add to self
-        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = _mm256_loadu_si256((self_avx_ptr as *const __m256i).add(i));
         let result = _mm256_xor_si256(self_vec, other_vec);
-        _mm256_storeu_si256(self_avx_ptr.add(i), result);
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm256_storeu_si256((self_avx_ptr as *mut __m256i).add(i), result);
     }
 
     let remainder = octets.len() % 32;
@@ -193,18 +190,16 @@ unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     use std::arch::x86_64::*;
 
     assert_eq!(octets.len(), other.len());
-    // Safe because _mm256_loadu_si256 loads from unaligned memory, and _mm256_storeu_si256
-    // stores to unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let self_avx_ptr = octets.as_mut_ptr() as *mut __m256i;
-    // Safe because _mm256_loadu_si256 loads from unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let other_avx_ptr = other.as_ptr() as *const __m256i;
+    let self_avx_ptr = octets.as_mut_ptr();
+    let other_avx_ptr = other.as_ptr();
     for i in 0..(octets.len() / 32) {
-        let self_vec = _mm256_loadu_si256(self_avx_ptr.add(i));
-        let other_vec = _mm256_loadu_si256(other_avx_ptr.add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = _mm256_loadu_si256((self_avx_ptr as *const __m256i).add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let other_vec = _mm256_loadu_si256((other_avx_ptr as *const __m256i).add(i));
         let result = _mm256_xor_si256(self_vec, other_vec);
-        _mm256_storeu_si256(self_avx_ptr.add(i), result);
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm256_storeu_si256((self_avx_ptr as *mut __m256i).add(i), result);
     }
 
     let remainder = octets.len() % 32;
@@ -248,14 +243,13 @@ unsafe fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
 
     let avx_ones = _mm256_set1_epi8(1);
     let avx_zeros = _mm256_set1_epi8(0);
-    // Safe because _mm256_loadu_si256 loads from unaligned memory
-    #[allow(clippy::cast_ptr_alignment)]
-    let avx_ptr = octets.as_ptr() as *const __m256i;
+    let avx_ptr = octets.as_ptr();
 
     let mut ones = 0;
     let mut non_zeros = 0;
     for i in 0..(octets.len() / 32) {
-        let vec = _mm256_loadu_si256(avx_ptr.add(i));
+        #[allow(clippy::cast_ptr_alignment)]
+        let vec = _mm256_loadu_si256((avx_ptr as *const __m256i).add(i));
         let compared_ones = _mm256_cmpeq_epi8(vec, avx_ones);
         ones += _mm256_extract_epi64(compared_ones, 0).count_ones() / 8;
         ones += _mm256_extract_epi64(compared_ones, 1).count_ones() / 8;
@@ -275,11 +269,11 @@ unsafe fn count_ones_and_nonzeros_avx2(octets: &[u8]) -> (usize, usize) {
         remainder -= 16;
         let avx_ones = _mm_set1_epi8(1);
         let avx_zeros = _mm_set1_epi8(0);
+        let avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32);
+
         // Safe because _mm_lddqu_si128 loads from unaligned memory
         #[allow(clippy::cast_ptr_alignment)]
-        let avx_ptr = octets.as_ptr().add((octets.len() / 32) * 32) as *const __m128i;
-
-        let vec = _mm_lddqu_si128(avx_ptr);
+        let vec = _mm_lddqu_si128(avx_ptr as *const __m128i);
         let compared_ones = _mm_cmpeq_epi8(vec, avx_ones);
         ones += _mm_extract_epi64(compared_ones, 0).count_ones() / 8;
         ones += _mm_extract_epi64(compared_ones, 1).count_ones() / 8;
