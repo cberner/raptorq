@@ -114,14 +114,18 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
                 mt[i][j] = 1;
             }
         }
-        mt[i][Kprime + S - 1] = Octet::alpha(i as u8).byte();
+        mt[i][Kprime + S - 1] = Octet::alpha(i).byte();
     }
     // Multiply by the GAMMA matrix
     // See section 5.3.3.3
     let mut gamma_row = vec![0; Kprime + S];
     // We only create the last row of the GAMMA matrix, as all preceding rows are just a shift left
     for j in 0..(Kprime + S) {
-        gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) as u8).byte();
+        // The spec says "alpha ^^ (i-j)". However, this clearly can overflow since alpha() is
+        // only defined up to input < 256. Since alpha() only has 255 unique values, we must
+        // take the input mod 255. Without this the constraint matrix ends up being singular
+        // for 1698 and 8837 source symbols.
+        gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) % 255).byte();
     }
     for i in 0..H {
         let mut result_row = vec![0; Kprime + S];
