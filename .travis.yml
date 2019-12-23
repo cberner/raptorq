@@ -1,3 +1,8 @@
 language: rust
 rust:
   - stable
+before_script:
+  - cargo install cargo-lichking
+script:
+  - cargo test
+  - cargo lichking check

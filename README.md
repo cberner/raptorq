@@ -3,7 +3,6 @@
 [![Crates](https://img.shields.io/crates/v/raptorq.svg)](https://crates.io/crates/raptorq)
 [![Documentation](https://docs.rs/raptorq/badge.svg)](https://docs.rs/raptorq)
 [![dependency status](https://deps.rs/repo/github/cberner/raptorq/status.svg)](https://deps.rs/repo/github/cberner/raptorq)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcberner%2Fraptorq.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcberner%2Fraptorq?ref=badge_shield)
 
 Rust implementation of RaptorQ (RFC6330)
 
@@ -57,4 +56,13 @@ symbol count = 50000, decoded 122 MB in 4.498secs using 5.0% overhead, throughpu
 ```
 
 ## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fcberner%2Fraptorq.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fcberner%2Fraptorq?ref=badge_large)
+
+Licensed under
+
+ * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you shall be licensed as above, without any
+additional terms or conditions.
