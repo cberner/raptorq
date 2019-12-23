@@ -22,11 +22,12 @@ pub fn enc_indices(
     let p = pi_symbols;
     let (d, a, mut b, d1, a1, mut b1) = source_tuple;
 
+    assert!(d > 0);
     assert!(1 <= a && a < w);
     assert!(b < w);
     assert!(d1 == 2 || d1 == 3);
-    assert!(1 <= a1 && a < w);
-    assert!(b1 < w);
+    assert!(1 <= a1 && a1 < p1);
+    assert!(b1 < p1);
 
     let mut indices = Vec::with_capacity((d + d1) as usize);
     indices.push(b as usize);
