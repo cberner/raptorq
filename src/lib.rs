@@ -23,6 +23,12 @@ pub use crate::encoder::SourceBlockEncoder;
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;
 #[cfg(feature = "benchmarking")]
+pub use crate::matrix::DenseOctetMatrix;
+#[cfg(feature = "benchmarking")]
+pub use crate::matrix::OctetMatrix;
+#[cfg(feature = "benchmarking")]
+pub use crate::matrix::SparseOctetMatrix;
+#[cfg(feature = "benchmarking")]
 pub use crate::octet::Octet;
 #[cfg(feature = "benchmarking")]
 pub use crate::pi_solver::IntermediateSymbolDecoder;
@@ -30,9 +36,3 @@ pub use crate::pi_solver::IntermediateSymbolDecoder;
 pub use crate::symbol::Symbol;
 #[cfg(feature = "benchmarking")]
 pub use crate::systematic_constants::extended_source_block_symbols;
-#[cfg(feature = "benchmarking")]
-pub use crate::matrix::SparseOctetMatrix;
-#[cfg(feature = "benchmarking")]
-pub use crate::matrix::DenseOctetMatrix;
-#[cfg(feature = "benchmarking")]
-pub use crate::matrix::OctetMatrix;

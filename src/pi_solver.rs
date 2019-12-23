@@ -18,7 +18,7 @@ struct FirstPhaseRowSelectionStats {
     start_col: usize,
     end_col: usize,
     start_row: usize,
-    rows_with_single_nonzero: Vec<usize>
+    rows_with_single_nonzero: Vec<usize>,
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -47,7 +47,7 @@ impl FirstPhaseRowSelectionStats {
             start_col: 0,
             end_col,
             start_row: 0,
-            rows_with_single_nonzero: vec![]
+            rows_with_single_nonzero: vec![],
         };
 
         for row in 0..matrix.height() {
@@ -73,8 +73,7 @@ impl FirstPhaseRowSelectionStats {
         for row in self.rows_with_single_nonzero.iter_mut() {
             if *row == i {
                 *row = j;
-            }
-            else if *row == j {
+            } else if *row == j {
                 *row = i;
             }
         }
@@ -87,7 +86,8 @@ impl FirstPhaseRowSelectionStats {
         if non_zero == 1 {
             self.rows_with_single_nonzero.push(row);
         }
-        self.non_zeros_histogram.decrement(self.non_zeros_per_row.get(row));
+        self.non_zeros_histogram
+            .decrement(self.non_zeros_per_row.get(row));
         self.non_zeros_histogram.increment(non_zero);
         self.non_zeros_per_row.insert(row, non_zero);
         self.ones_per_row.insert(row, ones);
@@ -101,8 +101,7 @@ impl FirstPhaseRowSelectionStats {
         let non_zeros = self.non_zeros_per_row.get(row);
         if non_zeros == 1 {
             self.rows_with_single_nonzero.retain(|x| *x != row);
-        }
-        else if non_zeros == 2 {
+        } else if non_zeros == 2 {
             self.rows_with_single_nonzero.push(row);
         }
         self.non_zeros_histogram.decrement(non_zeros);
@@ -128,7 +127,8 @@ impl FirstPhaseRowSelectionStats {
 
         self.non_zeros_histogram
             .decrement(self.non_zeros_per_row.get(self.start_row));
-        self.rows_with_single_nonzero.retain(|x| *x != start_row - 1);
+        self.rows_with_single_nonzero
+            .retain(|x| *x != start_row - 1);
 
         for col in end_col..self.end_col {
             for row in matrix.get_col_index_iter(col, start_row, end_row) {
@@ -139,8 +139,7 @@ impl FirstPhaseRowSelectionStats {
                     let non_zeros = self.non_zeros_per_row.get(row);
                     if non_zeros == 1 {
                         self.rows_with_single_nonzero.retain(|x| *x != row);
-                    }
-                    else if non_zeros == 2 {
+                    } else if non_zeros == 2 {
                         self.rows_with_single_nonzero.push(row);
                     }
                     self.non_zeros_histogram.decrement(non_zeros);
@@ -280,8 +279,7 @@ impl FirstPhaseRowSelectionStats {
                     }
                 }
             }
-        }
-        else {
+        } else {
             for row in start_row..end_row {
                 let non_zero = self.non_zeros_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
@@ -400,7 +398,7 @@ pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
     debug_symbol_add_ops_by_phase: Vec<u32>,
 }
 
-impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
+impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
     pub fn new(
         matrix: T,
         symbols: Vec<Symbol>,
@@ -460,7 +458,11 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
         let mut swapped_columns = 0;
         // Fast path when r == 1, since this is very common
         if r == 1 {
-            for (col, value) in self.A.get_row_iter(self.i, self.i, self.A.width() - self.u).clone() {
+            for (col, value) in self
+                .A
+                .get_row_iter(self.i, self.i, self.A.width() - self.u)
+                .clone()
+            {
                 if value != Octet::zero() {
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(self.i, col, self.i);
@@ -470,8 +472,7 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
                     break;
                 }
             }
-        }
-        else {
+        } else {
             for col in self.i..(self.A.width() - self.u) {
                 if self.A.get(self.i, col) != Octet::zero() {
                     let mut dest;
@@ -555,7 +556,11 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             let temp_value = self.A.get(temp, temp);
             // Cloning the iterator is safe here, because we don't re-read any of the rows that
             // we add to
-            for row in self.A.get_col_index_iter(temp, self.i + 1, self.A.height()).clone() {
+            for row in self
+                .A
+                .get_col_index_iter(temp, self.i + 1, self.A.height())
+                .clone()
+            {
                 let leading_value = self.A.get(row, temp);
                 if leading_value != Octet::zero() {
                     // Addition is equivalent to subtraction
@@ -572,7 +577,8 @@ impl <T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
 
             for i in 0..(r - 1) {
-                self.A.hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
+                self.A
+                    .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
             }
 
             self.i += 1;
@@ -968,10 +974,10 @@ pub fn fused_inverse_mul_symbols<T: OctetMatrix>(
 mod tests {
     use super::IntermediateSymbolDecoder;
     use crate::constraint_matrix::generate_constraint_matrix;
+    use crate::matrix::DenseOctetMatrix;
+    use crate::matrix::OctetMatrix;
     use crate::symbol::Symbol;
     use crate::systematic_constants::extended_source_block_symbols;
-    use crate::matrix::OctetMatrix;
-    use crate::matrix::DenseOctetMatrix;
 
     #[test]
     fn operations_per_symbol() {

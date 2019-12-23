@@ -1,22 +1,22 @@
 use crate::base::intermediate_tuple;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
+use crate::octets::{add_assign, fused_addassign_mul_scalar};
 use crate::rng::rand;
-use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
-use crate::octets::{add_assign, fused_addassign_mul_scalar};
+use crate::systematic_constants::{calculate_p1, systematic_index};
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
 pub fn enc_indices(
     source_tuple: (u32, u32, u32, u32, u32, u32),
     lt_symbols: u32,
     pi_symbols: u32,
-    p1: u32
+    p1: u32,
 ) -> Vec<usize> {
     let w = lt_symbols;
     let p = pi_symbols;
@@ -105,12 +105,9 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
     for i in 0..H {
         for j in 0..=(Kprime + S - 2) {
-            if i == rand((j + 1) as u32, 6u32, H as u32) as usize
-                || i == ((rand((j + 1) as u32, 6u32, H as u32)
-                + rand((j + 1) as u32, 7u32, (H - 1) as u32)
-                + 1)
-                % (H as u32)) as usize
-            {
+            let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
+            let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
+            if i == rand6 || i == (rand6 + rand7 + 1) % H {
                 mt[i][j] = 1;
             }
         }
@@ -135,9 +132,16 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
                 continue;
             }
             if scalar == Octet::one() {
-                add_assign(&mut result_row[0..=j], &gamma_row[(Kprime + S - j - 1)..(Kprime + S)]);
+                add_assign(
+                    &mut result_row[0..=j],
+                    &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
+                );
             } else {
-                fused_addassign_mul_scalar( &mut result_row[0..=j], &gamma_row[(Kprime + S - j - 1)..(Kprime + S)], &scalar);
+                fused_addassign_mul_scalar(
+                    &mut result_row[0..=j],
+                    &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
+                    &scalar,
+                );
             }
         }
         for j in 0..(Kprime + S) {

@@ -4,14 +4,16 @@ use crate::base::EncodingPacket;
 use crate::base::ObjectTransmissionInformation;
 use crate::constraint_matrix::enc_indices;
 use crate::constraint_matrix::generate_constraint_matrix;
+use crate::encoder::SPARSE_MATRIX_THRESHOLD;
+use crate::matrix::{DenseOctetMatrix, OctetMatrix, SparseOctetMatrix};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::symbol::Symbol;
-use crate::systematic_constants::{extended_source_block_symbols, num_lt_symbols, num_pi_symbols, calculate_p1, systematic_index};
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
+use crate::systematic_constants::{
+    calculate_p1, extended_source_block_symbols, num_lt_symbols, num_pi_symbols, systematic_index,
+};
 use std::collections::HashSet;
-use crate::matrix::{OctetMatrix, DenseOctetMatrix, SparseOctetMatrix};
-use crate::encoder::SPARSE_MATRIX_THRESHOLD;
 
 pub struct Decoder {
     config: ObjectTransmissionInformation,
@@ -110,7 +112,7 @@ pub struct SourceBlockDecoder {
     received_source_symbols: u32,
     received_esi: HashSet<u32>,
     decoded: bool,
-    sparse_threshold: u32
+    sparse_threshold: u32,
 }
 
 impl SourceBlockDecoder {
@@ -129,7 +131,7 @@ impl SourceBlockDecoder {
             received_source_symbols: 0,
             received_esi,
             decoded: false,
-            sparse_threshold: SPARSE_MATRIX_THRESHOLD
+            sparse_threshold: SPARSE_MATRIX_THRESHOLD,
         }
     }
 
@@ -138,12 +140,19 @@ impl SourceBlockDecoder {
         self.sparse_threshold = value;
     }
 
-    fn try_pi_decode(&mut self, constraint_matrix: impl OctetMatrix, symbols: Vec<Symbol>) -> Option<Vec<u8>> {
-        let intermediate_symbols =
-            match fused_inverse_mul_symbols(constraint_matrix, symbols, self.source_block_symbols) {
-                None => return None,
-                Some(s) => s,
-            };
+    fn try_pi_decode(
+        &mut self,
+        constraint_matrix: impl OctetMatrix,
+        symbols: Vec<Symbol>,
+    ) -> Option<Vec<u8>> {
+        let intermediate_symbols = match fused_inverse_mul_symbols(
+            constraint_matrix,
+            symbols,
+            self.source_block_symbols,
+        ) {
+            None => return None,
+            Some(s) => s,
+        };
 
         let mut result = vec![];
         let lt_symbols = num_lt_symbols(self.source_block_symbols);
@@ -154,7 +163,14 @@ impl SourceBlockDecoder {
             if let Some(ref symbol) = self.source_symbols[i] {
                 result.extend(symbol.as_bytes())
             } else {
-                let rebuilt = self.rebuild_source_symbol(&intermediate_symbols, i as u32, lt_symbols, pi_symbols, sys_index, p1);
+                let rebuilt = self.rebuild_source_symbol(
+                    &intermediate_symbols,
+                    i as u32,
+                    lt_symbols,
+                    pi_symbols,
+                    sys_index,
+                    p1,
+                );
                 result.extend(rebuilt.as_bytes());
             }
         }
@@ -163,7 +179,10 @@ impl SourceBlockDecoder {
         return Some(result);
     }
 
-    pub fn decode<T: IntoIterator<Item=EncodingPacket>>(&mut self, packets: T) -> Option<Vec<u8>> {
+    pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
+        &mut self,
+        packets: T,
+    ) -> Option<Vec<u8>> {
         for packet in packets {
             assert_eq!(
                 self.source_block_id,
@@ -228,13 +247,16 @@ impl SourceBlockDecoder {
             }
 
             if extended_source_block_symbols(self.source_block_symbols) >= self.sparse_threshold {
-                let constraint_matrix =
-                    generate_constraint_matrix::<SparseOctetMatrix>(self.source_block_symbols, &encoded_indices);
+                let constraint_matrix = generate_constraint_matrix::<SparseOctetMatrix>(
+                    self.source_block_symbols,
+                    &encoded_indices,
+                );
                 return self.try_pi_decode(constraint_matrix, d);
-            }
-            else {
-                let constraint_matrix =
-                    generate_constraint_matrix::<DenseOctetMatrix>(self.source_block_symbols, &encoded_indices);
+            } else {
+                let constraint_matrix = generate_constraint_matrix::<DenseOctetMatrix>(
+                    self.source_block_symbols,
+                    &encoded_indices,
+                );
                 return self.try_pi_decode(constraint_matrix, d);
             }
         }
@@ -248,7 +270,7 @@ impl SourceBlockDecoder {
         lt_symbols: u32,
         pi_symbols: u32,
         sys_index: u32,
-        p1: u32
+        p1: u32,
     ) -> Symbol {
         let mut rebuilt = Symbol::zero(self.symbol_size);
         let tuple = intermediate_tuple(source_symbol_id, lt_symbols, sys_index, p1);
@@ -262,12 +284,12 @@ impl SourceBlockDecoder {
 
 #[cfg(test)]
 mod codec_tests {
-    use rand::seq::SliceRandom;
-    use rand::Rng;
     use crate::Decoder;
     use crate::Encoder;
     use crate::SourceBlockDecoder;
     use crate::SourceBlockEncoder;
+    use rand::seq::SliceRandom;
+    use rand::Rng;
 
     #[test]
     fn random_erasure_dense() {

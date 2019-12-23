@@ -1,8 +1,8 @@
-use raptorq::{extended_source_block_symbols, OctetMatrix, SparseOctetMatrix};
 use raptorq::generate_constraint_matrix;
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
+use raptorq::{extended_source_block_symbols, OctetMatrix, SparseOctetMatrix};
 
 fn main() {
     for elements in [10, 100, 1000, 10000, 40000, 56403].iter() {

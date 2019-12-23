@@ -250,7 +250,7 @@ pub fn intermediate_tuple(
     internal_symbol_id: u32,
     lt_symbols: u32,
     systematic_index: u32,
-    p1: u32
+    p1: u32,
 ) -> (u32, u32, u32, u32, u32, u32) {
     let J = systematic_index;
     let W = lt_symbols;
