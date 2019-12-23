@@ -33,7 +33,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 temp
             })
         })
-        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+        .throughput(Throughput::Bytes(symbol1.len() as u64)),
     );
 
     let symbol1_addassign = symbol1.clone();
@@ -47,7 +47,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 temp
             })
         })
-        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+        .throughput(Throughput::Bytes(symbol1.len() as u64)),
     );
 
     let symbol1_fma = symbol1.clone();
@@ -62,7 +62,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 temp
             })
         })
-        .throughput(Throughput::Bytes(symbol1.len() as u32)),
+        .throughput(Throughput::Bytes(symbol1.len() as u64)),
     );
 
     let elements = 10 * 1024;
@@ -81,7 +81,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 return encoder.source_packets();
             })
         })
-        .throughput(Throughput::Bytes(data.len() as u32)),
+        .throughput(Throughput::Bytes(data.len() as u64)),
     );
 
     let roundtrip_data = data.clone();
@@ -94,7 +94,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 return decoder.decode(encoder.source_packets());
             })
         })
-        .throughput(Throughput::Bytes(data.len() as u32)),
+        .throughput(Throughput::Bytes(data.len() as u64)),
     );
 
     let repair_data = data.clone();
@@ -108,7 +108,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 return decoder.decode(encoder.repair_packets(0, repair_packets));
             })
         })
-        .throughput(Throughput::Bytes(data.len() as u32)),
+        .throughput(Throughput::Bytes(data.len() as u64)),
     );
 }
 
