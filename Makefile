@@ -4,6 +4,7 @@ build: pre
 pre:
 	cargo lichking check
 	cargo fmt --all -- --check
+	#cargo clippy --all
 
 release: pre
 	cargo build --release

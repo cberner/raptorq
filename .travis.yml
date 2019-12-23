@@ -4,5 +4,6 @@ rust:
 before_script:
   - cargo install cargo-lichking
   - rustup component add rustfmt
+  - rustup component add clippy
 script:
   - make test
