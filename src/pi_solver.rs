@@ -157,7 +157,7 @@ impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     fn first_phase_graph_substep_build_adjacency<T: OctetMatrix>(
         &self,
-        rows_with_two_ones: &Vec<usize>,
+        rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> ArrayMap<Vec<(usize, usize)>> {
         let mut adjacent_nodes = ArrayMap::new(self.start_col, self.end_col);
@@ -210,7 +210,7 @@ impl FirstPhaseRowSelectionStats {
         &self,
         start_row: usize,
         end_row: usize,
-        rows_with_two_ones: &Vec<usize>,
+        rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> usize {
         let adjacent_nodes =
@@ -310,7 +310,7 @@ impl FirstPhaseRowSelectionStats {
         &self,
         start_row: usize,
         end_row: usize,
-        rows_with_two_ones: &Vec<usize>,
+        rows_with_two_ones: &[usize],
     ) {
         for row in start_row..end_row {
             if self.non_zeros_per_row.get(row) == 2 {
@@ -329,7 +329,7 @@ impl FirstPhaseRowSelectionStats {
         matrix: &T,
     ) -> (Option<usize>, Option<usize>) {
         let mut r = None;
-        for i in 1..(self.end_col - self.start_col + 1) {
+        for i in 1..=(self.end_col - self.start_col) {
             if self.non_zeros_histogram.get(i) > 0 {
                 r = Some(i);
                 break;
@@ -355,7 +355,7 @@ impl FirstPhaseRowSelectionStats {
             }
 
             // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
-            if rows_with_two_ones.len() > 0 {
+            if !rows_with_two_ones.is_empty() {
                 #[cfg(debug_assertions)]
                 self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
                 return (

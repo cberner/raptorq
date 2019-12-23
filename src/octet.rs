@@ -1237,6 +1237,7 @@ impl Octet {
 impl Add for Octet {
     type Output = Octet;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
@@ -1248,6 +1249,7 @@ impl Add for Octet {
 impl<'a, 'b> Add<&'b Octet> for &'a Octet {
     type Output = Octet;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: &'b Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, addition on octets is implemented as bitxor
@@ -1257,12 +1259,14 @@ impl<'a, 'b> Add<&'b Octet> for &'a Octet {
 }
 
 impl AddAssign for Octet {
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add_assign(&mut self, other: Octet) {
         self.value ^= other.value;
     }
 }
 
 impl<'a> AddAssign<&'a Octet> for Octet {
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add_assign(&mut self, other: &'a Octet) {
         self.value ^= other.value;
     }
@@ -1271,6 +1275,7 @@ impl<'a> AddAssign<&'a Octet> for Octet {
 impl Sub for Octet {
     type Output = Octet;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Octet) -> Octet {
         Octet {
             // As defined in section 5.7.2, subtraction on octets is implemented as bitxor
@@ -1290,6 +1295,7 @@ impl Mul for Octet {
 impl<'a, 'b> Mul<&'b Octet> for &'a Octet {
     type Output = Octet;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, other: &'b Octet) -> Octet {
         // As defined in section 5.7.2, multiplication is implemented via the tables above
         if self.value == 0 || other.value == 0 {
@@ -1319,6 +1325,7 @@ impl Div for Octet {
 impl<'a, 'b> Div<&'b Octet> for &'a Octet {
     type Output = Octet;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: &'b Octet) -> Octet {
         assert_ne!(0, rhs.value);
         // As defined in section 5.7.2, division is implemented via the tables above
