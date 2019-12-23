@@ -287,7 +287,7 @@ mod codec_tests {
         }
 
         // MTU is set to not be too small, otherwise this test may take a very long time
-        let mtu = rand::thread_rng().gen_range(elements as u16 / 100, 10_000);
+        let mtu = rand::thread_rng().gen_range((elements / 100) as u16, 10_000);
 
         let encoder = Encoder::with_defaults(&data, mtu);
 
