@@ -163,11 +163,17 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
 
 fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     assert_eq!(octets.len(), other.len());
-    let self_ptr = octets.as_mut_ptr() as *mut u64;
-    let other_ptr = other.as_ptr() as *const u64;
+    let self_ptr = octets.as_mut_ptr();
+    let other_ptr = other.as_ptr();
     for i in 0..(octets.len() / 8) {
         unsafe {
-            *self_ptr.add(i) ^= *other_ptr.add(i);
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_value = (self_ptr as *const u64).add(i).read_unaligned();
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_value = (other_ptr as *const u64).add(i).read_unaligned();
+            let result = self_value ^ other_value;
+            #[allow(clippy::cast_ptr_alignment)]
+            (self_ptr as *mut u64).add(i).write_unaligned(result);
         }
     }
     let remainder = octets.len() % 8;
@@ -202,10 +208,16 @@ unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     }
 
     let remainder = octets.len() % 32;
-    let self_ptr = octets.as_mut_ptr() as *mut u64;
-    let other_ptr = other.as_ptr() as *const u64;
+    let self_ptr = octets.as_mut_ptr();
+    let other_ptr = other.as_ptr();
     for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
-        *self_ptr.add(i) ^= *other_ptr.add(i);
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_value = (self_ptr as *mut u64).add(i).read_unaligned();
+        #[allow(clippy::cast_ptr_alignment)]
+        let other_value = (other_ptr as *mut u64).add(i).read_unaligned();
+        let result = self_value ^ other_value;
+        #[allow(clippy::cast_ptr_alignment)]
+        (self_ptr as *mut u64).add(i).write_unaligned(result);
     }
 
     let remainder = octets.len() % 8;
