@@ -8,9 +8,9 @@ edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [dev-dependencies]
-criterion = "0.2"
+criterion = "0.3"
 primal = "0.2"
-rand = "0.6"
+rand = "0.7"
 
 [[bench]]
 name = "codec_benchmark"
