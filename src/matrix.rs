@@ -2,7 +2,7 @@ use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
 use crate::util::get_both_indices;
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 
 pub struct KeyIter {
     sparse: bool,
@@ -117,7 +117,7 @@ impl Iterator for ClonedOctetIter {
             self.dense_index += 1;
             return Some((
                 old_index,
-                Octet::new(self.dense_elements.as_ref().unwrap()[old_index].clone()),
+                Octet::new(self.dense_elements.as_ref().unwrap()[old_index]),
             ));
         }
     }
@@ -153,7 +153,7 @@ impl<'a> OctetIter<'a> {
         ClonedOctetIter {
             sparse: self.sparse,
             end_col: self.end_col,
-            dense_elements: self.dense_elements.map(|x| x.clone()),
+            dense_elements: self.dense_elements.cloned(),
             dense_index: self.dense_index,
             sparse_elements,
             sparse_index: self.sparse_index,
@@ -188,7 +188,7 @@ impl<'a> Iterator for OctetIter<'a> {
             self.dense_index += 1;
             return Some((
                 old_index,
-                Octet::new(self.dense_elements.unwrap()[old_index].clone()),
+                Octet::new(self.dense_elements.unwrap()[old_index]),
             ));
         }
     }
@@ -341,6 +341,7 @@ impl OctetMatrix for DenseOctetMatrix {
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
         let mut temp = vec![vec![0; self.width]; rows];
+        #[allow(clippy::needless_range_loop)]
         for row in 0..rows {
             for i in 0..rows {
                 let scalar = other.get(row, i);
@@ -406,8 +407,8 @@ impl<T: Clone> SparseVec<T> {
         }
     }
 
-    pub fn get(&self, i: &usize) -> Option<&T> {
-        match self.elements.binary_search_by_key(i, |(col, _)| *col) {
+    pub fn get(&self, i: usize) -> Option<&T> {
+        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
             Ok(index) => Some(&self.elements[index].1),
             Err(_) => None,
         }
@@ -481,24 +482,28 @@ impl SparseOctetVec {
         loop {
             if let Some((self_col, self_value)) = self_entry {
                 if let Some((other_col, other_value)) = other_entry {
-                    if self_col < other_col {
-                        if *self_value != Octet::zero() {
-                            result.push((*self_col, self_value.clone()));
+                    match self_col.cmp(&other_col) {
+                        Ordering::Less => {
+                            if *self_value != Octet::zero() {
+                                result.push((*self_col, self_value.clone()));
+                            }
+                            self_entry = self_iter.next();
                         }
-                        self_entry = self_iter.next();
-                    } else if self_col == other_col {
-                        let value = self_value + &(other_value * scalar);
-                        if value != Octet::zero() {
-                            result.push((*self_col, value));
+                        Ordering::Equal => {
+                            let value = self_value + &(other_value * scalar);
+                            if value != Octet::zero() {
+                                result.push((*self_col, value));
+                            }
+                            self_entry = self_iter.next();
+                            other_entry = other_iter.next();
                         }
-                        self_entry = self_iter.next();
-                        other_entry = other_iter.next();
-                    } else {
-                        if *other_value != Octet::zero() {
-                            new_columns.push(*other_col);
-                            result.push((*other_col, other_value * scalar));
+                        Ordering::Greater => {
+                            if *other_value != Octet::zero() {
+                                new_columns.push(*other_col);
+                                result.push((*other_col, other_value * scalar));
+                            }
+                            other_entry = other_iter.next();
                         }
-                        other_entry = other_iter.next();
                     }
                 } else {
                     if *self_value != Octet::zero() {
@@ -529,7 +534,7 @@ impl SparseOctetVec {
         self.elements.retain(predicate);
     }
 
-    pub fn get(&self, i: &usize) -> Option<&Octet> {
+    pub fn get(&self, i: usize) -> Option<&Octet> {
         self.elements.get(i)
     }
 
@@ -580,7 +585,7 @@ impl SparseOctetMatrix {
         for row in 0..self.height {
             for (col, value) in self.sparse_elements[row].keys_values() {
                 if *value != Octet::zero() {
-                    self.sparse_column_index[*col].get(&row).unwrap();
+                    self.sparse_column_index[*col].get(row).unwrap();
                 }
             }
         }
@@ -592,6 +597,7 @@ impl OctetMatrix for SparseOctetMatrix {
         let mut row_mapping = vec![0; height];
         let mut col_mapping = vec![0; width];
         let mut elements = Vec::with_capacity(height);
+        #[allow(clippy::needless_range_loop)]
         for i in 0..height {
             elements.push(SparseOctetVec::with_capacity(10));
             row_mapping[i] = i;
@@ -601,6 +607,7 @@ impl OctetMatrix for SparseOctetMatrix {
             dense_elements.push(vec![0; 2 * trailing_dense_column_hint]);
         }
         let mut column_index = Vec::with_capacity(width);
+        #[allow(clippy::needless_range_loop)]
         for i in 0..width {
             column_index.push(SparseVec::with_capacity(10));
             col_mapping[i] = i;
@@ -683,7 +690,7 @@ impl OctetMatrix for SparseOctetMatrix {
             return Octet::new(self.dense_elements[physical_i][self.width - j - 1]);
         } else {
             return self.sparse_elements[physical_i]
-                .get(&physical_j)
+                .get(physical_j)
                 .unwrap_or(&Octet::zero())
                 .clone();
         }
@@ -988,7 +995,7 @@ mod tests {
             sparse.insert(i, Octet::new(value));
         }
         for i in 0..size {
-            assert_eq!(dense[i], sparse.get(&i).map(|x| x.byte()).unwrap_or(0));
+            assert_eq!(dense[i], sparse.get(i).map(|x| x.byte()).unwrap_or(0));
         }
     }
 
@@ -1116,7 +1123,7 @@ mod tests {
         }
 
         for i in 0..8 {
-            let actual = sparse1.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let actual = sparse1.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
             let expected = dense1[i].clone();
             assert_eq!(
                 actual, expected,
@@ -1134,7 +1141,7 @@ mod tests {
         }
 
         for i in 0..8 {
-            let actual = sparse2.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let actual = sparse2.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
             let expected = dense2[i].clone();
             assert_eq!(
                 actual, expected,
@@ -1146,7 +1153,7 @@ mod tests {
         sparse1.fma(&sparse2, &Octet::new(5));
 
         for i in 0..8 {
-            let actual = sparse1.get(&i).map(|x| x.clone()).unwrap_or(Octet::zero());
+            let actual = sparse1.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
             let expected = &dense1[i] + &(&Octet::new(5) * &dense2[i]);
             assert_eq!(
                 actual, expected,

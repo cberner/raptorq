@@ -20,6 +20,7 @@ impl PayloadId {
         }
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn deserialize(data: &[u8; 4]) -> PayloadId {
         PayloadId {
             source_block_number: data[0],
@@ -236,6 +237,7 @@ pub fn deg(v: u32, lt_symbols: u32) -> u32 {
         1008229, 1010129, 1011876, 1013490, 1014983, 1016370, 1017662, 1048576,
     ];
 
+    #[allow(clippy::needless_range_loop)]
     for d in 1..f.len() {
         if v < f[d] {
             return min(d as u32, lt_symbols - 2);
