@@ -104,7 +104,9 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     // Generates the MT matrix
     // See section 5.3.3.3
     let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
+    #[allow(clippy::needless_range_loop)]
     for i in 0..H {
+        #[allow(clippy::needless_range_loop)]
         for j in 0..=(Kprime + S - 2) {
             let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
             let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
@@ -118,6 +120,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     // See section 5.3.3.3
     let mut gamma_row = vec![0; Kprime + S];
     // We only create the last row of the GAMMA matrix, as all preceding rows are just a shift left
+    #[allow(clippy::needless_range_loop)]
     for j in 0..(Kprime + S) {
         // The spec says "alpha ^^ (i-j)". However, this clearly can overflow since alpha() is
         // only defined up to input < 256. Since alpha() only has 255 unique values, we must
@@ -125,6 +128,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
         // for 1698 and 8837 source symbols.
         gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) % 255).byte();
     }
+    #[allow(clippy::needless_range_loop)]
     for i in 0..H {
         let mut result_row = vec![0; Kprime + S];
         for j in 0..(Kprime + S) {
@@ -145,6 +149,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
                 );
             }
         }
+        #[allow(clippy::needless_range_loop)]
         for j in 0..(Kprime + S) {
             if result_row[j] != 0 {
                 matrix.set(i + S, j, Octet::new(result_row[j]));
@@ -158,19 +163,17 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     }
 
     // G_ENC
-    let mut row = 0;
     let lt_symbols = num_lt_symbols(Kprime as u32);
     let pi_symbols = num_pi_symbols(Kprime as u32);
     let sys_index = systematic_index(Kprime as u32);
     let p1 = calculate_p1(Kprime as u32);
-    for &i in encoded_symbol_indices.iter() {
+    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
         // row != i, because i is the ESI
         let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
 
         for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
             matrix.set(row as usize + S + H, j, Octet::one());
         }
-        row += 1;
     }
 
     matrix

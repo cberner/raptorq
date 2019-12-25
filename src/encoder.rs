@@ -174,8 +174,8 @@ fn gen_intermediate_symbols(
     for _ in 0..(S + H) {
         D.push(Symbol::zero(symbol_size));
     }
-    for i in 0..source_block.len() {
-        D.push(source_block[i].clone());
+    for symbol in source_block {
+        D.push(symbol.clone());
     }
     // Extend the source block with padding. See section 5.3.2
     for _ in 0..(extended_source_symbols as usize - source_block.len()) {
