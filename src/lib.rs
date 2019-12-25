@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return, clippy::unreadable_literal)]
+
 mod arraymap;
 mod base;
 mod constraint_matrix;

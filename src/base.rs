@@ -245,7 +245,7 @@ pub fn deg(v: u32, lt_symbols: u32) -> u32 {
 }
 
 // Tuple[K', X] as defined in section 5.3.5.4
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::many_single_char_names)]
 pub fn intermediate_tuple(
     internal_symbol_id: u32,
     lt_symbols: u32,
@@ -259,7 +259,7 @@ pub fn intermediate_tuple(
     let mut A = 53591 + J * 997;
 
     if A % 2 == 0 {
-        A = A + 1;
+        A += 1;
     }
 
     let B = 10267 * (J + 1);
@@ -269,10 +269,11 @@ pub fn intermediate_tuple(
     let a = 1 + rand(y, 1u32, W - 1);
     let b = rand(y, 2u32, W);
 
-    let mut d1 = 2;
-    if d < 4 {
-        d1 = 2 + rand(internal_symbol_id, 3u32, 2);
-    }
+    let d1 = if d < 4 {
+        2 + rand(internal_symbol_id, 3u32, 2)
+    } else {
+        2
+    };
 
     let a1 = 1 + rand(internal_symbol_id, 4u32, P1 - 1);
     let b1 = rand(internal_symbol_id, 5u32, P1);

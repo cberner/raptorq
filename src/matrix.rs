@@ -17,14 +17,12 @@ impl Iterator for KeyIter {
     fn next(&mut self) -> Option<Self::Item> {
         if self.sparse {
             return self.sparse_rows.as_mut().unwrap().pop();
+        } else if self.dense_index == self.dense_end {
+            return None;
         } else {
-            if self.dense_index == self.dense_end {
-                return None;
-            } else {
-                let old_index = self.dense_index;
-                self.dense_index += 1;
-                return Some(old_index);
-            }
+            let old_index = self.dense_index;
+            self.dense_index += 1;
+            return Some(old_index);
         }
     }
 }
@@ -80,14 +78,12 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
                 }
                 return None;
             }
+        } else if self.dense_index == self.dense_end {
+            return None;
         } else {
-            if self.dense_index == self.dense_end {
-                return None;
-            } else {
-                let old_index = self.dense_index;
-                self.dense_index += 1;
-                return Some(old_index);
-            }
+            let old_index = self.dense_index;
+            self.dense_index += 1;
+            return Some(old_index);
         }
     }
 }
@@ -114,17 +110,15 @@ impl Iterator for ClonedOctetIter {
                 self.sparse_index += 1;
                 return Some(elements[old_index].clone());
             }
+        } else if self.dense_index == self.end_col {
+            return None;
         } else {
-            if self.dense_index == self.end_col {
-                return None;
-            } else {
-                let old_index = self.dense_index;
-                self.dense_index += 1;
-                return Some((
-                    old_index,
-                    Octet::new(self.dense_elements.as_ref().unwrap()[old_index].clone()),
-                ));
-            }
+            let old_index = self.dense_index;
+            self.dense_index += 1;
+            return Some((
+                old_index,
+                Octet::new(self.dense_elements.as_ref().unwrap()[old_index].clone()),
+            ));
         }
     }
 }
@@ -187,17 +181,15 @@ impl<'a> Iterator for OctetIter<'a> {
                 }
                 return None;
             }
+        } else if self.dense_index == self.end_col {
+            return None;
         } else {
-            if self.dense_index == self.end_col {
-                return None;
-            } else {
-                let old_index = self.dense_index;
-                self.dense_index += 1;
-                return Some((
-                    old_index,
-                    Octet::new(self.dense_elements.unwrap()[old_index].clone()),
-                ));
-            }
+            let old_index = self.dense_index;
+            self.dense_index += 1;
+            return Some((
+                old_index,
+                Octet::new(self.dense_elements.unwrap()[old_index].clone()),
+            ));
         }
     }
 }
@@ -514,16 +506,14 @@ impl SparseOctetVec {
                     }
                     self_entry = self_iter.next();
                 }
-            } else {
-                if let Some((other_col, other_value)) = other_entry {
-                    if *other_value != Octet::zero() {
-                        new_columns.push(*other_col);
-                        result.push((*other_col, other_value * scalar));
-                    }
-                    other_entry = other_iter.next();
-                } else {
-                    break;
+            } else if let Some((other_col, other_value)) = other_entry {
+                if *other_value != Octet::zero() {
+                    new_columns.push(*other_col);
+                    result.push((*other_col, other_value * scalar));
                 }
+                other_entry = other_iter.next();
+            } else {
+                break;
             }
         }
         self.elements.elements = result;

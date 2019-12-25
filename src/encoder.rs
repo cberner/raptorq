@@ -161,7 +161,7 @@ impl SourceBlockEncoder {
 // See section 5.3.3.4
 #[allow(non_snake_case)]
 fn gen_intermediate_symbols(
-    source_block: &Vec<Symbol>,
+    source_block: &[Symbol],
     symbol_size: usize,
     sparse_threshold: u32,
 ) -> Vec<Symbol> {
@@ -194,9 +194,10 @@ fn gen_intermediate_symbols(
 }
 
 // Enc[] function, as defined in section 5.3.5.3
+#[allow(clippy::many_single_char_names)]
 fn enc(
     source_block_symbols: u32,
-    intermediate_symbols: &Vec<Symbol>,
+    intermediate_symbols: &[Symbol],
     source_tuple: (u32, u32, u32, u32, u32, u32),
 ) -> Symbol {
     let w = num_lt_symbols(source_block_symbols);
