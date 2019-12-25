@@ -12,6 +12,7 @@ use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
+#[allow(clippy::many_single_char_names)]
 pub fn enc_indices(
     source_tuple: (u32, u32, u32, u32, u32, u32),
     lt_symbols: u32,
