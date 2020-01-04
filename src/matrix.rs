@@ -1,6 +1,7 @@
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
+use crate::sparse_vec::{SparseOctetVec, SparseVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 use std::cmp::{min, Ordering};
@@ -386,6 +387,7 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 }
 
+<<<<<<< HEAD
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct SparseVec<T: Clone> {
     // Kept sorted by the usize (key)
@@ -558,6 +560,8 @@ impl SparseOctetVec {
     }
 }
 
+=======
+>>>>>>> Move SparseVec into separate file
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseOctetMatrix {
@@ -938,7 +942,7 @@ mod tests {
     use rand::Rng;
 
     use crate::matrix::DenseOctetMatrix;
-    use crate::matrix::{OctetMatrix, SparseOctetMatrix, SparseOctetVec};
+    use crate::matrix::{OctetMatrix, SparseOctetMatrix};
     use crate::octet::Octet;
 
     fn dense_identity(size: usize) -> DenseOctetMatrix {
@@ -985,22 +989,6 @@ mod tests {
                     j
                 );
             }
-        }
-    }
-
-    #[test]
-    fn sparse_vec() {
-        let size = 100;
-        let mut dense = vec![0; size];
-        let mut sparse = SparseOctetVec::with_capacity(size);
-        for _ in 0..size {
-            let i = rand::thread_rng().gen_range(0, size);
-            let value = rand::thread_rng().gen();
-            dense[i] = value;
-            sparse.insert(i, Octet::new(value));
-        }
-        for i in 0..size {
-            assert_eq!(dense[i], sparse.get(i).map(|x| x.byte()).unwrap_or(0));
         }
     }
 
@@ -1115,56 +1103,5 @@ mod tests {
         sparse.hint_column_dense_and_frozen(6);
         sparse.hint_column_dense_and_frozen(5);
         assert_matrices_eq(&dense, &sparse);
-    }
-
-    #[test]
-    fn sparse_vec_fma() {
-        let mut dense1 = vec![Octet::zero(); 8];
-        let mut sparse1 = SparseOctetVec::with_capacity(8);
-        for i in 0..4 {
-            let value = rand::thread_rng().gen();
-            dense1[i * 2] = Octet::new(value);
-            sparse1.insert(i * 2, Octet::new(value));
-        }
-
-        for i in 0..8 {
-            let actual = sparse1.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
-            let expected = dense1[i].clone();
-            assert_eq!(
-                actual, expected,
-                "Mismatch at {}. {:?} != {:?}",
-                i, actual, expected
-            );
-        }
-
-        let mut dense2 = vec![Octet::zero(); 8];
-        let mut sparse2 = SparseOctetVec::with_capacity(8);
-        for i in 0..4 {
-            let value = rand::thread_rng().gen();
-            dense2[i] = Octet::new(value);
-            sparse2.insert(i, Octet::new(value));
-        }
-
-        for i in 0..8 {
-            let actual = sparse2.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
-            let expected = dense2[i].clone();
-            assert_eq!(
-                actual, expected,
-                "Mismatch at {}. {:?} != {:?}",
-                i, actual, expected
-            );
-        }
-
-        sparse1.fma(&sparse2, &Octet::new(5));
-
-        for i in 0..8 {
-            let actual = sparse1.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
-            let expected = &dense1[i] + &(&Octet::new(5) * &dense2[i]);
-            assert_eq!(
-                actual, expected,
-                "Mismatch at {}. {:?} != {:?}",
-                i, actual, expected
-            );
-        }
     }
 }
