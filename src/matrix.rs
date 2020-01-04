@@ -1,3 +1,4 @@
+use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
@@ -5,198 +6,6 @@ use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 use std::cmp::{min, Ordering};
-
-#[derive(Serialize, Deserialize)]
-pub struct KeyIter {
-    sparse: bool,
-    dense_index: usize,
-    dense_end: usize,
-    sparse_rows: Option<Vec<usize>>,
-}
-
-impl Iterator for KeyIter {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.sparse {
-            return self.sparse_rows.as_mut().unwrap().pop();
-        } else if self.dense_index == self.dense_end {
-            return None;
-        } else {
-            let old_index = self.dense_index;
-            self.dense_index += 1;
-            return Some(old_index);
-        }
-    }
-}
-
-pub struct BorrowedKeyIter<'a> {
-    sparse: bool,
-    dense_index: usize,
-    dense_end: usize,
-    sparse_rows: Option<&'a SparseValuelessVec>,
-    sparse_start_row: usize,
-    sparse_end_row: usize,
-    sparse_index: usize,
-    physical_row_to_logical: Option<&'a Vec<usize>>,
-}
-
-impl<'a> BorrowedKeyIter<'a> {
-    pub fn clone(&self) -> KeyIter {
-        // Convert to logical indices, since ClonedOctetIter doesn't handle physical
-        let sparse_rows = self.sparse_rows.map(|x| {
-            x.keys()
-                .map(|physical_row| self.physical_row_to_logical.unwrap()[*physical_row])
-                .filter(|logical_row| {
-                    *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row
-                })
-                .collect()
-        });
-        KeyIter {
-            sparse: self.sparse,
-            dense_index: self.dense_index,
-            dense_end: self.dense_end,
-            sparse_rows,
-        }
-    }
-}
-
-impl<'a> Iterator for BorrowedKeyIter<'a> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.sparse {
-            let elements = self.sparse_rows.unwrap();
-            // Need to iterate over the whole array, since they're not sorted by logical row
-            if self.sparse_index >= elements.len() {
-                return None;
-            } else {
-                while self.sparse_index < elements.len() {
-                    let physical_row = elements.get_by_raw_index(self.sparse_index);
-                    self.sparse_index += 1;
-                    let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
-                    if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
-                        return Some(logical_row);
-                    }
-                }
-                return None;
-            }
-        } else if self.dense_index == self.dense_end {
-            return None;
-        } else {
-            let old_index = self.dense_index;
-            self.dense_index += 1;
-            return Some(old_index);
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ClonedOctetIter {
-    sparse: bool,
-    end_col: usize,
-    dense_elements: Option<Vec<u8>>,
-    dense_index: usize,
-    sparse_elements: Option<Vec<(usize, Octet)>>,
-    sparse_index: usize,
-}
-
-impl Iterator for ClonedOctetIter {
-    type Item = (usize, Octet);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.sparse {
-            let elements = self.sparse_elements.as_ref().unwrap();
-            if self.sparse_index == elements.len() {
-                return None;
-            } else {
-                let old_index = self.sparse_index;
-                self.sparse_index += 1;
-                return Some(elements[old_index].clone());
-            }
-        } else if self.dense_index == self.end_col {
-            return None;
-        } else {
-            let old_index = self.dense_index;
-            self.dense_index += 1;
-            return Some((
-                old_index,
-                Octet::new(self.dense_elements.as_ref().unwrap()[old_index]),
-            ));
-        }
-    }
-}
-
-pub struct OctetIter<'a> {
-    sparse: bool,
-    start_col: usize,
-    end_col: usize,
-    dense_elements: Option<&'a Vec<u8>>,
-    dense_index: usize,
-    sparse_elements: Option<&'a SparseOctetVec>,
-    sparse_index: usize,
-    sparse_physical_col_to_logical: Option<&'a Vec<usize>>,
-}
-
-impl<'a> OctetIter<'a> {
-    pub fn clone(&self) -> ClonedOctetIter {
-        // Convert to logical indices, since ClonedOctetIter doesn't handle physical
-        let sparse_elements = self.sparse_elements.map(|x| {
-            x.keys_values()
-                .map(|(physical_col, value)| {
-                    (
-                        self.sparse_physical_col_to_logical.unwrap()[*physical_col],
-                        value.clone(),
-                    )
-                })
-                .filter(|(logical_col, _)| {
-                    *logical_col >= self.start_col && *logical_col < self.end_col
-                })
-                .collect()
-        });
-        ClonedOctetIter {
-            sparse: self.sparse,
-            end_col: self.end_col,
-            dense_elements: self.dense_elements.cloned(),
-            dense_index: self.dense_index,
-            sparse_elements,
-            sparse_index: self.sparse_index,
-        }
-    }
-}
-
-impl<'a> Iterator for OctetIter<'a> {
-    type Item = (usize, Octet);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.sparse {
-            let elements = self.sparse_elements.unwrap();
-            // Need to iterate over the whole array, since they're not sorted by logical col
-            if self.sparse_index >= elements.len() {
-                return None;
-            } else {
-                while self.sparse_index < elements.len() {
-                    let entry = elements.get_by_raw_index(self.sparse_index);
-                    self.sparse_index += 1;
-                    let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
-                    if logical_col >= self.start_col && logical_col < self.end_col {
-                        return Some((logical_col, entry.1.clone()));
-                    }
-                }
-                return None;
-            }
-        } else if self.dense_index == self.end_col {
-            return None;
-        } else {
-            let old_index = self.dense_index;
-            self.dense_index += 1;
-            return Some((
-                old_index,
-                Octet::new(self.dense_elements.unwrap()[old_index]),
-            ));
-        }
-    }
-}
 
 pub trait OctetMatrix: Clone {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> Self;
@@ -291,29 +100,11 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
-        OctetIter {
-            sparse: false,
-            start_col,
-            end_col,
-            dense_elements: Some(&self.elements[row]),
-            dense_index: start_col,
-            sparse_elements: None,
-            sparse_index: 0,
-            sparse_physical_col_to_logical: None,
-        }
+        OctetIter::new_dense(start_col, end_col, &self.elements[row], start_col)
     }
 
     fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
-        BorrowedKeyIter {
-            sparse: false,
-            dense_index: start_row,
-            dense_end: end_row,
-            sparse_rows: None,
-            sparse_start_row: 0,
-            sparse_end_row: 0,
-            sparse_index: 0,
-            physical_row_to_logical: None,
-        }
+        BorrowedKeyIter::new_dense(start_row, end_row)
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -387,181 +178,6 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 }
 
-<<<<<<< HEAD
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct SparseVec<T: Clone> {
-    // Kept sorted by the usize (key)
-    elements: Vec<(usize, T)>,
-}
-
-impl<T: Clone> SparseVec<T> {
-    pub fn with_capacity(capacity: usize) -> SparseVec<T> {
-        SparseVec {
-            elements: Vec::with_capacity(capacity),
-        }
-    }
-
-    pub fn retain<P: Fn(&(usize, T)) -> bool>(&mut self, predicate: P) {
-        self.elements.retain(predicate);
-    }
-
-    // Returns the internal index into self.elements matching key i, or the index
-    // at which it can be inserted (maintaining sorted order)
-    fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
-        self.elements.binary_search_by_key(&i, |(index, _)| *index)
-    }
-
-    pub fn remove(&mut self, i: usize) -> Option<T> {
-        match self.key_to_internal_index(i) {
-            Ok(index) => Some(self.elements.remove(index).1),
-            Err(_) => None,
-        }
-    }
-
-    pub fn get(&self, i: usize) -> Option<&T> {
-        match self.key_to_internal_index(i) {
-            Ok(index) => Some(&self.elements[index].1),
-            Err(_) => None,
-        }
-    }
-
-    pub fn keys_values(&self) -> impl Iterator<Item = &(usize, T)> {
-        self.elements.iter()
-    }
-
-    pub fn insert(&mut self, i: usize, value: T) {
-        match self.key_to_internal_index(i) {
-            Ok(index) => self.elements[index] = (i, value),
-            Err(index) => self.elements.insert(index, (i, value)),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct SparseOctetVec {
-    // Kept sorted by the usize (key)
-    elements: SparseVec<Octet>,
-}
-
-impl SparseOctetVec {
-    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
-        SparseOctetVec {
-            elements: SparseVec::with_capacity(capacity),
-        }
-    }
-
-    // Returns a vector of new column indices that this row contains
-    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
-        // Fast path for a single value that's being eliminated
-        // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
-        // required for the HDPC rows may be performed for all such rows in one
-        // process, by using the algorithm described in Section 5.3.3.3."
-        if other.elements.elements.len() == 1 {
-            let (other_col, other_value) = &other.elements.elements[0];
-            match self.elements.key_to_internal_index(*other_col) {
-                Ok(index) => {
-                    let elements_len = self.elements.elements.len();
-                    let self_value = &mut self.elements.elements[index].1;
-                    self_value.fma(other_value, scalar);
-                    // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
-                    // It would be very expensive to always remove from those rows
-                    if elements_len < 1000 && *self_value == Octet::zero() {
-                        self.elements.elements.remove(index);
-                    }
-                }
-                Err(index) => {
-                    let value = other_value * scalar;
-                    self.elements.elements.insert(index, (*other_col, value));
-                    return vec![*other_col];
-                }
-            };
-            return vec![];
-        }
-
-        let mut result =
-            Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
-        let mut self_iter = self.elements.elements.iter();
-        let mut other_iter = other.elements.elements.iter();
-        let mut self_entry = self_iter.next();
-        let mut other_entry = other_iter.next();
-
-        let mut new_columns = Vec::with_capacity(10);
-        loop {
-            if let Some((self_col, self_value)) = self_entry {
-                if let Some((other_col, other_value)) = other_entry {
-                    match self_col.cmp(&other_col) {
-                        Ordering::Less => {
-                            if *self_value != Octet::zero() {
-                                result.push((*self_col, self_value.clone()));
-                            }
-                            self_entry = self_iter.next();
-                        }
-                        Ordering::Equal => {
-                            let value = self_value + &(other_value * scalar);
-                            if value != Octet::zero() {
-                                result.push((*self_col, value));
-                            }
-                            self_entry = self_iter.next();
-                            other_entry = other_iter.next();
-                        }
-                        Ordering::Greater => {
-                            if *other_value != Octet::zero() {
-                                new_columns.push(*other_col);
-                                result.push((*other_col, other_value * scalar));
-                            }
-                            other_entry = other_iter.next();
-                        }
-                    }
-                } else {
-                    if *self_value != Octet::zero() {
-                        result.push((*self_col, self_value.clone()));
-                    }
-                    self_entry = self_iter.next();
-                }
-            } else if let Some((other_col, other_value)) = other_entry {
-                if *other_value != Octet::zero() {
-                    new_columns.push(*other_col);
-                    result.push((*other_col, other_value * scalar));
-                }
-                other_entry = other_iter.next();
-            } else {
-                break;
-            }
-        }
-        self.elements.elements = result;
-
-        return new_columns;
-    }
-
-    pub fn remove(&mut self, i: usize) -> Option<Octet> {
-        self.elements.remove(i)
-    }
-
-    pub fn retain<P: Fn(&(usize, Octet)) -> bool>(&mut self, predicate: P) {
-        self.elements.retain(predicate);
-    }
-
-    pub fn get(&self, i: usize) -> Option<&Octet> {
-        self.elements.get(i)
-    }
-
-    pub fn mul_assign(&mut self, scalar: &Octet) {
-        for (_, value) in self.elements.elements.iter_mut() {
-            *value = value as &Octet * scalar;
-        }
-    }
-
-    pub fn keys_values(&self) -> impl Iterator<Item = &(usize, Octet)> {
-        self.elements.keys_values()
-    }
-
-    pub fn insert(&mut self, i: usize, value: Octet) {
-        self.elements.insert(i, value);
-    }
-}
-
-=======
->>>>>>> Move SparseVec into separate file
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseOctetMatrix {
@@ -711,30 +327,22 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         let physical_row = self.logical_row_to_physical[row];
         let sparse_elements = &self.sparse_elements[physical_row];
-        OctetIter {
-            sparse: true,
+        OctetIter::new_sparse(
             start_col,
             end_col,
-            dense_elements: None,
-            dense_index: 0,
-            sparse_elements: Some(sparse_elements),
-            sparse_index: 0,
-            sparse_physical_col_to_logical: Some(&self.physical_col_to_logical),
-        }
+            sparse_elements,
+            &self.physical_col_to_logical,
+        )
     }
 
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
         let physical_col = self.logical_col_to_physical[col];
-        BorrowedKeyIter {
-            sparse: true,
-            dense_index: 0,
-            dense_end: 0,
-            sparse_rows: Some(&self.sparse_column_index[physical_col]),
-            sparse_start_row: start_row,
-            sparse_end_row: end_row,
-            sparse_index: 0,
-            physical_row_to_logical: Some(&self.physical_row_to_logical),
-        }
+        BorrowedKeyIter::new_sparse(
+            &self.sparse_column_index[physical_col],
+            start_row,
+            end_row,
+            &self.physical_row_to_logical,
+        )
     }
 
     fn swap_rows(&mut self, i: usize, j: usize) {

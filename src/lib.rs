@@ -5,6 +5,7 @@ mod base;
 mod constraint_matrix;
 mod decoder;
 mod encoder;
+mod iterators;
 mod matrix;
 mod octet;
 mod octets;
