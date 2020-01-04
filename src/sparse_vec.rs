@@ -2,20 +2,16 @@ use crate::octet::Octet;
 use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SparseVec<T: Clone> {
+pub struct SparseOctetVec {
     // Kept sorted by the usize (key)
-    pub elements: Vec<(usize, T)>,
+    pub elements: Vec<(usize, Octet)>,
 }
 
-impl<T: Clone> SparseVec<T> {
-    pub fn with_capacity(capacity: usize) -> SparseVec<T> {
-        SparseVec {
+impl SparseOctetVec {
+    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
+        SparseOctetVec {
             elements: Vec::with_capacity(capacity),
         }
-    }
-
-    pub fn retain<P: Fn(&(usize, T)) -> bool>(&mut self, predicate: P) {
-        self.elements.retain(predicate);
     }
 
     // Returns the internal index into self.elements matching key i, or the index
@@ -24,77 +20,37 @@ impl<T: Clone> SparseVec<T> {
         self.elements.binary_search_by_key(&i, |(index, _)| *index)
     }
 
-    pub fn remove(&mut self, i: usize) -> Option<T> {
-        match self.key_to_internal_index(i) {
-            Ok(index) => Some(self.elements.remove(index).1),
-            Err(_) => None,
-        }
-    }
-
-    pub fn get(&self, i: usize) -> Option<&T> {
-        match self.key_to_internal_index(i) {
-            Ok(index) => Some(&self.elements[index].1),
-            Err(_) => None,
-        }
-    }
-
-    pub fn keys_values(&self) -> impl Iterator<Item = &(usize, T)> {
-        self.elements.iter()
-    }
-
-    pub fn insert(&mut self, i: usize, value: T) {
-        match self.key_to_internal_index(i) {
-            Ok(index) => self.elements[index] = (i, value),
-            Err(index) => self.elements.insert(index, (i, value)),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct SparseOctetVec {
-    // Kept sorted by the usize (key)
-    pub elements: SparseVec<Octet>,
-}
-
-impl SparseOctetVec {
-    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
-        SparseOctetVec {
-            elements: SparseVec::with_capacity(capacity),
-        }
-    }
-
     // Returns a vector of new column indices that this row contains
     pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
         // Fast path for a single value that's being eliminated
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
         // process, by using the algorithm described in Section 5.3.3.3."
-        if other.elements.elements.len() == 1 {
-            let (other_col, other_value) = &other.elements.elements[0];
-            match self.elements.key_to_internal_index(*other_col) {
+        if other.elements.len() == 1 {
+            let (other_col, other_value) = &other.elements[0];
+            match self.key_to_internal_index(*other_col) {
                 Ok(index) => {
-                    let elements_len = self.elements.elements.len();
-                    let self_value = &mut self.elements.elements[index].1;
+                    let elements_len = self.elements.len();
+                    let self_value = &mut self.elements[index].1;
                     self_value.fma(other_value, scalar);
                     // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
                     // It would be very expensive to always remove from those rows
                     if elements_len < 1000 && *self_value == Octet::zero() {
-                        self.elements.elements.remove(index);
+                        self.elements.remove(index);
                     }
                 }
                 Err(index) => {
                     let value = other_value * scalar;
-                    self.elements.elements.insert(index, (*other_col, value));
+                    self.elements.insert(index, (*other_col, value));
                     return vec![*other_col];
                 }
             };
             return vec![];
         }
 
-        let mut result =
-            Vec::with_capacity(self.elements.elements.len() + other.elements.elements.len());
-        let mut self_iter = self.elements.elements.iter();
-        let mut other_iter = other.elements.elements.iter();
+        let mut result = Vec::with_capacity(self.elements.len() + other.elements.len());
+        let mut self_iter = self.elements.iter();
+        let mut other_iter = other.elements.iter();
         let mut self_entry = self_iter.next();
         let mut other_entry = other_iter.next();
 
@@ -141,13 +97,16 @@ impl SparseOctetVec {
                 break;
             }
         }
-        self.elements.elements = result;
+        self.elements = result;
 
         return new_columns;
     }
 
     pub fn remove(&mut self, i: usize) -> Option<Octet> {
-        self.elements.remove(i)
+        match self.key_to_internal_index(i) {
+            Ok(index) => Some(self.elements.remove(index).1),
+            Err(_) => None,
+        }
     }
 
     pub fn retain<P: Fn(&(usize, Octet)) -> bool>(&mut self, predicate: P) {
@@ -155,21 +114,53 @@ impl SparseOctetVec {
     }
 
     pub fn get(&self, i: usize) -> Option<&Octet> {
-        self.elements.get(i)
+        match self.key_to_internal_index(i) {
+            Ok(index) => Some(&self.elements[index].1),
+            Err(_) => None,
+        }
     }
 
     pub fn mul_assign(&mut self, scalar: &Octet) {
-        for (_, value) in self.elements.elements.iter_mut() {
+        for (_, value) in self.elements.iter_mut() {
             *value = value as &Octet * scalar;
         }
     }
 
     pub fn keys_values(&self) -> impl Iterator<Item = &(usize, Octet)> {
-        self.elements.keys_values()
+        self.elements.iter()
     }
 
     pub fn insert(&mut self, i: usize, value: Octet) {
-        self.elements.insert(i, value);
+        match self.key_to_internal_index(i) {
+            Ok(index) => self.elements[index] = (i, value),
+            Err(index) => self.elements.insert(index, (i, value)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SparseValuelessVec {
+    pub elements: SparseOctetVec,
+}
+
+impl SparseValuelessVec {
+    pub fn with_capacity(capacity: usize) -> SparseValuelessVec {
+        SparseValuelessVec {
+            elements: SparseOctetVec::with_capacity(capacity),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get(&self, i: usize) -> Option<()> {
+        self.elements.get(i).map(|_| ())
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &usize> {
+        self.elements.keys_values().map(|(key, _)| key)
+    }
+
+    pub fn insert(&mut self, i: usize) {
+        self.elements.insert(i, Octet::zero())
     }
 }
 

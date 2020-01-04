@@ -1,7 +1,7 @@
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
-use crate::sparse_vec::{SparseOctetVec, SparseVec};
+use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use std::cmp::min;
 
@@ -32,7 +32,7 @@ pub struct BorrowedKeyIter<'a> {
     sparse: bool,
     dense_index: usize,
     dense_end: usize,
-    sparse_rows: Option<&'a Vec<(usize, ())>>,
+    sparse_rows: Option<&'a Vec<(usize, Octet)>>,
     sparse_start_row: usize,
     sparse_end_row: usize,
     sparse_index: usize,
@@ -397,7 +397,7 @@ pub struct SparseOctetMatrix {
     dense_elements: Vec<Vec<u8>>,
     // Sparse vector indicating which rows may have a non-zero value in the given column
     // Does not guarantee that the row has a non-zero value, since FMA may have added to zero
-    sparse_column_index: Vec<SparseVec<()>>,
+    sparse_column_index: Vec<SparseValuelessVec>,
     // Mapping of logical row numbers to index in sparse_elements, dense_elements, and sparse_column_index
     logical_row_to_physical: Vec<usize>,
     physical_row_to_logical: Vec<usize>,
@@ -440,7 +440,7 @@ impl OctetMatrix for SparseOctetMatrix {
         let mut column_index = Vec::with_capacity(width);
         #[allow(clippy::needless_range_loop)]
         for i in 0..width {
-            column_index.push(SparseVec::with_capacity(10));
+            column_index.push(SparseValuelessVec::with_capacity(10));
             col_mapping[i] = i;
         }
         SparseOctetMatrix {
@@ -467,7 +467,7 @@ impl OctetMatrix for SparseOctetMatrix {
             self.sparse_elements[physical_i].insert(physical_j, value);
         }
         if !self.column_index_disabled {
-            self.sparse_column_index[physical_j].insert(physical_i, ());
+            self.sparse_column_index[physical_j].insert(physical_i);
         }
     }
 
@@ -532,7 +532,7 @@ impl OctetMatrix for SparseOctetMatrix {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
         let physical_row = self.logical_row_to_physical[row];
-        let sparse_elements = &self.sparse_elements[physical_row].elements.elements;
+        let sparse_elements = &self.sparse_elements[physical_row].elements;
         OctetIter {
             sparse: true,
             start_col,
@@ -551,7 +551,7 @@ impl OctetMatrix for SparseOctetMatrix {
             sparse: true,
             dense_index: 0,
             dense_end: 0,
-            sparse_rows: Some(&self.sparse_column_index[physical_col].elements),
+            sparse_rows: Some(&self.sparse_column_index[physical_col].elements.elements),
             sparse_start_row: start_row,
             sparse_end_row: end_row,
             sparse_index: 0,
@@ -598,7 +598,7 @@ impl OctetMatrix for SparseOctetMatrix {
         }
         let mut physical_row = 0;
         let physical_i = self.logical_col_to_physical[i];
-        for (maybe_present_in_row, _) in self.sparse_column_index[physical_i].keys_values() {
+        for maybe_present_in_row in self.sparse_column_index[physical_i].keys() {
             while physical_row < *maybe_present_in_row {
                 physical_row += 1;
             }
@@ -647,7 +647,7 @@ impl OctetMatrix for SparseOctetMatrix {
             self.dense_elements[physical_row] = temp_dense.pop().unwrap();
             if !self.column_index_disabled {
                 for (col, _) in self.sparse_elements[physical_row].keys_values() {
-                    self.sparse_column_index[*col].insert(physical_row, ())
+                    self.sparse_column_index[*col].insert(physical_row)
                 }
             }
         }
@@ -690,7 +690,7 @@ impl OctetMatrix for SparseOctetMatrix {
         let new_columns = dest_row.fma(temp_row, scalar);
         if !self.column_index_disabled {
             for new_col in new_columns {
-                self.sparse_column_index[new_col].insert(physical_dest, ());
+                self.sparse_column_index[new_col].insert(physical_dest);
             }
         }
 
