@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SparseOctetVec {
     // Kept sorted by the usize (key)
-    pub elements: Vec<(usize, Octet)>,
+    elements: Vec<(usize, Octet)>,
 }
 
 impl SparseOctetVec {
@@ -18,6 +18,14 @@ impl SparseOctetVec {
     // at which it can be inserted (maintaining sorted order)
     fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
         self.elements.binary_search_by_key(&i, |(index, _)| *index)
+    }
+
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    pub fn get_by_raw_index(&self, i: usize) -> &(usize, Octet) {
+        &self.elements[i]
     }
 
     // Returns a vector of new column indices that this row contains
@@ -140,7 +148,7 @@ impl SparseOctetVec {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SparseValuelessVec {
-    pub elements: SparseOctetVec,
+    elements: SparseOctetVec,
 }
 
 impl SparseValuelessVec {
@@ -150,9 +158,17 @@ impl SparseValuelessVec {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
     #[cfg(debug_assertions)]
     pub fn get(&self, i: usize) -> Option<()> {
         self.elements.get(i).map(|_| ())
+    }
+
+    pub fn get_by_raw_index(&self, i: usize) -> &usize {
+        &self.elements.get_by_raw_index(i).0
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &usize> {
