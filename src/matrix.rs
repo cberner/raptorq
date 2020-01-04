@@ -32,7 +32,7 @@ pub struct BorrowedKeyIter<'a> {
     sparse: bool,
     dense_index: usize,
     dense_end: usize,
-    sparse_rows: Option<&'a Vec<(usize, Octet)>>,
+    sparse_rows: Option<&'a SparseValuelessVec>,
     sparse_start_row: usize,
     sparse_end_row: usize,
     sparse_index: usize,
@@ -43,8 +43,8 @@ impl<'a> BorrowedKeyIter<'a> {
     pub fn clone(&self) -> KeyIter {
         // Convert to logical indices, since ClonedOctetIter doesn't handle physical
         let sparse_rows = self.sparse_rows.map(|x| {
-            x.iter()
-                .map(|(physical_row, _)| self.physical_row_to_logical.unwrap()[*physical_row])
+            x.keys()
+                .map(|physical_row| self.physical_row_to_logical.unwrap()[*physical_row])
                 .filter(|logical_row| {
                     *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row
                 })
@@ -70,7 +70,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
                 return None;
             } else {
                 while self.sparse_index < elements.len() {
-                    let (physical_row, _) = &elements[self.sparse_index];
+                    let physical_row = elements.get_by_raw_index(self.sparse_index);
                     self.sparse_index += 1;
                     let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
                     if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
@@ -130,7 +130,7 @@ pub struct OctetIter<'a> {
     end_col: usize,
     dense_elements: Option<&'a Vec<u8>>,
     dense_index: usize,
-    sparse_elements: Option<&'a Vec<(usize, Octet)>>,
+    sparse_elements: Option<&'a SparseOctetVec>,
     sparse_index: usize,
     sparse_physical_col_to_logical: Option<&'a Vec<usize>>,
 }
@@ -139,7 +139,7 @@ impl<'a> OctetIter<'a> {
     pub fn clone(&self) -> ClonedOctetIter {
         // Convert to logical indices, since ClonedOctetIter doesn't handle physical
         let sparse_elements = self.sparse_elements.map(|x| {
-            x.iter()
+            x.keys_values()
                 .map(|(physical_col, value)| {
                     (
                         self.sparse_physical_col_to_logical.unwrap()[*physical_col],
@@ -173,7 +173,7 @@ impl<'a> Iterator for OctetIter<'a> {
                 return None;
             } else {
                 while self.sparse_index < elements.len() {
-                    let entry = &elements[self.sparse_index];
+                    let entry = elements.get_by_raw_index(self.sparse_index);
                     self.sparse_index += 1;
                     let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
                     if logical_col >= self.start_col && logical_col < self.end_col {
@@ -532,7 +532,7 @@ impl OctetMatrix for SparseOctetMatrix {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
         let physical_row = self.logical_row_to_physical[row];
-        let sparse_elements = &self.sparse_elements[physical_row].elements;
+        let sparse_elements = &self.sparse_elements[physical_row];
         OctetIter {
             sparse: true,
             start_col,
@@ -551,7 +551,7 @@ impl OctetMatrix for SparseOctetMatrix {
             sparse: true,
             dense_index: 0,
             dense_end: 0,
-            sparse_rows: Some(&self.sparse_column_index[physical_col].elements.elements),
+            sparse_rows: Some(&self.sparse_column_index[physical_col]),
             sparse_start_row: start_row,
             sparse_end_row: end_row,
             sparse_index: 0,
