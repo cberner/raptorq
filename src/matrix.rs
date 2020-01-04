@@ -400,15 +400,21 @@ impl<T: Clone> SparseVec<T> {
         self.elements.retain(predicate);
     }
 
+    // Returns the internal index into self.elements matching key i, or the index
+    // at which it can be inserted (maintaining sorted order)
+    fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
+        self.elements.binary_search_by_key(&i, |(index, _)| *index)
+    }
+
     pub fn remove(&mut self, i: usize) -> Option<T> {
-        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+        match self.key_to_internal_index(i) {
             Ok(index) => Some(self.elements.remove(index).1),
             Err(_) => None,
         }
     }
 
     pub fn get(&self, i: usize) -> Option<&T> {
-        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+        match self.key_to_internal_index(i) {
             Ok(index) => Some(&self.elements[index].1),
             Err(_) => None,
         }
@@ -419,7 +425,7 @@ impl<T: Clone> SparseVec<T> {
     }
 
     pub fn insert(&mut self, i: usize, value: T) {
-        match self.elements.binary_search_by_key(&i, |(col, _)| *col) {
+        match self.key_to_internal_index(i) {
             Ok(index) => self.elements[index] = (i, value),
             Err(index) => self.elements.insert(index, (i, value)),
         }
@@ -447,11 +453,7 @@ impl SparseOctetVec {
         // process, by using the algorithm described in Section 5.3.3.3."
         if other.elements.elements.len() == 1 {
             let (other_col, other_value) = &other.elements.elements[0];
-            match self
-                .elements
-                .elements
-                .binary_search_by_key(other_col, |(col, _)| *col)
-            {
+            match self.elements.key_to_internal_index(*other_col) {
                 Ok(index) => {
                     let elements_len = self.elements.elements.len();
                     let self_value = &mut self.elements.elements[index].1;
