@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::cmp::min;
 use crate::rng::rand;
 use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
+use serde::{Deserialize, Serialize};
+use std::cmp::min;
 
 // As defined in section 3.2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

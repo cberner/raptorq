@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use crate::base::intermediate_tuple;
 use crate::base::partition;
 use crate::base::EncodingPacket;
@@ -14,6 +13,7 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::{
     calculate_p1, extended_source_block_symbols, num_lt_symbols, num_pi_symbols, systematic_index,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize)]

@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::matrix::OctetMatrix;
@@ -9,6 +8,7 @@ use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::util::get_both_indices;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct FirstPhaseRowSelectionStats {

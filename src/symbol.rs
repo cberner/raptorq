@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::octet::Octet;
 use crate::octets::add_assign;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::mulassign_scalar;
+use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 
 /// Elementary unit of data, for encoding/decoding purposes.
