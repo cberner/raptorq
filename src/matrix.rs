@@ -416,7 +416,7 @@ impl SparseOctetMatrix {
         for row in 0..self.height {
             for (col, value) in self.sparse_elements[row].keys_values() {
                 if *value != Octet::zero() {
-                    self.sparse_column_index[*col].get(row).unwrap();
+                    debug_assert!(self.sparse_column_index[*col].exists(row));
                 }
             }
         }

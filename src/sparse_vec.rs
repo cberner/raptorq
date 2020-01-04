@@ -148,14 +148,21 @@ impl SparseOctetVec {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SparseValuelessVec {
-    elements: SparseOctetVec,
+    // Kept sorted
+    elements: Vec<usize>,
 }
 
 impl SparseValuelessVec {
     pub fn with_capacity(capacity: usize) -> SparseValuelessVec {
         SparseValuelessVec {
-            elements: SparseOctetVec::with_capacity(capacity),
+            elements: Vec::with_capacity(capacity),
         }
+    }
+
+    // Returns the internal index into self.elements matching key i, or the index
+    // at which it can be inserted (maintaining sorted order)
+    fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
+        self.elements.binary_search(&i)
     }
 
     pub fn len(&self) -> usize {
@@ -163,20 +170,23 @@ impl SparseValuelessVec {
     }
 
     #[cfg(debug_assertions)]
-    pub fn get(&self, i: usize) -> Option<()> {
-        self.elements.get(i).map(|_| ())
+    pub fn exists(&self, i: usize) -> bool {
+        self.key_to_internal_index(i).is_ok()
     }
 
     pub fn get_by_raw_index(&self, i: usize) -> &usize {
-        &self.elements.get_by_raw_index(i).0
+        &self.elements[i]
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &usize> {
-        self.elements.keys_values().map(|(key, _)| key)
+        self.elements.iter()
     }
 
     pub fn insert(&mut self, i: usize) {
-        self.elements.insert(i, Octet::zero())
+        match self.key_to_internal_index(i) {
+            Ok(index) => self.elements[index] = i,
+            Err(index) => self.elements.insert(index, i),
+        }
     }
 }
 
