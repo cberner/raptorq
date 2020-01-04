@@ -7,6 +7,9 @@ version = "1.0.0"
 edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
+[dependencies]
+serde = {version = "1.0.102", features=["std", "derive"]}
+
 [dev-dependencies]
 criterion = "0.3"
 primal = "0.2"

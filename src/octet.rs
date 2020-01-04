@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Div;
@@ -1194,7 +1195,7 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
     ];
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Octet {
     value: u8,
 }

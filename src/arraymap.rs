@@ -1,4 +1,6 @@
-#[derive(Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ArrayMap<T> {
     offset: usize,
     elements: Vec<Option<T>>,
@@ -35,7 +37,7 @@ impl<T: std::clone::Clone> ArrayMap<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct UsizeArrayMap {
     offset: usize,
     elements: Vec<usize>,
@@ -70,7 +72,7 @@ impl UsizeArrayMap {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BoolArrayMap {
     offset: usize,
     elements: Vec<bool>,

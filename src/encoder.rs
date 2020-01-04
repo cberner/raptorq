@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use crate::base::intermediate_tuple;
 use crate::base::partition;
 use crate::base::EncodingPacket;
@@ -17,6 +18,7 @@ use crate::ObjectTransmissionInformation;
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
+#[derive(Serialize, Deserialize)]
 pub struct Encoder {
     config: ObjectTransmissionInformation,
     blocks: Vec<SourceBlockEncoder>,
@@ -95,6 +97,7 @@ impl Encoder {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SourceBlockEncoder {
     source_block_id: u8,
     source_symbols: Vec<Symbol>,

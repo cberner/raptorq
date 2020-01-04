@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
 use crate::util::get_both_indices;
 use std::cmp::{min, Ordering};
 
+#[derive(Serialize, Deserialize)]
 pub struct KeyIter {
     sparse: bool,
     dense_index: usize,
@@ -88,6 +90,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ClonedOctetIter {
     sparse: bool,
     end_col: usize,
@@ -241,7 +244,7 @@ pub trait OctetMatrix: Clone {
     fn resize(&mut self, new_height: usize, new_width: usize);
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DenseOctetMatrix {
     height: usize,
     width: usize,
@@ -383,7 +386,7 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct SparseVec<T: Clone> {
     // Kept sorted by the usize (key)
     elements: Vec<(usize, T)>,
@@ -426,7 +429,7 @@ impl<T: Clone> SparseVec<T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct SparseOctetVec {
     // Kept sorted by the usize (key)
     elements: SparseVec<Octet>,
@@ -554,7 +557,7 @@ impl SparseOctetVec {
 }
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseOctetMatrix {
     height: usize,
     width: usize,

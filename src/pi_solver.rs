@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
 use crate::matrix::OctetMatrix;
@@ -9,6 +10,7 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::util::get_both_indices;
 
+#[derive(Serialize, Deserialize)]
 struct FirstPhaseRowSelectionStats {
     original_degree: UsizeArrayMap,
     non_zeros_per_row: UsizeArrayMap,
@@ -382,6 +384,7 @@ impl FirstPhaseRowSelectionStats {
 
 // See section 5.4.2.1
 #[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
 pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
     A: T,
     X: T,
