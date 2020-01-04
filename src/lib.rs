@@ -10,6 +10,7 @@ mod octet;
 mod octets;
 mod pi_solver;
 mod rng;
+mod sparse_vec;
 mod symbol;
 mod systematic_constants;
 mod util;
