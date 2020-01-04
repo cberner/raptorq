@@ -3,6 +3,7 @@ use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
 use crate::util::get_both_indices;
+use serde::{Deserialize, Serialize};
 
 pub trait OctetMatrix: Clone {
     fn new(
@@ -62,7 +63,7 @@ pub trait OctetMatrix: Clone {
     fn resize(&mut self, new_height: usize, new_width: usize);
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct DenseOctetMatrix {
     height: usize,
     width: usize,

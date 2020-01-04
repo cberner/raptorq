@@ -2,10 +2,11 @@ use crate::octet::Octet;
 use crate::octets::add_assign;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::mulassign_scalar;
+use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 
 /// Elementary unit of data, for encoding/decoding purposes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct Symbol {
     value: Vec<u8>,
 }

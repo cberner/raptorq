@@ -5,6 +5,7 @@ use crate::octets::{add_assign, mulassign_scalar};
 use crate::octets::{count_ones_and_nonzeros, fused_addassign_mul_scalar};
 use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
 use crate::util::get_both_indices;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns,
@@ -21,7 +22,7 @@ use std::cmp::min;
 // |--------------------------|
 // |  (optional) dense rows   |
 // |--------------------------|
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct SparseOctetMatrix {
     height: usize,
     width: usize,
