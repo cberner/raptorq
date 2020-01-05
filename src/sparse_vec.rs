@@ -39,12 +39,9 @@ impl SparseOctetVec {
             let (other_col, other_value) = &other.elements[0];
             match self.key_to_internal_index(*other_col) {
                 Ok(index) => {
-                    let elements_len = self.elements.len();
                     let self_value = &mut self.elements[index].1;
                     self_value.fma(other_value, scalar);
-                    // XXX: heuristic for handling large rows, since these are somewhat common (HDPC rows)
-                    // It would be very expensive to always remove from those rows
-                    if elements_len < 1000 && *self_value == Octet::zero() {
+                    if *self_value == Octet::zero() {
                         self.elements.remove(index);
                     }
                 }
