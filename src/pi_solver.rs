@@ -21,6 +21,8 @@ struct FirstPhaseRowSelectionStats {
     end_col: usize,
     start_row: usize,
     rows_with_single_nonzero: Vec<usize>,
+    // Scratch data struct that is reused across calls because it's expensive to construct
+    scratch_adjacent_nodes: ArrayMap<Vec<(usize, usize)>>,
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -50,6 +52,7 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_nonzero: vec![],
+            scratch_adjacent_nodes: ArrayMap::new(0, end_col),
         };
 
         for row in 0..matrix.height() {
@@ -158,11 +161,12 @@ impl FirstPhaseRowSelectionStats {
 
     #[inline(never)]
     fn first_phase_graph_substep_build_adjacency<T: OctetMatrix>(
-        &self,
+        &mut self,
         rows_with_two_ones: &[usize],
         matrix: &T,
-    ) -> ArrayMap<Vec<(usize, usize)>> {
-        let mut adjacent_nodes = ArrayMap::new(self.start_col, self.end_col);
+    ) {
+        self.scratch_adjacent_nodes
+            .reset(self.start_col, self.end_col, |nodes| nodes.clear());
 
         for row in rows_with_two_ones.iter() {
             if self.hdpc_rows[*row] {
@@ -186,44 +190,41 @@ impl FirstPhaseRowSelectionStats {
                 }
             }
             assert_eq!(found, 2);
-            let first = adjacent_nodes.get_mut(ones[0]);
+            let first = self.scratch_adjacent_nodes.get_mut(ones[0]);
             if first == None {
                 let mut new_nodes = Vec::with_capacity(10);
                 new_nodes.push((ones[1], *row));
-                adjacent_nodes.insert(ones[0], new_nodes);
+                self.scratch_adjacent_nodes.insert(ones[0], new_nodes);
             } else {
                 first.unwrap().push((ones[1], *row));
             }
-            let second = adjacent_nodes.get_mut(ones[1]);
+            let second = self.scratch_adjacent_nodes.get_mut(ones[1]);
             if second == None {
                 let mut new_nodes = Vec::with_capacity(10);
                 new_nodes.push((ones[0], *row));
-                adjacent_nodes.insert(ones[1], new_nodes);
+                self.scratch_adjacent_nodes.insert(ones[1], new_nodes);
             } else {
                 second.unwrap().push((ones[0], *row));
             }
         }
-
-        return adjacent_nodes;
     }
 
     #[inline(never)]
     fn first_phase_graph_substep<T: OctetMatrix>(
-        &self,
+        &mut self,
         start_row: usize,
         end_row: usize,
         rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> usize {
-        let adjacent_nodes =
-            self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
+        self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
         let mut visited = BoolArrayMap::new(start_row, end_row);
 
         let mut examplar_largest_component_row = None;
         let mut largest_component_size = 0;
 
         let mut node_queue = Vec::with_capacity(10);
-        for key in adjacent_nodes.keys() {
+        for key in self.scratch_adjacent_nodes.keys() {
             let mut component_size = 0;
             let mut examplar_row = None;
             // Pick arbitrary node (column) to start
@@ -235,7 +236,7 @@ impl FirstPhaseRowSelectionStats {
                     continue;
                 }
                 visited.insert(node, true);
-                let next_nodes = adjacent_nodes.get(node).unwrap();
+                let next_nodes = self.scratch_adjacent_nodes.get(node).unwrap();
                 component_size += 1;
                 for &(next_node, row) in next_nodes.iter() {
                     node_queue.push(next_node);
@@ -325,7 +326,7 @@ impl FirstPhaseRowSelectionStats {
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has, is_HDPC)
     pub fn first_phase_selection<T: OctetMatrix>(
-        &self,
+        &mut self,
         start_row: usize,
         end_row: usize,
         matrix: &T,

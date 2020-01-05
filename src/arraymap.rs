@@ -14,6 +14,21 @@ impl<T: std::clone::Clone> ArrayMap<T> {
         }
     }
 
+    pub fn reset<F: Fn(&mut T) -> ()>(
+        &mut self,
+        new_start: usize,
+        new_end: usize,
+        reset_value_fn: F,
+    ) {
+        self.offset = new_start;
+        self.elements.resize(new_end - new_start, None);
+        for value in self.elements.iter_mut() {
+            if let Some(ref mut x) = value {
+                reset_value_fn(x);
+            }
+        }
+    }
+
     pub fn insert(&mut self, key: usize, value: T) {
         self.elements[key - self.offset] = Some(value);
     }
