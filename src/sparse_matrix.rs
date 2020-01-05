@@ -302,12 +302,9 @@ impl OctetMatrix for SparseOctetMatrix {
                 self.dense_elements[i].extend_from_slice(&[0; 10]);
             }
         }
-        let mut physical_row = 0;
         let physical_i = self.logical_col_to_physical[i];
         for maybe_present_in_row in self.sparse_column_index[physical_i].keys() {
-            while physical_row < *maybe_present_in_row {
-                physical_row += 1;
-            }
+            let physical_row = *maybe_present_in_row;
             if physical_row >= self.sparse_elements.len() {
                 // The value is left in dense_rows, since the physical col isn't removed from
                 // row storage. The dense cols are consulted first when looking up a value.
@@ -317,7 +314,6 @@ impl OctetMatrix for SparseOctetMatrix {
             } else if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 self.dense_elements[physical_row][self.num_dense_columns - 1] = value.byte();
             }
-            physical_row += 1;
         }
     }
 
