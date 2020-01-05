@@ -107,7 +107,7 @@ impl OctetMatrix for SparseOctetMatrix {
         let mut column_index = Vec::with_capacity(width);
         #[allow(clippy::needless_range_loop)]
         for i in 0..width {
-            column_index.push(SparseValuelessVec::with_capacity(10));
+            column_index.push(SparseValuelessVec::with_capacity(50));
             col_mapping[i] = i;
         }
         SparseOctetMatrix {
