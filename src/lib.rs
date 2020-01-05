@@ -11,6 +11,7 @@ mod octet;
 mod octets;
 mod pi_solver;
 mod rng;
+mod sparse_matrix;
 mod sparse_vec;
 mod symbol;
 mod systematic_constants;
@@ -31,11 +32,11 @@ pub use crate::matrix::DenseOctetMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::matrix::OctetMatrix;
 #[cfg(feature = "benchmarking")]
-pub use crate::matrix::SparseOctetMatrix;
-#[cfg(feature = "benchmarking")]
 pub use crate::octet::Octet;
 #[cfg(feature = "benchmarking")]
 pub use crate::pi_solver::IntermediateSymbolDecoder;
+#[cfg(feature = "benchmarking")]
+pub use crate::sparse_matrix::SparseOctetMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::symbol::Symbol;
 #[cfg(feature = "benchmarking")]
