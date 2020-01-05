@@ -5,7 +5,13 @@ use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
 use crate::util::get_both_indices;
 
 pub trait OctetMatrix: Clone {
-    fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> Self;
+    fn new(
+        height: usize,
+        width: usize,
+        trailing_dense_column_hint: usize,
+        start_dense_row_hint: usize,
+        num_dense_rows_hint: usize,
+    ) -> Self;
 
     fn set(&mut self, i: usize, j: usize, value: Octet);
 
@@ -39,6 +45,9 @@ pub trait OctetMatrix: Clone {
     // After calling this method swap_columns() and other column oriented methods, may be much slower
     fn disable_column_acccess_acceleration(&mut self);
 
+    // Hints that the dense rows should be compacted because they likely have a large fraction zeros
+    fn hint_compact_dense_rows(&mut self);
+
     // Hints that column i will not be swapped again, and is likely to become dense'ish
     fn hint_column_dense_and_frozen(&mut self, i: usize);
 
@@ -59,7 +68,7 @@ pub struct DenseOctetMatrix {
 }
 
 impl OctetMatrix for DenseOctetMatrix {
-    fn new(height: usize, width: usize, _: usize) -> DenseOctetMatrix {
+    fn new(height: usize, width: usize, _: usize, _: usize, _: usize) -> DenseOctetMatrix {
         let mut elements: Vec<Vec<u8>> = Vec::with_capacity(height);
         for _ in 0..height {
             elements.push(vec![0; width]);
@@ -119,6 +128,10 @@ impl OctetMatrix for DenseOctetMatrix {
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
+        // No-op
+    }
+
+    fn hint_compact_dense_rows(&mut self) {
         // No-op
     }
 
@@ -184,7 +197,7 @@ mod tests {
     use crate::sparse_matrix::SparseOctetMatrix;
 
     fn dense_identity(size: usize) -> DenseOctetMatrix {
-        let mut result = DenseOctetMatrix::new(size, size, 0);
+        let mut result = DenseOctetMatrix::new(size, size, 0, 0, 0);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
@@ -192,7 +205,7 @@ mod tests {
     }
 
     fn sparse_identity(size: usize) -> SparseOctetMatrix {
-        let mut result = SparseOctetMatrix::new(size, size, 0);
+        let mut result = SparseOctetMatrix::new(size, size, 0, 0, 0);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
@@ -200,8 +213,8 @@ mod tests {
     }
 
     fn rand_dense_and_sparse(size: usize) -> (DenseOctetMatrix, SparseOctetMatrix) {
-        let mut dense = DenseOctetMatrix::new(size, size, 0);
-        let mut sparse = SparseOctetMatrix::new(size, size, 1);
+        let mut dense = DenseOctetMatrix::new(size, size, 0, 0, 0);
+        let mut sparse = SparseOctetMatrix::new(size, size, 1, 0, 0);
         // Generate 50% filled random matrices
         for _ in 0..(size * size / 2) {
             let i = rand::thread_rng().gen_range(0, size);

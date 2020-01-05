@@ -70,7 +70,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
     assert!(S + H + encoded_symbol_indices.len() >= L);
-    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P);
+    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P, S, H);
 
     // G_LDPC,1
     // See section 5.3.3.3
