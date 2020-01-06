@@ -943,12 +943,15 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 
         self.A.hint_compact_dense_rows();
         self.A.disable_column_acccess_acceleration();
-        self.X.hint_compact_dense_rows();
         self.X.disable_column_acccess_acceleration();
 
         if !self.second_phase() {
             return None;
         }
+
+        // Only compact after second phase because dense rows aren't eliminated from X during first
+        // phase
+        self.X.hint_compact_dense_rows();
 
         self.third_phase();
         self.fourth_phase();
