@@ -61,12 +61,12 @@ impl SparseOctetMatrix {
             }
         }
         for i in 0..self.dense_rows.len() {
-            for (logical_col, value) in self.dense_rows[i].iter().enumerate() {
-                if Octet::new(*value) != Octet::zero() {
-                    debug_assert!(self.sparse_column_index
-                        [self.logical_col_to_physical[logical_col]]
-                        .exists(i + self.sparse_elements.len()));
-                }
+            for (logical_col, _) in self.dense_rows[i].iter().enumerate() {
+                // Dense rows are always included and should not be explicitly indexed
+                debug_assert!(
+                    !self.sparse_column_index[self.logical_col_to_physical[logical_col]]
+                        .exists(i + self.sparse_elements.len())
+                );
             }
         }
     }
@@ -105,10 +105,8 @@ impl OctetMatrix for SparseOctetMatrix {
         for _ in 0..height {
             dense_elements.push(vec![0; 2 * trailing_dense_column_hint]);
         }
-        let mut column_index = Vec::with_capacity(width);
         #[allow(clippy::needless_range_loop)]
         for i in 0..width {
-            column_index.push(SparseValuelessVec::with_capacity(50));
             col_mapping[i] = i;
         }
         SparseOctetMatrix {
@@ -117,12 +115,12 @@ impl OctetMatrix for SparseOctetMatrix {
             sparse_elements: elements,
             dense_rows,
             dense_elements,
-            sparse_column_index: column_index,
+            sparse_column_index: vec![],
             logical_row_to_physical,
             physical_row_to_logical,
             logical_col_to_physical: col_mapping.clone(),
             physical_col_to_logical: col_mapping,
-            column_index_disabled: false,
+            column_index_disabled: true,
             num_dense_columns: trailing_dense_column_hint,
         }
     }
@@ -136,9 +134,9 @@ impl OctetMatrix for SparseOctetMatrix {
             self.dense_rows[physical_i - self.sparse_elements.len()][j] = value.byte();
         } else {
             self.sparse_elements[physical_i].insert(physical_j, value);
-        }
-        if !self.column_index_disabled {
-            self.sparse_column_index[physical_j].insert(physical_i);
+            if !self.column_index_disabled {
+                self.sparse_column_index[physical_j].insert(physical_i);
+            }
         }
     }
 
@@ -231,11 +229,14 @@ impl OctetMatrix for SparseOctetMatrix {
     }
 
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
+        assert_eq!(self.column_index_disabled, false);
         let physical_col = self.logical_col_to_physical[col];
         BorrowedKeyIter::new_sparse(
             &self.sparse_column_index[physical_col],
             start_row,
             end_row,
+            self.sparse_elements.len(),
+            self.height,
             &self.physical_row_to_logical,
         )
     }
@@ -251,7 +252,6 @@ impl OctetMatrix for SparseOctetMatrix {
         if j >= self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
-        assert_eq!(self.column_index_disabled, false);
 
         let physical_i = self.logical_col_to_physical[i];
         let physical_j = self.logical_col_to_physical[j];
@@ -261,6 +261,18 @@ impl OctetMatrix for SparseOctetMatrix {
         for row in self.dense_rows.iter_mut() {
             row.swap(i, j);
         }
+    }
+
+    fn enable_column_acccess_acceleration(&mut self) {
+        self.column_index_disabled = false;
+        self.sparse_column_index = vec![SparseValuelessVec::with_capacity(50); self.width];
+        for (physical_row, elements) in self.sparse_elements.iter().enumerate() {
+            for (physical_col, _) in elements.keys_values() {
+                self.sparse_column_index[*physical_col].insert_last(physical_row);
+            }
+        }
+        // Don't add dense rows to sparse column index because dense rows are always included by
+        // get_col_iter()
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
@@ -287,6 +299,7 @@ impl OctetMatrix for SparseOctetMatrix {
             i,
             "Can only freeze the last sparse column"
         );
+        assert_eq!(self.column_index_disabled, false);
         self.num_dense_columns += 1;
         for i in 0..self.dense_elements.len() {
             if self.dense_elements[i].len() < self.num_dense_columns {
@@ -297,15 +310,17 @@ impl OctetMatrix for SparseOctetMatrix {
         let physical_i = self.logical_col_to_physical[i];
         for maybe_present_in_row in self.sparse_column_index[physical_i].keys() {
             let physical_row = *maybe_present_in_row;
-            if physical_row >= self.sparse_elements.len() {
-                // The value is left in dense_rows, since the physical col isn't removed from
-                // row storage. The dense cols are consulted first when looking up a value.
-                let value = self.dense_rows[physical_row - self.sparse_elements.len()][i];
-                self.dense_elements[physical_row][self.num_dense_columns - 1] = value;
-                self.dense_rows[physical_row - self.sparse_elements.len()][i] = 0;
-            } else if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
+            if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 self.dense_elements[physical_row][self.num_dense_columns - 1] = value.byte();
             }
+        }
+
+        for physical_row in self.sparse_elements.len()..self.height {
+            // The value is left in dense_rows, since the physical col isn't removed from
+            // row storage. The dense cols are consulted first when looking up a value.
+            let value = self.dense_rows[physical_row - self.sparse_elements.len()][i];
+            self.dense_elements[physical_row][self.num_dense_columns - 1] = value;
+            self.dense_rows[physical_row - self.sparse_elements.len()][i] = 0;
         }
     }
 
@@ -400,9 +415,8 @@ impl OctetMatrix for SparseOctetMatrix {
                     self.dense_rows[physical_dest - self.sparse_elements.len()][logical_col] =
                         value.byte();
 
-                    if !self.column_index_disabled && value != Octet::zero() {
-                        self.sparse_column_index[*physical_col].insert(physical_dest);
-                    }
+                    // Don't add to sparse column index because dense rows are always included by
+                    // get_col_iter()
                 }
             }
         } else {

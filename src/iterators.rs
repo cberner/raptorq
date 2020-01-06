@@ -43,12 +43,14 @@ impl<'a> BorrowedKeyIter<'a> {
         sparse_rows: &'a SparseValuelessVec,
         sparse_start_row: usize,
         sparse_end_row: usize,
+        physical_dense_start: usize,
+        physical_dense_end: usize,
         physical_row_to_logical: &'a [usize],
     ) -> BorrowedKeyIter<'a> {
         BorrowedKeyIter {
             sparse: true,
-            dense_index: 0,
-            dense_end: 0,
+            dense_index: physical_dense_start,
+            dense_end: physical_dense_end,
             sparse_rows: Some(sparse_rows),
             sparse_start_row,
             sparse_end_row,
@@ -73,12 +75,21 @@ impl<'a> BorrowedKeyIter<'a> {
     pub fn clone(&self) -> KeyIter {
         // Convert to logical indices, since ClonedOctetIter doesn't handle physical
         let sparse_rows = self.sparse_rows.map(|x| {
-            x.keys()
+            let mut rows: Vec<usize> = x
+                .keys()
                 .map(|physical_row| self.physical_row_to_logical.unwrap()[*physical_row])
                 .filter(|logical_row| {
                     *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row
                 })
-                .collect()
+                .collect();
+            for physical in self.dense_index..self.dense_end {
+                let logical = self.physical_row_to_logical.unwrap()[physical];
+                if logical >= self.sparse_start_row && logical < self.sparse_end_row {
+                    rows.push(logical);
+                }
+            }
+
+            rows
         });
         KeyIter {
             sparse: self.sparse,
@@ -96,19 +107,23 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
         if self.sparse {
             let elements = self.sparse_rows.unwrap();
             // Need to iterate over the whole array, since they're not sorted by logical row
-            if self.sparse_index >= elements.len() {
-                return None;
-            } else {
-                while self.sparse_index < elements.len() {
-                    let physical_row = elements.get_by_raw_index(self.sparse_index);
-                    self.sparse_index += 1;
-                    let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
-                    if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
-                        return Some(logical_row);
-                    }
+            while self.sparse_index < elements.len() {
+                let physical_row = elements.get_by_raw_index(self.sparse_index);
+                self.sparse_index += 1;
+                let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
+                if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
+                    return Some(logical_row);
                 }
-                return None;
             }
+            // dense are physical indices for dense_rows when used in sparse mode
+            while self.dense_index < self.dense_end {
+                let logical_row = self.physical_row_to_logical.unwrap()[self.dense_index];
+                self.dense_index += 1;
+                if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
+                    return Some(logical_row);
+                }
+            }
+            return None;
         } else if self.dense_index == self.dense_end {
             return None;
         } else {

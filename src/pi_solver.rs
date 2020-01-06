@@ -937,13 +937,15 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 
     #[inline(never)]
     pub fn execute(&mut self) -> Option<Vec<Symbol>> {
+        self.X.disable_column_acccess_acceleration();
+        self.A.enable_column_acccess_acceleration();
+
         if !self.first_phase() {
             return None;
         }
 
         self.A.hint_compact_dense_rows();
         self.A.disable_column_acccess_acceleration();
-        self.X.disable_column_acccess_acceleration();
 
         if !self.second_phase() {
             return None;
