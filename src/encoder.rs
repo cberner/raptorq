@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Encoder {
     config: ObjectTransmissionInformation,
     blocks: Vec<SourceBlockEncoder>,
@@ -98,7 +98,7 @@ impl Encoder {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct SourceBlockEncoder {
     source_block_id: u8,
     source_symbols: Vec<Symbol>,

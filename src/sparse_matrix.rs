@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct SparseOctetMatrix {
     height: usize,
     width: usize,

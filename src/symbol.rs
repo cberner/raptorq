@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 
 /// Elementary unit of data, for encoding/decoding purposes.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct Symbol {
     value: Vec<u8>,
 }

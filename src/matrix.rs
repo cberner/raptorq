@@ -51,7 +51,7 @@ pub trait OctetMatrix: Clone {
     fn resize(&mut self, new_height: usize, new_width: usize);
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct DenseOctetMatrix {
     height: usize,
     width: usize,
