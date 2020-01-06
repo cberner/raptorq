@@ -204,17 +204,20 @@ mod tests {
         result
     }
 
-    fn sparse_identity(size: usize) -> SparseOctetMatrix {
-        let mut result = SparseOctetMatrix::new(size, size, 0, 0, 0);
+    fn sparse_identity(size: usize, dense_rows: usize) -> SparseOctetMatrix {
+        let mut result = SparseOctetMatrix::new(size, size, 0, 0, dense_rows);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
         result
     }
 
-    fn rand_dense_and_sparse(size: usize) -> (DenseOctetMatrix, SparseOctetMatrix) {
+    fn rand_dense_and_sparse(
+        size: usize,
+        dense_rows: usize,
+    ) -> (DenseOctetMatrix, SparseOctetMatrix) {
         let mut dense = DenseOctetMatrix::new(size, size, 0, 0, 0);
-        let mut sparse = SparseOctetMatrix::new(size, size, 1, 0, 0);
+        let mut sparse = SparseOctetMatrix::new(size, size, 1, 0, dense_rows);
         // Generate 50% filled random matrices
         for _ in 0..(size * size / 2) {
             let i = rand::thread_rng().gen_range(0, size);
@@ -246,7 +249,7 @@ mod tests {
     #[test]
     fn swap_rows() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 3);
         dense.swap_rows(0, 4);
         dense.swap_rows(1, 6);
         dense.swap_rows(1, 7);
@@ -259,7 +262,7 @@ mod tests {
     #[test]
     fn swap_columns() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 3);
         dense.swap_columns(0, 4, 0);
         dense.swap_columns(1, 6, 0);
         dense.swap_columns(1, 1, 0);
@@ -272,7 +275,7 @@ mod tests {
     #[test]
     fn count_ones_and_nonzeros() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (dense, sparse) = rand_dense_and_sparse(8);
+        let (dense, sparse) = rand_dense_and_sparse(8, 3);
         assert_eq!(
             dense.count_ones_and_nonzeros(0, 0, 5),
             sparse.count_ones_and_nonzeros(0, 0, 5)
@@ -290,7 +293,7 @@ mod tests {
     #[test]
     fn mul_assign_row() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 3);
         dense.mul_assign_row(0, &Octet::new(5));
         dense.mul_assign_row(2, &Octet::one());
         dense.mul_assign_row(7, &Octet::new(66));
@@ -303,7 +306,7 @@ mod tests {
     #[test]
     fn mul_assign_submatrix() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 0);
         let original = dense.clone();
 
         let identity = dense_identity(5);
@@ -314,11 +317,11 @@ mod tests {
         dense.mul_assign_submatrix(&identity, 8);
         assert_matrices_eq(&dense, &original);
 
-        let identity = sparse_identity(5);
+        let identity = sparse_identity(5, 0);
         sparse.mul_assign_submatrix(&identity, 5);
         assert_matrices_eq(&sparse, &original);
 
-        let identity = sparse_identity(8);
+        let identity = sparse_identity(8, 0);
         sparse.mul_assign_submatrix(&identity, 8);
         assert_matrices_eq(&sparse, &original);
     }
@@ -326,7 +329,7 @@ mod tests {
     #[test]
     fn fma_rows() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 1);
         dense.fma_rows(0, 1, &Octet::new(5));
         dense.fma_rows(0, 2, &Octet::new(55));
         dense.fma_rows(2, 1, &Octet::one());
@@ -339,7 +342,7 @@ mod tests {
     #[test]
     fn resize() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
+        let (mut dense, mut sparse) = rand_dense_and_sparse(8, 0);
         dense.disable_column_acccess_acceleration();
         sparse.disable_column_acccess_acceleration();
         dense.resize(5, 5);
@@ -350,7 +353,7 @@ mod tests {
     #[test]
     fn hint_column_dense_and_frozen() {
         // rand_dense_and_sparse uses set(), so just check that it works
-        let (dense, mut sparse) = rand_dense_and_sparse(8);
+        let (dense, mut sparse) = rand_dense_and_sparse(8, 3);
         sparse.hint_column_dense_and_frozen(6);
         sparse.hint_column_dense_and_frozen(5);
         assert_matrices_eq(&dense, &sparse);
