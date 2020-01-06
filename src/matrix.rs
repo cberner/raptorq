@@ -42,6 +42,8 @@ pub trait OctetMatrix: Clone {
     // identical values
     fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize);
 
+    fn enable_column_acccess_acceleration(&mut self);
+
     // After calling this method swap_columns() and other column oriented methods, may be much slower
     fn disable_column_acccess_acceleration(&mut self);
 
@@ -125,6 +127,10 @@ impl OctetMatrix for DenseOctetMatrix {
         for row in start_row_hint..self.elements.len() {
             self.elements[row].swap(i, j);
         }
+    }
+
+    fn enable_column_acccess_acceleration(&mut self) {
+        // No-op
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
@@ -354,6 +360,7 @@ mod tests {
     fn hint_column_dense_and_frozen() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (dense, mut sparse) = rand_dense_and_sparse(8, 3);
+        sparse.enable_column_acccess_acceleration();
         sparse.hint_column_dense_and_frozen(6);
         sparse.hint_column_dense_and_frozen(5);
         assert_matrices_eq(&dense, &sparse);

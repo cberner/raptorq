@@ -185,6 +185,11 @@ impl SparseValuelessVec {
             Err(index) => self.elements.insert(index, i),
         }
     }
+
+    pub fn insert_last(&mut self, i: usize) {
+        debug_assert!(self.elements.is_empty() || *self.elements.last().unwrap() < i);
+        self.elements.push(i);
+    }
 }
 
 #[cfg(test)]
