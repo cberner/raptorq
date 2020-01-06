@@ -960,9 +960,14 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             index_mapping.insert(self.c[i], self.d[i]);
         }
 
+        #[allow(non_snake_case)]
+        let mut removable_D: Vec<Option<Symbol>> = self.D.drain(..).map(Some).collect();
+
         let mut result = Vec::with_capacity(self.L);
         for i in 0..self.L {
-            result.push(self.D[index_mapping.get(i)].clone());
+            // push a None so it can be swapped in
+            removable_D.push(None);
+            result.push(removable_D.swap_remove(index_mapping.get(i)).unwrap());
         }
         Some(result)
     }
