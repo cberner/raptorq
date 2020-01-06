@@ -1,8 +1,8 @@
 use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
-use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, mulassign_scalar};
+use crate::octets::{count_ones_and_nonzeros, fused_addassign_mul_scalar};
 use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use std::cmp::min;
@@ -27,6 +27,7 @@ pub struct SparseOctetMatrix {
     width: usize,
     sparse_elements: Vec<SparseOctetVec>,
     // Optional dense rows. These have physical indices starting at sparse_elements.len()
+    // Note: these rows use logical column indices, not physical
     dense_rows: Vec<Vec<u8>>,
     // Note these are stored with the right-most element first in the vec.
     // That is, for a matrix with width 10 and num_dense 3, the last three will be stored in these
@@ -59,11 +60,11 @@ impl SparseOctetMatrix {
             }
         }
         for i in 0..self.dense_rows.len() {
-            for (col, value) in self.dense_rows[i].iter().enumerate() {
+            for (logical_col, value) in self.dense_rows[i].iter().enumerate() {
                 if Octet::new(*value) != Octet::zero() {
-                    debug_assert!(
-                        self.sparse_column_index[col].exists(i + self.sparse_elements.len())
-                    );
+                    debug_assert!(self.sparse_column_index
+                        [self.logical_col_to_physical[logical_col]]
+                        .exists(i + self.sparse_elements.len()));
                 }
             }
         }
@@ -131,7 +132,7 @@ impl OctetMatrix for SparseOctetMatrix {
         if self.width - j <= self.num_dense_columns {
             self.dense_elements[physical_i][self.width - j - 1] = value.byte();
         } else if physical_i >= self.sparse_elements.len() {
-            self.dense_rows[physical_i - self.sparse_elements.len()][physical_j] = value.byte();
+            self.dense_rows[physical_i - self.sparse_elements.len()][j] = value.byte();
         } else {
             self.sparse_elements[physical_i].insert(physical_j, value);
         }
@@ -161,21 +162,9 @@ impl OctetMatrix for SparseOctetMatrix {
         let mut nonzeros = 0;
         let physical_row = self.logical_row_to_physical[row];
         if physical_row >= self.sparse_elements.len() {
-            for (physical_col, value) in self.dense_rows[physical_row - self.sparse_elements.len()]
-                .iter()
-                .enumerate()
-            {
-                let value = Octet::new(*value);
-                let col = self.physical_col_to_logical[physical_col];
-                if col >= start_col && col < end_col {
-                    if value == Octet::one() {
-                        ones += 1;
-                    }
-                    if value != Octet::zero() {
-                        nonzeros += 1;
-                    }
-                }
-            }
+            return count_ones_and_nonzeros(
+                &self.dense_rows[physical_row - self.sparse_elements.len()][start_col..end_col],
+            );
         } else {
             for (physical_col, value) in self.sparse_elements[physical_row].keys_values() {
                 let col = self.physical_col_to_logical[*physical_col];
@@ -214,9 +203,7 @@ impl OctetMatrix for SparseOctetMatrix {
         if self.width - j <= self.num_dense_columns {
             return Octet::new(self.dense_elements[physical_i][self.width - j - 1]);
         } else if physical_i >= self.sparse_elements.len() {
-            return Octet::new(
-                self.dense_rows[physical_i - self.sparse_elements.len()][physical_j],
-            );
+            return Octet::new(self.dense_rows[physical_i - self.sparse_elements.len()][j]);
         } else {
             return self.sparse_elements[physical_i]
                 .get(physical_j)
@@ -269,6 +256,10 @@ impl OctetMatrix for SparseOctetMatrix {
         let physical_j = self.logical_col_to_physical[j];
         self.logical_col_to_physical.swap(i, j);
         self.physical_col_to_logical.swap(physical_i, physical_j);
+        // dense_rows uses logical col indices, so values need to be swapped
+        for row in self.dense_rows.iter_mut() {
+            row.swap(i, j);
+        }
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
@@ -279,10 +270,10 @@ impl OctetMatrix for SparseOctetMatrix {
     fn hint_compact_dense_rows(&mut self) {
         for row in self.dense_rows.drain(..) {
             let mut sparse = SparseOctetVec::with_capacity(10);
-            for (physical_col, value) in row.iter().enumerate() {
+            for (logical_col, value) in row.iter().enumerate() {
                 let value = Octet::new(*value);
                 if value != Octet::zero() {
-                    sparse.insert(physical_col, value);
+                    sparse.insert(self.logical_col_to_physical[logical_col], value);
                 }
             }
             self.sparse_elements.push(sparse);
@@ -308,9 +299,9 @@ impl OctetMatrix for SparseOctetMatrix {
             if physical_row >= self.sparse_elements.len() {
                 // The value is left in dense_rows, since the physical col isn't removed from
                 // row storage. The dense cols are consulted first when looking up a value.
-                let value = self.dense_rows[physical_row - self.sparse_elements.len()][physical_i];
+                let value = self.dense_rows[physical_row - self.sparse_elements.len()][i];
                 self.dense_elements[physical_row][self.num_dense_columns - 1] = value;
-                self.dense_rows[physical_row - self.sparse_elements.len()][physical_i] = 0;
+                self.dense_rows[physical_row - self.sparse_elements.len()][i] = 0;
             } else if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 self.dense_elements[physical_row][self.num_dense_columns - 1] = value.byte();
             }
@@ -400,11 +391,12 @@ impl OctetMatrix for SparseOctetMatrix {
                 self.sparse_elements[physical_multiplicand].keys_values()
             {
                 if *multiplicand != Octet::zero() {
+                    let logical_col = self.physical_col_to_logical[*physical_col];
                     let mut value = Octet::new(
-                        self.dense_rows[physical_dest - self.sparse_elements.len()][*physical_col],
+                        self.dense_rows[physical_dest - self.sparse_elements.len()][logical_col],
                     );
                     value.fma(multiplicand, scalar);
-                    self.dense_rows[physical_dest - self.sparse_elements.len()][*physical_col] =
+                    self.dense_rows[physical_dest - self.sparse_elements.len()][logical_col] =
                         value.byte();
 
                     if !self.column_index_disabled && value != Octet::zero() {
@@ -434,23 +426,47 @@ impl OctetMatrix for SparseOctetMatrix {
     fn resize(&mut self, new_height: usize, new_width: usize) {
         assert!(new_height <= self.height);
         assert!(new_width <= self.width);
-        if !self.column_index_disabled || !self.dense_rows.is_empty() {
+        if !self.column_index_disabled {
             unimplemented!(
-                "Resize should only be used in phase 2, after column indexing and dense rows are no longer needed"
+                "Resize should only be used in phase 2, after column indexing is no longer needed"
             );
         }
         let mut new_sparse = vec![None; new_height];
         let mut new_dense = vec![None; new_height];
 
+        let original_sparse_len = self.sparse_elements.len();
         for i in (0..self.sparse_elements.len()).rev() {
             let logical_row = self.physical_row_to_logical[i];
             let sparse = self.sparse_elements.pop();
-            let dense = self.dense_elements.pop();
             if logical_row < new_height {
                 new_sparse[logical_row] = sparse;
+            }
+        }
+
+        // TODO: it would be better to keep any dense rows that are retained stored dense
+        for i in (0..self.dense_rows.len()).rev() {
+            let logical_row = self.physical_row_to_logical[i + original_sparse_len];
+            let dense_row = self.dense_rows.pop();
+            if logical_row < new_height {
+                let mut sparse = SparseOctetVec::with_capacity(10);
+                for (logical_col, value) in dense_row.unwrap().iter().enumerate() {
+                    let value = Octet::new(*value);
+                    if value != Octet::zero() {
+                        sparse.insert(self.logical_col_to_physical[logical_col], value);
+                    }
+                }
+                new_sparse[logical_row] = Some(sparse);
+            }
+        }
+
+        for i in (0..self.dense_elements.len()).rev() {
+            let logical_row = self.physical_row_to_logical[i];
+            let dense = self.dense_elements.pop();
+            if logical_row < new_height {
                 new_dense[logical_row] = dense;
             }
         }
+
         self.logical_row_to_physical.truncate(new_height);
         self.physical_row_to_logical.truncate(new_height);
         for i in 0..new_height {
