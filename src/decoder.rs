@@ -17,7 +17,7 @@ use crate::systematic_constants::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Decoder {
     config: ObjectTransmissionInformation,
     block_decoders: Vec<SourceBlockDecoder>,
@@ -106,7 +106,7 @@ impl Decoder {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SourceBlockDecoder {
     source_block_id: u8,
     symbol_size: u16,
