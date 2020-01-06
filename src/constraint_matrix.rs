@@ -99,6 +99,20 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
         matrix.set(i, ((i + 1) % P) + W, Octet::one());
     }
 
+    // G_ENC
+    let lt_symbols = num_lt_symbols(Kprime as u32);
+    let pi_symbols = num_pi_symbols(Kprime as u32);
+    let sys_index = systematic_index(Kprime as u32);
+    let p1 = calculate_p1(Kprime as u32);
+    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
+        // row != i, because i is the ESI
+        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
+
+        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
+            matrix.set(row as usize + S + H, j, Octet::one());
+        }
+    }
+
     // G_HDPC
 
     // Generates the MT matrix
@@ -160,20 +174,6 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     // I_H
     for i in 0..H {
         matrix.set(i + S as usize, i + (Kprime + S) as usize, Octet::one());
-    }
-
-    // G_ENC
-    let lt_symbols = num_lt_symbols(Kprime as u32);
-    let pi_symbols = num_pi_symbols(Kprime as u32);
-    let sys_index = systematic_index(Kprime as u32);
-    let p1 = calculate_p1(Kprime as u32);
-    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
-        // row != i, because i is the ESI
-        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
-
-        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
-            matrix.set(row as usize + S + H, j, Octet::one());
-        }
     }
 
     matrix
