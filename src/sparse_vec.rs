@@ -1,6 +1,6 @@
 use crate::octet::Octet;
-use std::cmp::Ordering;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseOctetVec {
