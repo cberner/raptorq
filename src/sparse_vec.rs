@@ -1,7 +1,8 @@
 use crate::octet::Octet;
 use std::cmp::Ordering;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseOctetVec {
     // Kept sorted by the usize (key)
     elements: Vec<(usize, Octet)>,
@@ -146,7 +147,7 @@ impl SparseOctetVec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SparseValuelessVec {
     // Kept sorted
     elements: Vec<usize>,
