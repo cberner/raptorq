@@ -8,7 +8,7 @@ use crate::util::get_both_indices;
 use std::cmp::min;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SparseOctetMatrix {
     height: usize,
     width: usize,

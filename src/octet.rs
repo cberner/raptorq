@@ -1195,7 +1195,7 @@ const fn calculate_octet_mul_table_inner(x: usize) -> [u8; 256] {
     ];
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Octet {
     value: u8,
 }

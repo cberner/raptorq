@@ -2,7 +2,7 @@ use crate::octet::Octet;
 use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct KeyIter {
     sparse: bool,
     dense_index: usize,
@@ -26,7 +26,7 @@ impl Iterator for KeyIter {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct BorrowedKeyIter<'a> {
     sparse: bool,
     dense_index: usize,
@@ -119,7 +119,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ClonedOctetIter {
     sparse: bool,
     end_col: usize,
@@ -155,7 +155,7 @@ impl Iterator for ClonedOctetIter {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct OctetIter<'a> {
     sparse: bool,
     start_col: usize,

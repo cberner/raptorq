@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
 // As defined in section 3.2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PayloadId {
     source_block_number: u8,
     encoding_symbol_id: u32,
@@ -49,7 +49,7 @@ impl PayloadId {
 /// Contains encoding symbols generated from a source block.
 ///
 /// As defined in section [4.4.2](https://tools.ietf.org/html/rfc6330#section-4.4.2).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
 pub struct EncodingPacket {
     pub(crate) payload_id: PayloadId,
     pub(crate) data: Vec<u8>,
@@ -92,7 +92,7 @@ impl EncodingPacket {
 }
 
 // As defined in section 3.3.2 and 3.3.3
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
 pub struct ObjectTransmissionInformation {
     transfer_length: u64, // Limited to u40
     symbol_size: u16,
