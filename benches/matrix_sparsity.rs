@@ -10,13 +10,35 @@ fn main() {
         let indices: Vec<u32> = (0..num_symbols).collect();
         let a = generate_constraint_matrix::<SparseOctetMatrix>(num_symbols, &indices);
         let mut density = 0;
+        let mut row_density = vec![0; a.height()];
         for i in 0..a.height() {
             for j in 0..a.width() {
                 if a.get(i, j) != Octet::zero() {
                     density += 1;
+                    row_density[i] += 1;
                 }
             }
         }
+        row_density.sort();
+        let min = row_density[0];
+        let max = row_density[row_density.len() - 1];
+        let p50 = row_density[(row_density.len() as f64 * 0.5) as usize];
+        let p80 = row_density[(row_density.len() as f64 * 0.8) as usize];
+        let p90 = row_density[(row_density.len() as f64 * 0.9) as usize];
+        let p95 = row_density[(row_density.len() as f64 * 0.95) as usize];
+        let p99 = row_density[(row_density.len() as f64 * 0.99) as usize];
+        println!(
+            "Row density for {}x{}: min={} max={} p50={} p80={} p90={} p95={} p99={}",
+            a.height(),
+            a.width(),
+            min,
+            max,
+            p50,
+            p80,
+            p90,
+            p95,
+            p99
+        );
         println!(
             "Original density for {}x{}: {} of {} ({:.3}%)",
             a.height(),
