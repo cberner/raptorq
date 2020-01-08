@@ -55,6 +55,11 @@ symbol count = 20000, decoded 122 MB in 2.729secs using 5.0% overhead, throughpu
 symbol count = 50000, decoded 122 MB in 4.498secs using 5.0% overhead, throughput: 217.1Mbit/s
 ```
 
+### Public API
+Note that the additional classes exported by the `benchmarking` feature flag are not considered part of this
+crate's public API. Breaking changes to those classes may occur without warning. The flag is only provided
+so that internal classes can be used in this crate's benchmarks.
+
 ## License
 
 Licensed under
