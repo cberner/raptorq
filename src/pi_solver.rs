@@ -11,6 +11,23 @@ use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+enum SymbolOps {
+    AddAssign {
+        dest: usize,
+        src: usize,
+    },
+    MulAssign {
+        dest: usize,
+        scalar: Octet,
+    },
+    FMA {
+        dest: usize,
+        src: usize,
+        scalar: Octet,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct FirstPhaseRowSelectionStats {
     original_degree: UsizeArrayMap,
     non_zeros_per_row: UsizeArrayMap,
@@ -391,6 +408,8 @@ pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
     i: usize,
     u: usize,
     L: usize,
+    // Operations on D are deferred to the end of the codec to improve cache hits
+    deferred_D_ops: Vec<SymbolOps>,
     num_source_symbols: u32,
     debug_symbol_mul_ops: u32,
     debug_symbol_add_ops: u32,
@@ -415,6 +434,8 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             d.push(i);
         }
 
+        let intermediate_symbols = num_intermediate_symbols(num_source_symbols) as usize;
+
         IntermediateSymbolDecoder {
             A: matrix.clone(),
             X: matrix,
@@ -423,12 +444,32 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             d,
             i: 0,
             u: num_pi_symbols(num_source_symbols) as usize,
-            L: num_intermediate_symbols(num_source_symbols) as usize,
+            L: intermediate_symbols,
+            deferred_D_ops: Vec::with_capacity(70 * intermediate_symbols),
             num_source_symbols,
             debug_symbol_mul_ops: 0,
             debug_symbol_add_ops: 0,
             debug_symbol_mul_ops_by_phase: vec![0; 5],
             debug_symbol_add_ops_by_phase: vec![0; 5],
+        }
+    }
+
+    #[inline(never)]
+    fn apply_deferred_symbol_ops(&mut self) {
+        for op in self.deferred_D_ops.drain(..) {
+            match op {
+                SymbolOps::AddAssign { dest, src } => {
+                    let (dest, temp) = get_both_indices(&mut self.D, dest, src);
+                    *dest += temp;
+                }
+                SymbolOps::MulAssign { dest, scalar } => {
+                    self.D[dest].mulassign_scalar(&scalar);
+                }
+                SymbolOps::FMA { dest, src, scalar } => {
+                    let (dest, temp) = get_both_indices(&mut self.D, dest, src);
+                    dest.fused_addassign_mul_scalar(&temp, &scalar);
+                }
+            }
         }
     }
 
@@ -672,7 +713,10 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         for row in (0..self.i).rev() {
             if self.X.get(row, row) != Octet::one() {
                 self.debug_symbol_mul_ops += 1;
-                self.D[self.d[row]].mulassign_scalar(&self.X.get(row, row));
+                self.deferred_D_ops.push(SymbolOps::MulAssign {
+                    dest: self.d[row],
+                    scalar: self.X.get(row, row),
+                });
             }
 
             for (col, value) in self.X.get_row_iter(row, 0, row) {
@@ -681,13 +725,18 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 }
                 if value == Octet::one() {
                     self.debug_symbol_add_ops += 1;
-                    let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
-                    *dest += temp;
+                    self.deferred_D_ops.push(SymbolOps::AddAssign {
+                        dest: self.d[row],
+                        src: self.d[col],
+                    });
                 } else {
                     self.debug_symbol_mul_ops += 1;
                     self.debug_symbol_add_ops += 1;
-                    let (dest, temp) = get_both_indices(&mut self.D, self.d[row], self.d[col]);
-                    dest.fused_addassign_mul_scalar(temp, &self.X.get(row, col));
+                    self.deferred_D_ops.push(SymbolOps::FMA {
+                        dest: self.d[row],
+                        src: self.d[col],
+                        scalar: self.X.get(row, col),
+                    });
                 }
             }
         }
@@ -907,20 +956,28 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
     // Helper operations to apply operations to A, also to D
     fn mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
-        self.D[self.d[i]].mulassign_scalar(&beta);
+        self.deferred_D_ops.push(SymbolOps::MulAssign {
+            dest: self.d[i],
+            scalar: beta.clone(),
+        });
         self.A.mul_assign_row(i, &beta);
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
         if beta == Octet::one() {
             self.debug_symbol_add_ops += 1;
-            let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
-            *dest += temp;
+            self.deferred_D_ops.push(SymbolOps::AddAssign {
+                dest: self.d[iprime],
+                src: self.d[i],
+            });
         } else {
             self.debug_symbol_add_ops += 1;
             self.debug_symbol_mul_ops += 1;
-            let (dest, temp) = get_both_indices(&mut self.D, self.d[iprime], self.d[i]);
-            dest.fused_addassign_mul_scalar(&temp, &beta);
+            self.deferred_D_ops.push(SymbolOps::FMA {
+                dest: self.d[iprime],
+                src: self.d[i],
+                scalar: beta.clone(),
+            });
         }
         self.A.fma_rows(iprime, i, &beta);
     }
@@ -958,6 +1015,8 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         self.third_phase();
         self.fourth_phase();
         self.fifth_phase();
+
+        self.apply_deferred_symbol_ops();
 
         // See end of section 5.4.2.1
         let mut index_mapping = UsizeArrayMap::new(0, self.L);
