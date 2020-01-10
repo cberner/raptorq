@@ -1054,7 +1054,10 @@ mod tests {
     use crate::matrix::DenseOctetMatrix;
     use crate::matrix::OctetMatrix;
     use crate::symbol::Symbol;
-    use crate::systematic_constants::extended_source_block_symbols;
+    use crate::systematic_constants::{
+        extended_source_block_symbols, num_ldpc_symbols, num_lt_symbols,
+        MAX_SOURCE_SYMBOLS_PER_BLOCK,
+    };
 
     #[test]
     fn operations_per_symbol() {
@@ -1077,6 +1080,15 @@ mod tests {
                 "add ops per symbol = {}",
                 (decoder.get_symbol_add_ops() as f64 / num_symbols as f64)
             );
+        }
+    }
+
+    #[test]
+    fn check_errata_3() {
+        // Check that the optimization of excluding HDPC rows from the X matrix during decoding is
+        // safe. This is described in RFC6330_ERRATA.md
+        for i in 0..=MAX_SOURCE_SYMBOLS_PER_BLOCK {
+            assert!(extended_source_block_symbols(i) + num_ldpc_symbols(i) >= num_lt_symbols(i));
         }
     }
 }
