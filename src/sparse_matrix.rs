@@ -1,9 +1,9 @@
 use crate::iterators::{BorrowedKeyIter, OctetIter};
-use crate::matrix::OctetMatrix;
+use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, mulassign_scalar};
-use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
+use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
@@ -16,10 +16,10 @@ use std::cmp::min;
 // |                          | columns    |
 // |---------------------------------------|
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
-pub struct SparseOctetMatrix {
+pub struct SparseBinaryMatrix {
     height: usize,
     width: usize,
-    sparse_elements: Vec<SparseOctetVec>,
+    sparse_elements: Vec<SparseBinaryVec>,
     // Note these are stored with the right-most element first in the vec.
     // That is, for a matrix with width 10 and num_dense 3, the last three will be stored in these
     // Vecs, and will be in the order: [9, 8, 7]
@@ -37,7 +37,7 @@ pub struct SparseOctetMatrix {
     num_dense_columns: usize,
 }
 
-impl SparseOctetMatrix {
+impl SparseBinaryMatrix {
     #[cfg(debug_assertions)]
     fn verify(&self) {
         if self.column_index_disabled {
@@ -53,10 +53,10 @@ impl SparseOctetMatrix {
     }
 }
 
-impl OctetMatrix for SparseOctetMatrix {
-    fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseOctetMatrix {
+impl BinaryMatrix for SparseBinaryMatrix {
+    fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseBinaryMatrix {
         let mut col_mapping = vec![0; width];
-        let elements = vec![SparseOctetVec::with_capacity(10); height];
+        let elements = vec![SparseBinaryVec::with_capacity(10); height];
         let mut row_mapping = vec![0; height];
         #[allow(clippy::needless_range_loop)]
         for i in 0..height {
@@ -70,7 +70,7 @@ impl OctetMatrix for SparseOctetMatrix {
         for i in 0..width {
             col_mapping[i] = i;
         }
-        SparseOctetMatrix {
+        SparseBinaryMatrix {
             height,
             width,
             sparse_elements: elements,
@@ -248,7 +248,7 @@ impl OctetMatrix for SparseOctetMatrix {
 
     // other must be a rows x rows matrix
     // sets self[0..rows][..] = X * self[0..rows][..]
-    fn mul_assign_submatrix(&mut self, other: &SparseOctetMatrix, rows: usize) {
+    fn mul_assign_submatrix(&mut self, other: &SparseBinaryMatrix, rows: usize) {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
@@ -256,7 +256,7 @@ impl OctetMatrix for SparseOctetMatrix {
             unimplemented!();
         }
         // Note: rows are logically indexed
-        let mut temp_sparse = vec![SparseOctetVec::with_capacity(10); rows];
+        let mut temp_sparse = vec![SparseBinaryVec::with_capacity(10); rows];
         let mut temp_dense = vec![vec![0; self.num_dense_columns]; rows];
         for row in 0..rows {
             for (i, scalar) in other.get_row_iter(row, 0, rows) {

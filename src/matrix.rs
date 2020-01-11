@@ -5,7 +5,7 @@ use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 
-pub trait OctetMatrix: Clone {
+pub trait BinaryMatrix: Clone {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> Self;
 
     fn set(&mut self, i: usize, j: usize, value: Octet);
@@ -58,36 +58,19 @@ pub trait OctetMatrix: Clone {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
-pub struct DenseOctetMatrix {
+pub struct DenseBinaryMatrix {
     height: usize,
     width: usize,
     elements: Vec<Vec<u8>>,
 }
 
-impl DenseOctetMatrix {
-    pub fn fma_sub_row(&mut self, row: usize, start_col: usize, scalar: &Octet, other: &[u8]) {
-        if *scalar == Octet::one() {
-            add_assign(
-                &mut self.elements[row][start_col..(start_col + other.len())],
-                other,
-            );
-        } else {
-            fused_addassign_mul_scalar(
-                &mut self.elements[row][start_col..(start_col + other.len())],
-                other,
-                scalar,
-            );
-        }
-    }
-}
-
-impl OctetMatrix for DenseOctetMatrix {
-    fn new(height: usize, width: usize, _: usize) -> DenseOctetMatrix {
+impl BinaryMatrix for DenseBinaryMatrix {
+    fn new(height: usize, width: usize, _: usize) -> DenseBinaryMatrix {
         let mut elements: Vec<Vec<u8>> = Vec::with_capacity(height);
         for _ in 0..height {
             elements.push(vec![0; width]);
         }
-        DenseOctetMatrix {
+        DenseBinaryMatrix {
             height,
             width,
             elements,
@@ -159,7 +142,7 @@ impl OctetMatrix for DenseOctetMatrix {
 
     // other must be a rows x rows matrix
     // sets self[0..rows][..] = X * self[0..rows][..]
-    fn mul_assign_submatrix(&mut self, other: &DenseOctetMatrix, rows: usize) {
+    fn mul_assign_submatrix(&mut self, other: &DenseBinaryMatrix, rows: usize) {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
@@ -210,29 +193,29 @@ impl OctetMatrix for DenseOctetMatrix {
 mod tests {
     use rand::Rng;
 
-    use crate::matrix::{DenseOctetMatrix, OctetMatrix};
+    use crate::matrix::{BinaryMatrix, DenseBinaryMatrix};
     use crate::octet::Octet;
-    use crate::sparse_matrix::SparseOctetMatrix;
+    use crate::sparse_matrix::SparseBinaryMatrix;
 
-    fn dense_identity(size: usize) -> DenseOctetMatrix {
-        let mut result = DenseOctetMatrix::new(size, size, 0);
+    fn dense_identity(size: usize) -> DenseBinaryMatrix {
+        let mut result = DenseBinaryMatrix::new(size, size, 0);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
         result
     }
 
-    fn sparse_identity(size: usize) -> SparseOctetMatrix {
-        let mut result = SparseOctetMatrix::new(size, size, 0);
+    fn sparse_identity(size: usize) -> SparseBinaryMatrix {
+        let mut result = SparseBinaryMatrix::new(size, size, 0);
         for i in 0..size {
             result.set(i, i, Octet::one());
         }
         result
     }
 
-    fn rand_dense_and_sparse(size: usize) -> (DenseOctetMatrix, SparseOctetMatrix) {
-        let mut dense = DenseOctetMatrix::new(size, size, 0);
-        let mut sparse = SparseOctetMatrix::new(size, size, 1);
+    fn rand_dense_and_sparse(size: usize) -> (DenseBinaryMatrix, SparseBinaryMatrix) {
+        let mut dense = DenseBinaryMatrix::new(size, size, 0);
+        let mut sparse = SparseBinaryMatrix::new(size, size, 1);
         // Generate 50% filled random matrices
         for _ in 0..(size * size / 2) {
             let i = rand::thread_rng().gen_range(0, size);
@@ -245,7 +228,7 @@ mod tests {
         return (dense, sparse);
     }
 
-    fn assert_matrices_eq<T: OctetMatrix, U: OctetMatrix>(matrix1: &T, matrix2: &U) {
+    fn assert_matrices_eq<T: BinaryMatrix, U: BinaryMatrix>(matrix1: &T, matrix2: &U) {
         assert_eq!(matrix1.height(), matrix2.height());
         assert_eq!(matrix1.width(), matrix2.width());
         for i in 0..matrix1.height() {

@@ -5,9 +5,10 @@ use crate::base::ObjectTransmissionInformation;
 use crate::constraint_matrix::enc_indices;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::encoder::SPARSE_MATRIX_THRESHOLD;
-use crate::matrix::{DenseOctetMatrix, OctetMatrix};
+use crate::matrix::{BinaryMatrix, DenseBinaryMatrix};
+use crate::octet_matrix::DenseOctetMatrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
-use crate::sparse_matrix::SparseOctetMatrix;
+use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
@@ -146,7 +147,7 @@ impl SourceBlockDecoder {
 
     fn try_pi_decode(
         &mut self,
-        constraint_matrix: impl OctetMatrix,
+        constraint_matrix: impl BinaryMatrix,
         hdpc_rows: DenseOctetMatrix,
         symbols: Vec<Symbol>,
     ) -> Option<Vec<u8>> {
@@ -253,13 +254,13 @@ impl SourceBlockDecoder {
             }
 
             if extended_source_block_symbols(self.source_block_symbols) >= self.sparse_threshold {
-                let (constraint_matrix, hdpc) = generate_constraint_matrix::<SparseOctetMatrix>(
+                let (constraint_matrix, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(
                     self.source_block_symbols,
                     &encoded_indices,
                 );
                 return self.try_pi_decode(constraint_matrix, hdpc, d);
             } else {
-                let (constraint_matrix, hdpc) = generate_constraint_matrix::<DenseOctetMatrix>(
+                let (constraint_matrix, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(
                     self.source_block_symbols,
                     &encoded_indices,
                 );

@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
-pub struct SparseOctetVec {
+pub struct SparseBinaryVec {
     // Kept sorted by the usize (key)
     elements: Vec<(usize, Octet)>,
 }
 
-impl SparseOctetVec {
-    pub fn with_capacity(capacity: usize) -> SparseOctetVec {
-        SparseOctetVec {
+impl SparseBinaryVec {
+    pub fn with_capacity(capacity: usize) -> SparseBinaryVec {
+        SparseBinaryVec {
             elements: Vec::with_capacity(capacity),
         }
     }
@@ -30,7 +30,7 @@ impl SparseOctetVec {
     }
 
     // Returns a vector of new column indices that this row contains
-    pub fn fma(&mut self, other: &SparseOctetVec, scalar: &Octet) -> Vec<usize> {
+    pub fn fma(&mut self, other: &SparseBinaryVec, scalar: &Octet) -> Vec<usize> {
         // Fast path for a single value that's being eliminated
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
@@ -198,13 +198,13 @@ mod tests {
     use rand::Rng;
 
     use crate::octet::Octet;
-    use crate::sparse_vec::SparseOctetVec;
+    use crate::sparse_vec::SparseBinaryVec;
 
     #[test]
     fn sparse_vec() {
         let size = 100;
         let mut dense = vec![0; size];
-        let mut sparse = SparseOctetVec::with_capacity(size);
+        let mut sparse = SparseBinaryVec::with_capacity(size);
         for _ in 0..size {
             let i = rand::thread_rng().gen_range(0, size);
             let value = rand::thread_rng().gen();
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn sparse_vec_fma() {
         let mut dense1 = vec![Octet::zero(); 8];
-        let mut sparse1 = SparseOctetVec::with_capacity(8);
+        let mut sparse1 = SparseBinaryVec::with_capacity(8);
         for i in 0..4 {
             let value = rand::thread_rng().gen();
             dense1[i * 2] = Octet::new(value);
@@ -237,7 +237,7 @@ mod tests {
         }
 
         let mut dense2 = vec![Octet::zero(); 8];
-        let mut sparse2 = SparseOctetVec::with_capacity(8);
+        let mut sparse2 = SparseBinaryVec::with_capacity(8);
         for i in 0..4 {
             let value = rand::thread_rng().gen();
             dense2[i] = Octet::new(value);

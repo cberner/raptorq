@@ -2,13 +2,13 @@ use raptorq::generate_constraint_matrix;
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
 use raptorq::Symbol;
-use raptorq::{extended_source_block_symbols, OctetMatrix, SparseOctetMatrix};
+use raptorq::{extended_source_block_symbols, BinaryMatrix, SparseBinaryMatrix};
 
 fn main() {
     for elements in [10, 100, 1000, 10000, 40000, 56403].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let indices: Vec<u32> = (0..num_symbols).collect();
-        let (a, hdpc) = generate_constraint_matrix::<SparseOctetMatrix>(num_symbols, &indices);
+        let (a, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(num_symbols, &indices);
         let mut density = 0;
         let mut row_density = vec![0; a.height()];
         for i in 0..a.height() {
