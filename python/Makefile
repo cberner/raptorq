@@ -10,7 +10,6 @@ install:
 lint:
 	cargo lichking check
 	cargo fmt --all -- --check
-	cargo clippy --all
 
 test: install
 	python3 -m unittest discover
