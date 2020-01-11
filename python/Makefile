@@ -1,10 +1,10 @@
-build: pre
+build:
 	maturin build
 
-release: pre
+release:
 	maturin build --release
 
-pre:
+lint:
 	cargo lichking check
 	cargo fmt --all -- --check
 	cargo clippy --all

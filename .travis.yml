@@ -17,12 +17,9 @@ matrix:
       language: rust
       rust: nightly
       before_script:
-        - cargo install cargo-lichking
-        - rustup component add rustfmt
-        - rustup component add clippy
         - sudo apt update && sudo apt install python3 python3-pip python3-dev
         - pip3 install maturin
       install:
         []
       script:
-        - make build_py
+        - make -C python build
