@@ -342,13 +342,13 @@ impl FirstPhaseRowSelectionStats {
 
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
-    // Returns (the chosen row, and "r" number of non-zero values the row has, is_HDPC)
+    // Returns (the chosen row, and "r" number of non-zero values the row has)
     pub fn first_phase_selection<T: OctetMatrix>(
         &mut self,
         start_row: usize,
         end_row: usize,
         matrix: &T,
-    ) -> (Option<usize>, Option<usize>, Option<bool>) {
+    ) -> (Option<usize>, Option<usize>) {
         let mut r = None;
         for i in 1..=(self.end_col - self.start_col) {
             if self.non_zeros_histogram.get(i) > 0 {
@@ -358,7 +358,7 @@ impl FirstPhaseRowSelectionStats {
         }
 
         if r == None {
-            return (None, None, None);
+            return (None, None);
         }
 
         if r.unwrap() == 2 {
@@ -381,18 +381,14 @@ impl FirstPhaseRowSelectionStats {
                 self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
                 let row =
                     self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix);
-                return (Some(row), r, Some(self.hdpc_rows[row]));
+                return (Some(row), r);
             } else {
                 // See paragraph starting "If r = 2 and there is no row with exactly 2 ones in V"
-                return (
-                    row_with_two_greater_than_one,
-                    r,
-                    Some(self.hdpc_rows[row_with_two_greater_than_one.unwrap()]),
-                );
+                return (row_with_two_greater_than_one, r);
             }
         } else {
             let row = self.first_phase_original_degree_substep(start_row, end_row, r.unwrap());
-            return (Some(row), r, Some(self.hdpc_rows[row]));
+            return (Some(row), r);
         }
     }
 }
@@ -613,7 +609,7 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let (chosen_row, r, is_hdpc) = selection_helper.first_phase_selection(
+            let (chosen_row, r) = selection_helper.first_phase_selection(
                 self.i,
                 self.A.height() - num_hdpc_rows,
                 &self.A,
@@ -624,13 +620,7 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
             let r = r.unwrap();
             let chosen_row = chosen_row.unwrap();
-            let is_hdpc = is_hdpc.unwrap();
             assert!(chosen_row >= self.i);
-
-            // HDPC rows are chosen last, so they are likely mostly sparse by now
-            if is_hdpc {
-                self.A.hint_compact_dense_rows();
-            }
 
             // See paragraph beginning: "After the row is chosen in this step..."
             // Reorder rows
@@ -962,7 +952,7 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         size: usize,
     ) -> Option<DenseOctetMatrix> {
         // Copy U_lower into a new matrix and merge it with the HDPC rows
-        let mut submatrix = DenseOctetMatrix::new(self.A.height() - row_offset, size, 0, 0, 0);
+        let mut submatrix = DenseOctetMatrix::new(self.A.height() - row_offset, size, 0);
         let first_hdpc_row = self.A.height() - hdpc_rows.height();
         for row in row_offset..self.A.height() {
             for col in col_offset..(col_offset + size) {
@@ -1168,16 +1158,11 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             return None;
         }
 
-        self.A.hint_compact_dense_rows();
         self.A.disable_column_acccess_acceleration();
 
         if !self.second_phase() {
             return None;
         }
-
-        // Only compact after second phase because dense rows aren't eliminated from X during first
-        // phase
-        self.X.hint_compact_dense_rows();
 
         self.third_phase();
         self.fourth_phase();
