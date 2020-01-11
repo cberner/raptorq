@@ -853,10 +853,9 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         // "For j from 1 to i". Note that A is 1-indexed in the spec, and ranges are inclusive,
         // this is means [1, i], which is equal to [0, i)
         for j in 0..self.i as usize {
-            if self.A.get(j, j) != Octet::one() {
-                let temp = self.A.get(j, j);
-                self.mul_row(j, Octet::one() / temp)
-            }
+            // Skip normalizing the diagonal, since there can't be non-binary values due to
+            // Errata 7
+
             // "For l from 1 to j-1". This means the lower triangular columns, not including the
             // diagonal, which is [0, j)
             for (l, _) in self.A.get_row_iter(j, 0, j).clone() {
