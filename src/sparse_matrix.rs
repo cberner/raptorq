@@ -196,6 +196,17 @@ impl OctetMatrix for SparseOctetMatrix {
         );
     }
 
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
+        let first_dense_column = self.width - self.num_dense_columns;
+        assert!(start_col >= self.width - self.num_dense_columns);
+        let physical_row = self.logical_row_to_physical[row];
+        let mut result = self.dense_elements[physical_row]
+            [(start_col - first_dense_column)..(self.width - first_dense_column)]
+            .to_vec();
+        result.reverse();
+        return result;
+    }
+
     fn get(&self, i: usize, j: usize) -> Octet {
         let physical_i = self.logical_row_to_physical[i];
         let physical_j = self.logical_col_to_physical[j];

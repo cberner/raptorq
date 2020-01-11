@@ -1,5 +1,6 @@
 use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
+use crate::matrix::DenseOctetMatrix;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
 use crate::symbol::Symbol;
@@ -47,16 +48,16 @@ impl FirstPhaseRowSelectionStats {
     #[allow(non_snake_case)]
     pub fn new<T: OctetMatrix>(
         matrix: &T,
+        start_hdpc: usize,
         end_col: usize,
         num_source_symbols: u32,
     ) -> FirstPhaseRowSelectionStats {
-        let S = num_ldpc_symbols(num_source_symbols);
         let H = num_hdpc_symbols(num_source_symbols);
 
-        // See section 5.3.3.4.2, Figure 5.
         let mut hdpc_rows = vec![false; matrix.height()];
-        for row in S..(S + H) {
-            hdpc_rows[row as usize] = true;
+        #[allow(clippy::needless_range_loop)]
+        for row in start_hdpc..(start_hdpc + H as usize) {
+            hdpc_rows[row] = true;
         }
 
         let mut result = FirstPhaseRowSelectionStats {
@@ -401,6 +402,9 @@ impl FirstPhaseRowSelectionStats {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
     A: T,
+    // If present, these are treated as replacing the last rows of A
+    // Errata 3 guarantees that these do not need to be included in X
+    A_hdpc_rows: Option<DenseOctetMatrix>,
     X: T,
     D: Vec<Symbol>,
     c: Vec<usize>,
@@ -417,9 +421,11 @@ pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
     debug_symbol_add_ops_by_phase: Vec<u32>,
 }
 
+#[allow(non_snake_case)]
 impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
     pub fn new(
         matrix: T,
+        hdpc_rows: DenseOctetMatrix,
         symbols: Vec<Symbol>,
         num_source_symbols: u32,
     ) -> IntermediateSymbolDecoder<T> {
@@ -436,8 +442,11 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 
         let intermediate_symbols = num_intermediate_symbols(num_source_symbols) as usize;
 
-        IntermediateSymbolDecoder {
+        let num_rows = matrix.height();
+
+        let mut temp = IntermediateSymbolDecoder {
             A: matrix.clone(),
+            A_hdpc_rows: None,
             X: matrix,
             D: symbols,
             c,
@@ -451,7 +460,20 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             debug_symbol_add_ops: 0,
             debug_symbol_mul_ops_by_phase: vec![0; 5],
             debug_symbol_add_ops_by_phase: vec![0; 5],
+        };
+
+        // Swap the HDPC rows, so that they're the last in the matrix
+        let S = num_ldpc_symbols(num_source_symbols) as usize;
+        let H = num_hdpc_symbols(num_source_symbols) as usize;
+        // See section 5.3.3.4.2, Figure 5.
+        for i in 0..H {
+            temp.swap_rows(S + i, num_rows - H + i);
+            temp.X.swap_rows(S + i, num_rows - H + i);
         }
+
+        temp.A_hdpc_rows = Some(hdpc_rows);
+
+        temp
     }
 
     #[inline(never)]
@@ -485,12 +507,22 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
     ) -> bool {
         for row in start_row..end_row {
             for column in start_column..end_column {
-                if self.A.get(row, column) != Octet::zero() {
+                if self.get_A_value(row, column) != Octet::zero() {
                     return false;
                 }
             }
         }
         return true;
+    }
+
+    #[cfg(debug_assertions)]
+    fn get_A_value(&self, row: usize, col: usize) -> Octet {
+        if let Some(ref hdpc) = self.A_hdpc_rows {
+            if row >= self.A.height() - hdpc.height() {
+                return hdpc.get(row - (self.A.height() - hdpc.height()), col);
+            }
+        }
+        return self.A.get(row, col);
     }
 
     // Performs the column swapping substep of first phase, after the row has been chosen
@@ -499,6 +531,8 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         let mut swapped_columns = 0;
         // Fast path when r == 1, since this is very common
         if r == 1 {
+            // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
+            // because of Errata 2.
             for (col, value) in self
                 .A
                 .get_row_iter(self.i, self.i, self.A.width() - self.u)
@@ -515,6 +549,8 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             }
         } else {
             for col in self.i..(self.A.width() - self.u) {
+                // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
+                // because of Errata 2.
                 if self.A.get(self.i, col) != Octet::zero() {
                     let mut dest;
                     if swapped_columns == 0 {
@@ -564,8 +600,11 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
+        let num_hdpc_rows = self.A_hdpc_rows.as_ref().unwrap().height();
+
         let mut selection_helper = FirstPhaseRowSelectionStats::new(
             &self.A,
+            self.A.height() - num_hdpc_rows,
             self.A.width() - self.u,
             self.num_source_symbols,
         );
@@ -574,8 +613,11 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
-            let (chosen_row, r, is_hdpc) =
-                selection_helper.first_phase_selection(self.i, self.A.height(), &self.A);
+            let (chosen_row, r, is_hdpc) = selection_helper.first_phase_selection(
+                self.i,
+                self.A.height() - num_hdpc_rows,
+                &self.A,
+            );
 
             if r == None {
                 return false;
@@ -600,12 +642,14 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             self.first_phase_swap_columns_substep(r);
             // Zero out leading value in following rows
             let temp = self.i;
+            // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
+            // because of Errata 2.
             let temp_value = self.A.get(temp, temp);
             // Cloning the iterator is safe here, because we don't re-read any of the rows that
             // we add to
             for row in self
                 .A
-                .get_col_index_iter(temp, self.i + 1, self.A.height())
+                .get_col_index_iter(temp, self.i + 1, self.A.height() - num_hdpc_rows)
                 .clone()
             {
                 let leading_value = self.A.get(row, temp);
@@ -628,11 +672,34 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
                     .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
             }
 
+            // apply to hdpc rows as well, which are stored separately
+            let pi_octets = self
+                .A
+                .get_sub_row_as_octets(temp, self.A.width() - (self.u + r - 1));
+            for row in 0..num_hdpc_rows {
+                let leading_value = self.A_hdpc_rows.as_ref().unwrap().get(row, temp);
+                if leading_value != Octet::zero() {
+                    // Addition is equivalent to subtraction
+                    let beta = &leading_value / &temp_value;
+                    self.fma_rows_with_pi(
+                        temp,
+                        row + (self.A.height() - num_hdpc_rows),
+                        beta,
+                        // self.i is the only non-PI column which can have a nonzero,
+                        // since all the rest were column swapped into the PI submatrix.
+                        Some(temp),
+                        Some(&pi_octets),
+                    );
+                    // It's safe to skip updating the selection helper, since it will never
+                    // select an HDPC row
+                }
+            }
+
             self.i += 1;
             self.u += r - 1;
             selection_helper.resize(
                 self.i,
-                self.A.height(),
+                self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
                 self.i,
                 self.A.width() - self.u,
                 &self.A,
@@ -674,12 +741,14 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
         // Convert U_lower to row echelon form
         let temp = self.i;
         let size = self.u;
-        if !self.reduce_to_row_echelon(temp, temp, size) {
+        // HDPC rows can be removed, since they can't have been selected for U_upper
+        let hdpc_rows = self.A_hdpc_rows.take().unwrap();
+        if let Some(submatrix) = self.record_reduce_to_row_echelon(hdpc_rows, temp, temp, size) {
+            // Perform backwards elimination
+            self.backwards_elimination(submatrix, temp, temp, size);
+        } else {
             return false;
         }
-
-        // Perform backwards elimination
-        self.backwards_elimination(temp, temp, size);
 
         self.A.resize(self.L, self.L);
 
@@ -880,54 +949,107 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
     }
 
     // Reduces the size x size submatrix, starting at row_offset and col_offset as the upper left
-    // corner, to row echelon form
+    // corner, to row echelon form.
+    // Returns the reduced submatrix, which should be written back into this submatrix of A.
+    // The state of this submatrix in A is undefined, after calling this function.
     #[inline(never)]
     // TODO: optimize for sparse
-    fn reduce_to_row_echelon(&mut self, row_offset: usize, col_offset: usize, size: usize) -> bool {
+    fn record_reduce_to_row_echelon(
+        &mut self,
+        hdpc_rows: DenseOctetMatrix,
+        row_offset: usize,
+        col_offset: usize,
+        size: usize,
+    ) -> Option<DenseOctetMatrix> {
+        // Copy U_lower into a new matrix and merge it with the HDPC rows
+        let mut submatrix = DenseOctetMatrix::new(self.A.height() - row_offset, size, 0, 0, 0);
+        let first_hdpc_row = self.A.height() - hdpc_rows.height();
+        for row in row_offset..self.A.height() {
+            for col in col_offset..(col_offset + size) {
+                let value = if row < first_hdpc_row {
+                    self.A.get(row, col)
+                } else {
+                    hdpc_rows.get(row - first_hdpc_row, col)
+                };
+                submatrix.set(row - row_offset, col - col_offset, value);
+            }
+        }
+
         for i in 0..size {
             // Swap a row with leading coefficient i into place
-            for j in (row_offset + i)..self.A.height() {
-                if self.A.get(j, col_offset + i) != Octet::zero() {
-                    self.swap_rows(row_offset + i, j);
+            for j in i..submatrix.height() {
+                if submatrix.get(j, i) != Octet::zero() {
+                    submatrix.swap_rows(i, j);
+                    // Record the swap, in addition to swapping in the working submatrix
+                    // TODO: optimize to not perform op on A
+                    self.swap_rows(row_offset + i, j + row_offset);
                     break;
                 }
             }
 
-            if self.A.get(row_offset + i, col_offset + i) == Octet::zero() {
+            if submatrix.get(i, i) == Octet::zero() {
                 // If all following rows are zero in this column, then matrix is singular
-                return false;
+                return None;
             }
 
             // Scale leading coefficient to 1
-            if self.A.get(row_offset + i, col_offset + i) != Octet::one() {
-                let element_inverse = Octet::one() / self.A.get(row_offset + i, col_offset + i);
+            if submatrix.get(i, i) != Octet::one() {
+                let element_inverse = Octet::one() / submatrix.get(i, i);
+                submatrix.mul_assign_row(i, &element_inverse);
+                // Record the multiplication, in addition to multiplying the working submatrix
+                // TODO: optimize to not perform op on A
                 self.mul_row(row_offset + i, element_inverse);
             }
 
             // Zero out all following elements in i'th column
-            for j in (row_offset + i + 1)..self.A.height() {
-                if self.A.get(j, col_offset + i) != Octet::zero() {
-                    let scalar = self.A.get(j, col_offset + i);
-                    self.fma_rows(row_offset + i, j, scalar);
+            for j in (i + 1)..submatrix.height() {
+                if submatrix.get(j, i) != Octet::zero() {
+                    let scalar = submatrix.get(j, i);
+                    submatrix.fma_rows(j, i, &scalar);
+                    // Record the FMA, in addition to applying it to the working submatrix
+                    // TODO: optimize to not perform op on A
+                    self.fma_rows(row_offset + i, row_offset + j, scalar);
                 }
             }
         }
 
-        return true;
+        return Some(submatrix);
     }
 
     // Performs backwards elimination in a size x size submatrix, starting at
     // row_offset and col_offset as the upper left corner of the submatrix
     #[inline(never)]
     // TODO: optimize for sparse
-    fn backwards_elimination(&mut self, row_offset: usize, col_offset: usize, size: usize) {
+    // Applies the submatrix to the size-by-size lower right of A, and performs backwards
+    // elimination on it. "submatrix" must be in row echelon form.
+    fn backwards_elimination(
+        &mut self,
+        submatrix: DenseOctetMatrix,
+        row_offset: usize,
+        col_offset: usize,
+        size: usize,
+    ) {
         // Perform backwards elimination
         for i in (0..size).rev() {
             // Zero out all preceding elements in i'th column
             for j in 0..i {
-                if self.A.get(row_offset + j, col_offset + i) != Octet::zero() {
-                    let scalar = self.A.get(row_offset + j, col_offset + i);
+                if submatrix.get(j, i) != Octet::zero() {
+                    let scalar = submatrix.get(j, i);
+                    // Record the FMA. No need to actually apply it to the submatrix,
+                    // since it will be discarded, and we never read these values
+                    // TODO: optimize to not perform op on A
                     self.fma_rows(row_offset + i, row_offset + j, scalar);
+                }
+            }
+        }
+
+        // Write the identity matrix into A, since that's the resulting value of this function
+        for row in row_offset..(row_offset + size) {
+            for col in col_offset..(col_offset + size) {
+                if row == col {
+                    self.A.set(row, col, Octet::one());
+                } else {
+                    self.A.set(row, col, Octet::zero());
                 }
             }
         }
@@ -960,10 +1082,22 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             dest: self.d[i],
             scalar: beta.clone(),
         });
+        assert!(self.A_hdpc_rows.is_none());
         self.A.mul_assign_row(i, &beta);
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
+        self.fma_rows_with_pi(i, iprime, beta, None, None);
+    }
+
+    fn fma_rows_with_pi(
+        &mut self,
+        i: usize,
+        iprime: usize,
+        beta: Octet,
+        only_non_pi_nonzero_column: Option<usize>,
+        pi_octets: Option<&Vec<u8>>,
+    ) {
         if beta == Octet::one() {
             self.debug_symbol_add_ops += 1;
             self.deferred_D_ops.push(SymbolOps::AddAssign {
@@ -979,16 +1113,49 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
                 scalar: beta.clone(),
             });
         }
-        self.A.fma_rows(iprime, i, &beta);
+        if let Some(ref mut hdpc) = self.A_hdpc_rows {
+            let first_hdpc_row = self.A.height() - hdpc.height();
+            // Adding HDPC rows to other rows isn't supported, since it should never happen
+            assert!(i < first_hdpc_row);
+            if iprime >= first_hdpc_row {
+                let col = only_non_pi_nonzero_column.unwrap();
+                let multiplicand = self.A.get(i, col);
+                let mut value = hdpc.get(iprime - first_hdpc_row, col);
+                value.fma(&multiplicand, &beta);
+                hdpc.set(iprime - first_hdpc_row, col, value);
+
+                // Handle this part separately, since it's in the dense U part of the matrix
+                let octets = pi_octets.unwrap();
+                hdpc.fma_sub_row(
+                    iprime - first_hdpc_row,
+                    self.A.width() - octets.len(),
+                    &beta,
+                    octets,
+                );
+            } else {
+                self.A.fma_rows(iprime, i, &beta);
+            }
+        } else {
+            self.A.fma_rows(iprime, i, &beta);
+        }
     }
 
     fn swap_rows(&mut self, i: usize, iprime: usize) {
+        if let Some(ref hdpc_rows) = self.A_hdpc_rows {
+            // Can't swap HDPC rows
+            assert!(i < self.A.height() - hdpc_rows.height());
+            assert!(iprime < self.A.height() - hdpc_rows.height());
+        }
         self.A.swap_rows(i, iprime);
         self.d.swap(i, iprime);
     }
 
     fn swap_columns(&mut self, j: usize, jprime: usize, start_row: usize) {
         self.A.swap_columns(j, jprime, start_row);
+        self.A_hdpc_rows
+            .as_mut()
+            .unwrap()
+            .swap_columns(j, jprime, 0);
         self.c.swap(j, jprime);
     }
 
@@ -1041,10 +1208,11 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 // See section 5.4.2.1
 pub fn fused_inverse_mul_symbols<T: OctetMatrix>(
     matrix: T,
+    hdpc_rows: DenseOctetMatrix,
     symbols: Vec<Symbol>,
     num_source_symbols: u32,
 ) -> Option<Vec<Symbol>> {
-    IntermediateSymbolDecoder::new(matrix, symbols, num_source_symbols).execute()
+    IntermediateSymbolDecoder::new(matrix, hdpc_rows, symbols, num_source_symbols).execute()
 }
 
 #[cfg(test)]
@@ -1066,9 +1234,9 @@ mod tests {
         {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
-            let a = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
+            let (a, hdpc) = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1usize); a.width()];
-            let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
+            let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
             decoder.execute();
             assert!(
                 (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < expected_mul_ops,

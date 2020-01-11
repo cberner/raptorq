@@ -8,14 +8,21 @@ fn main() {
     for elements in [10, 100, 1000, 10000, 40000, 56403].iter() {
         let num_symbols = extended_source_block_symbols(*elements);
         let indices: Vec<u32> = (0..num_symbols).collect();
-        let a = generate_constraint_matrix::<SparseOctetMatrix>(num_symbols, &indices);
+        let (a, hdpc) = generate_constraint_matrix::<SparseOctetMatrix>(num_symbols, &indices);
         let mut density = 0;
         let mut row_density = vec![0; a.height()];
         for i in 0..a.height() {
             for j in 0..a.width() {
-                if a.get(i, j) != Octet::zero() {
-                    density += 1;
-                    row_density[i] += 1;
+                if i < a.height() - hdpc.height() {
+                    if a.get(i, j) != Octet::zero() {
+                        density += 1;
+                        row_density[i] += 1;
+                    }
+                } else {
+                    if hdpc.get(i - (a.height() - hdpc.height()), j) != Octet::zero() {
+                        density += 1;
+                        row_density[i] += 1;
+                    }
                 }
             }
         }
@@ -49,7 +56,7 @@ fn main() {
         );
 
         let symbols = vec![Symbol::zero(1usize); a.width()];
-        let mut decoder = IntermediateSymbolDecoder::new(a, symbols, num_symbols);
+        let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
         decoder.execute();
         println!(
             "Optimized decoder mul ops: {} ({:.1} per symbol), add ops: {} ({:.1} per symbol)",
