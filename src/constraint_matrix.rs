@@ -58,7 +58,7 @@ pub fn enc_indices(
 
 #[allow(non_snake_case)]
 fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
-    let mut matrix = DenseOctetMatrix::new(H, Kprime + S + H, 0, 0, 0);
+    let mut matrix = DenseOctetMatrix::new(H, Kprime + S + H, 0);
     // G_HDPC
 
     // Generates the MT matrix
@@ -142,7 +142,7 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
     let L = num_intermediate_symbols(source_block_symbols) as usize;
 
     assert!(S + H + encoded_symbol_indices.len() >= L);
-    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P, 0, 0);
+    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P);
 
     // G_LDPC,1
     // See section 5.3.3.3
