@@ -23,3 +23,6 @@ profile:
 
 build_py:
 	$(MAKE) -C python build
+
+release_py:
+	$(MAKE) -C python release
