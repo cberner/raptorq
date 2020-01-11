@@ -1,8 +1,7 @@
 use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
-use crate::octets::fused_addassign_mul_scalar;
-use crate::octets::{add_assign, mulassign_scalar};
+use crate::octets::add_assign;
 use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
@@ -132,15 +131,6 @@ impl BinaryMatrix for SparseBinaryMatrix {
         return (ones, nonzeros);
     }
 
-    fn mul_assign_row(&mut self, row: usize, value: &Octet) {
-        let physical_row = self.logical_row_to_physical[row];
-        self.sparse_elements[physical_row].mul_assign(value);
-        mulassign_scalar(
-            &mut self.dense_elements[physical_row][..self.num_dense_columns],
-            value,
-        );
-    }
-
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
         let first_dense_column = self.width - self.num_dense_columns;
         assert!(start_col >= self.width - self.num_dense_columns);
@@ -262,19 +252,11 @@ impl BinaryMatrix for SparseBinaryMatrix {
             for (i, scalar) in other.get_row_iter(row, 0, rows) {
                 let physical_i = self.logical_row_to_physical[i];
                 if scalar != Octet::zero() {
-                    temp_sparse[row].fma(&self.sparse_elements[physical_i], &scalar);
-                    if scalar == Octet::one() {
-                        add_assign(
-                            &mut temp_dense[row],
-                            &self.dense_elements[physical_i][..self.num_dense_columns],
-                        );
-                    } else {
-                        fused_addassign_mul_scalar(
-                            &mut temp_dense[row],
-                            &self.dense_elements[physical_i][..self.num_dense_columns],
-                            &scalar,
-                        );
-                    }
+                    temp_sparse[row].add_assign(&self.sparse_elements[physical_i]);
+                    add_assign(
+                        &mut temp_dense[row],
+                        &self.dense_elements[physical_i][..self.num_dense_columns],
+                    );
                 }
             }
         }
@@ -293,10 +275,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.verify();
     }
 
-    fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
-        assert_ne!(dest, multiplicand);
+    fn add_assign_rows(&mut self, dest: usize, src: usize) {
+        assert_ne!(dest, src);
         let physical_dest = self.logical_row_to_physical[dest];
-        let physical_multiplicand = self.logical_row_to_physical[multiplicand];
+        let physical_multiplicand = self.logical_row_to_physical[src];
         // First handle the dense columns
         let (dest_row, temp_row) = get_both_indices(
             &mut self.dense_elements,
@@ -304,18 +286,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
             physical_multiplicand,
         );
 
-        if *scalar == Octet::one() {
-            add_assign(
-                &mut dest_row[..self.num_dense_columns],
-                &temp_row[..self.num_dense_columns],
-            );
-        } else {
-            fused_addassign_mul_scalar(
-                &mut dest_row[..self.num_dense_columns],
-                &temp_row[..self.num_dense_columns],
-                scalar,
-            );
-        }
+        add_assign(
+            &mut dest_row[..self.num_dense_columns],
+            &temp_row[..self.num_dense_columns],
+        );
 
         // Then the sparse columns
         let (dest_row, temp_row) = get_both_indices(
@@ -324,7 +298,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             physical_multiplicand,
         );
 
-        let new_columns = dest_row.fma(temp_row, scalar);
+        let new_columns = dest_row.add_assign(temp_row);
         if !self.column_index_disabled {
             for new_col in new_columns {
                 self.sparse_column_index[new_col].insert(physical_dest);

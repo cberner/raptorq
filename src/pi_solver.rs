@@ -946,8 +946,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 let element_inverse = Octet::one() / submatrix.get(i, i);
                 submatrix.mul_assign_row(i, &element_inverse);
                 // Record the multiplication, in addition to multiplying the working submatrix
-                // TODO: optimize to not perform op on A
-                self.mul_row(row_offset + i, element_inverse);
+                self.record_mul_row(row_offset + i, element_inverse);
             }
 
             // Zero out all following elements in i'th column
@@ -956,8 +955,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     let scalar = submatrix.get(j, i);
                     submatrix.fma_rows(j, i, &scalar);
                     // Record the FMA, in addition to applying it to the working submatrix
-                    // TODO: optimize to not perform op on A
-                    self.fma_rows(row_offset + i, row_offset + j, scalar);
+                    self.record_fma_rows(row_offset + i, row_offset + j, scalar);
                 }
             }
         }
@@ -986,8 +984,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     let scalar = submatrix.get(j, i);
                     // Record the FMA. No need to actually apply it to the submatrix,
                     // since it will be discarded, and we never read these values
-                    // TODO: optimize to not perform op on A
-                    self.fma_rows(row_offset + i, row_offset + j, scalar);
+                    self.record_fma_rows(row_offset + i, row_offset + j, scalar);
                 }
             }
         }
@@ -1024,29 +1021,21 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         self.debug_symbol_add_ops_by_phase.clone()
     }
 
-    // Helper operations to apply operations to A, also to D
-    fn mul_row(&mut self, i: usize, beta: Octet) {
+    // Record operation to apply operations to D.
+    fn record_mul_row(&mut self, i: usize, beta: Octet) {
         self.debug_symbol_mul_ops += 1;
         self.deferred_D_ops.push(SymbolOps::MulAssign {
             dest: self.d[i],
-            scalar: beta.clone(),
+            scalar: beta,
         });
         assert!(self.A_hdpc_rows.is_none());
-        self.A.mul_assign_row(i, &beta);
     }
 
     fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
         self.fma_rows_with_pi(i, iprime, beta, None, None);
     }
 
-    fn fma_rows_with_pi(
-        &mut self,
-        i: usize,
-        iprime: usize,
-        beta: Octet,
-        only_non_pi_nonzero_column: Option<usize>,
-        pi_octets: Option<&Vec<u8>>,
-    ) {
+    fn record_fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
         if beta == Octet::one() {
             self.debug_symbol_add_ops += 1;
             self.deferred_D_ops.push(SymbolOps::AddAssign {
@@ -1059,9 +1048,21 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             self.deferred_D_ops.push(SymbolOps::FMA {
                 dest: self.d[iprime],
                 src: self.d[i],
-                scalar: beta.clone(),
+                scalar: beta,
             });
         }
+    }
+
+    fn fma_rows_with_pi(
+        &mut self,
+        i: usize,
+        iprime: usize,
+        beta: Octet,
+        only_non_pi_nonzero_column: Option<usize>,
+        pi_octets: Option<&Vec<u8>>,
+    ) {
+        self.record_fma_rows(i, iprime, beta.clone());
+
         if let Some(ref mut hdpc) = self.A_hdpc_rows {
             let first_hdpc_row = self.A.height() - hdpc.height();
             // Adding HDPC rows to other rows isn't supported, since it should never happen
@@ -1082,10 +1083,12 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     octets,
                 );
             } else {
-                self.A.fma_rows(iprime, i, &beta);
+                assert_eq!(&beta, &Octet::one());
+                self.A.add_assign_rows(iprime, i);
             }
         } else {
-            self.A.fma_rows(iprime, i, &beta);
+            assert_eq!(&beta, &Octet::one());
+            self.A.add_assign_rows(iprime, i);
         }
     }
 
