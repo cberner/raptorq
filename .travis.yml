@@ -5,8 +5,14 @@ before_script:
   - cargo install cargo-lichking
   - rustup component add rustfmt
   - rustup component add clippy
-  - rustup install nightly --profile minimal -y
+  - rustup install nightly --profile minimal
   - rustup override set --path python nightly
+  - pip3 install maturin
+install:
+  []
 script:
   - make test
-  - make build-py
+  - make build_py
+cache:
+  - cargo
+  - pip
