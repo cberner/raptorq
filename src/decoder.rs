@@ -147,10 +147,12 @@ impl SourceBlockDecoder {
     fn try_pi_decode(
         &mut self,
         constraint_matrix: impl OctetMatrix,
+        hdpc_rows: DenseOctetMatrix,
         symbols: Vec<Symbol>,
     ) -> Option<Vec<u8>> {
         let intermediate_symbols = match fused_inverse_mul_symbols(
             constraint_matrix,
+            hdpc_rows,
             symbols,
             self.source_block_symbols,
         ) {
@@ -251,17 +253,17 @@ impl SourceBlockDecoder {
             }
 
             if extended_source_block_symbols(self.source_block_symbols) >= self.sparse_threshold {
-                let constraint_matrix = generate_constraint_matrix::<SparseOctetMatrix>(
+                let (constraint_matrix, hdpc) = generate_constraint_matrix::<SparseOctetMatrix>(
                     self.source_block_symbols,
                     &encoded_indices,
                 );
-                return self.try_pi_decode(constraint_matrix, d);
+                return self.try_pi_decode(constraint_matrix, hdpc, d);
             } else {
-                let constraint_matrix = generate_constraint_matrix::<DenseOctetMatrix>(
+                let (constraint_matrix, hdpc) = generate_constraint_matrix::<DenseOctetMatrix>(
                     self.source_block_symbols,
                     &encoded_indices,
                 );
-                return self.try_pi_decode(constraint_matrix, d);
+                return self.try_pi_decode(constraint_matrix, hdpc, d);
             }
         }
         None

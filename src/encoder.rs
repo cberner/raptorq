@@ -189,11 +189,13 @@ fn gen_intermediate_symbols(
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
     if extended_source_symbols >= sparse_threshold {
-        let A = generate_constraint_matrix::<SparseOctetMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap();
+        let (A, hdpc) =
+            generate_constraint_matrix::<SparseOctetMatrix>(extended_source_symbols, &indices);
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
     } else {
-        let A = generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, D, extended_source_symbols).unwrap();
+        let (A, hdpc) =
+            generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
     }
 }
 

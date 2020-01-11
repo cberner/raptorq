@@ -1,4 +1,5 @@
 use crate::base::intermediate_tuple;
+use crate::matrix::DenseOctetMatrix;
 use crate::matrix::OctetMatrix;
 use crate::octet::Octet;
 use crate::octets::{add_assign, fused_addassign_mul_scalar};
@@ -55,64 +56,9 @@ pub fn enc_indices(
     indices
 }
 
-// See section 5.3.3.4.2
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix<T: OctetMatrix>(
-    source_block_symbols: u32,
-    encoded_symbol_indices: &[u32],
-) -> T {
-    let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
-    let S = num_ldpc_symbols(source_block_symbols) as usize;
-    let H = num_hdpc_symbols(source_block_symbols) as usize;
-    let W = num_lt_symbols(source_block_symbols) as usize;
-    let B = W - S;
-    let P = num_pi_symbols(source_block_symbols) as usize;
-    let L = num_intermediate_symbols(source_block_symbols) as usize;
-
-    assert!(S + H + encoded_symbol_indices.len() >= L);
-    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P, S, H);
-
-    // G_LDPC,1
-    // See section 5.3.3.3
-    for i in 0..B {
-        let a = 1 + i / S;
-
-        let b = i % S;
-        matrix.set(b, i, Octet::one());
-
-        let b = (b + a) % S;
-        matrix.set(b, i, Octet::one());
-
-        let b = (b + a) % S;
-        matrix.set(b, i, Octet::one());
-    }
-
-    // I_S
-    for i in 0..S {
-        matrix.set(i as usize, i + B as usize, Octet::one());
-    }
-
-    // G_LDPC,2
-    // See section 5.3.3.3
-    for i in 0..S {
-        matrix.set(i, (i % P) + W, Octet::one());
-        matrix.set(i, ((i + 1) % P) + W, Octet::one());
-    }
-
-    // G_ENC
-    let lt_symbols = num_lt_symbols(Kprime as u32);
-    let pi_symbols = num_pi_symbols(Kprime as u32);
-    let sys_index = systematic_index(Kprime as u32);
-    let p1 = calculate_p1(Kprime as u32);
-    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
-        // row != i, because i is the ESI
-        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
-
-        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
-            matrix.set(row as usize + S + H, j, Octet::one());
-        }
-    }
-
+fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
+    let mut matrix = DenseOctetMatrix::new(H, Kprime + S + H, 0, 0, 0);
     // G_HDPC
 
     // Generates the MT matrix
@@ -166,15 +112,78 @@ pub fn generate_constraint_matrix<T: OctetMatrix>(
         #[allow(clippy::needless_range_loop)]
         for j in 0..(Kprime + S) {
             if result_row[j] != 0 {
-                matrix.set(i + S, j, Octet::new(result_row[j]));
+                matrix.set(i, j, Octet::new(result_row[j]));
             }
         }
     }
 
     // I_H
     for i in 0..H {
-        matrix.set(i + S as usize, i + (Kprime + S) as usize, Octet::one());
+        matrix.set(i, i + (Kprime + S) as usize, Octet::one());
     }
 
     matrix
+}
+
+// See section 5.3.3.4.2
+// Returns the HDPC rows separately. These logically replace the rows S..(S + H) of the constraint
+// matrix. They are returned separately to allow easier optimizations.
+#[allow(non_snake_case)]
+pub fn generate_constraint_matrix<T: OctetMatrix>(
+    source_block_symbols: u32,
+    encoded_symbol_indices: &[u32],
+) -> (T, DenseOctetMatrix) {
+    let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
+    let S = num_ldpc_symbols(source_block_symbols) as usize;
+    let H = num_hdpc_symbols(source_block_symbols) as usize;
+    let W = num_lt_symbols(source_block_symbols) as usize;
+    let B = W - S;
+    let P = num_pi_symbols(source_block_symbols) as usize;
+    let L = num_intermediate_symbols(source_block_symbols) as usize;
+
+    assert!(S + H + encoded_symbol_indices.len() >= L);
+    let mut matrix = T::new(S + H + encoded_symbol_indices.len(), L, P, 0, 0);
+
+    // G_LDPC,1
+    // See section 5.3.3.3
+    for i in 0..B {
+        let a = 1 + i / S;
+
+        let b = i % S;
+        matrix.set(b, i, Octet::one());
+
+        let b = (b + a) % S;
+        matrix.set(b, i, Octet::one());
+
+        let b = (b + a) % S;
+        matrix.set(b, i, Octet::one());
+    }
+
+    // I_S
+    for i in 0..S {
+        matrix.set(i as usize, i + B as usize, Octet::one());
+    }
+
+    // G_LDPC,2
+    // See section 5.3.3.3
+    for i in 0..S {
+        matrix.set(i, (i % P) + W, Octet::one());
+        matrix.set(i, ((i + 1) % P) + W, Octet::one());
+    }
+
+    // G_ENC
+    let lt_symbols = num_lt_symbols(Kprime as u32);
+    let pi_symbols = num_pi_symbols(Kprime as u32);
+    let sys_index = systematic_index(Kprime as u32);
+    let p1 = calculate_p1(Kprime as u32);
+    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
+        // row != i, because i is the ESI
+        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
+
+        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
+            matrix.set(row as usize + S + H, j, Octet::one());
+        }
+    }
+
+    (matrix, generate_hdpc_rows(Kprime, S, H))
 }

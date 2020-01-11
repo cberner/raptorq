@@ -35,6 +35,9 @@ pub trait OctetMatrix: Clone {
     // An iterator over rows for the given col, that may have non-zero values
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter;
 
+    // Get a slice of columns from a row
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8>;
+
     fn get(&self, i: usize, j: usize) -> Octet;
 
     fn swap_rows(&mut self, i: usize, j: usize);
@@ -68,6 +71,23 @@ pub struct DenseOctetMatrix {
     height: usize,
     width: usize,
     elements: Vec<Vec<u8>>,
+}
+
+impl DenseOctetMatrix {
+    pub fn fma_sub_row(&mut self, row: usize, start_col: usize, scalar: &Octet, other: &[u8]) {
+        if *scalar == Octet::one() {
+            add_assign(
+                &mut self.elements[row][start_col..(start_col + other.len())],
+                other,
+            );
+        } else {
+            fused_addassign_mul_scalar(
+                &mut self.elements[row][start_col..(start_col + other.len())],
+                other,
+                scalar,
+            );
+        }
+    }
 }
 
 impl OctetMatrix for DenseOctetMatrix {
@@ -114,6 +134,10 @@ impl OctetMatrix for DenseOctetMatrix {
 
     fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
         BorrowedKeyIter::new_dense(start_row, end_row)
+    }
+
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
+        self.elements[row][start_col..].to_vec()
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
