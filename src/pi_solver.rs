@@ -34,7 +34,6 @@ struct FirstPhaseRowSelectionStats {
     non_zeros_per_row: UsizeArrayMap,
     ones_per_row: UsizeArrayMap,
     non_zeros_histogram: UsizeArrayMap,
-    hdpc_rows: Vec<bool>,
     start_col: usize,
     end_col: usize,
     start_row: usize,
@@ -46,26 +45,12 @@ struct FirstPhaseRowSelectionStats {
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new<T: OctetMatrix>(
-        matrix: &T,
-        start_hdpc: usize,
-        end_col: usize,
-        num_source_symbols: u32,
-    ) -> FirstPhaseRowSelectionStats {
-        let H = num_hdpc_symbols(num_source_symbols);
-
-        let mut hdpc_rows = vec![false; matrix.height()];
-        #[allow(clippy::needless_range_loop)]
-        for row in start_hdpc..(start_hdpc + H as usize) {
-            hdpc_rows[row] = true;
-        }
-
+    pub fn new<T: OctetMatrix>(matrix: &T, end_col: usize) -> FirstPhaseRowSelectionStats {
         let mut result = FirstPhaseRowSelectionStats {
             original_degree: UsizeArrayMap::new(0, 0),
             non_zeros_per_row: UsizeArrayMap::new(0, matrix.height()),
             ones_per_row: UsizeArrayMap::new(0, matrix.height()),
             non_zeros_histogram: UsizeArrayMap::new(0, end_col + 1),
-            hdpc_rows,
             start_col: 0,
             end_col,
             start_row: 0,
@@ -92,7 +77,6 @@ impl FirstPhaseRowSelectionStats {
         self.non_zeros_per_row.swap(i, j);
         self.ones_per_row.swap(i, j);
         self.original_degree.swap(i, j);
-        self.hdpc_rows.swap(i, j);
         for row in self.rows_with_single_nonzero.iter_mut() {
             if *row == i {
                 *row = j;
@@ -187,9 +171,6 @@ impl FirstPhaseRowSelectionStats {
             .reset(self.start_col, self.end_col, |nodes| nodes.clear());
 
         for row in rows_with_two_ones.iter() {
-            if self.hdpc_rows[*row] {
-                continue;
-            }
             let mut ones = [0; 2];
             let mut found = 0;
             for (col, value) in matrix.get_row_iter(*row, self.start_col, self.end_col) {
@@ -278,50 +259,32 @@ impl FirstPhaseRowSelectionStats {
         end_row: usize,
         r: usize,
     ) -> usize {
-        let mut chosen_hdpc = None;
-        let mut chosen_hdpc_original_degree = std::usize::MAX;
-        let mut chosen_non_hdpc = None;
-        let mut chosen_non_hdpc_original_degree = std::usize::MAX;
+        // There's no need for special handling of HDPC rows, since Errata 2 guarantees we won't
+        // select any, and they're excluded in the first_phase solver
+        let mut chosen = None;
+        let mut chosen_original_degree = std::usize::MAX;
         // Fast path for r=1, since this is super common
         if r == 1 {
             assert_ne!(0, self.rows_with_single_nonzero.len());
             for &row in self.rows_with_single_nonzero.iter() {
                 let non_zero = self.non_zeros_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
-                if non_zero == r {
-                    if self.hdpc_rows[row] {
-                        if row_original_degree < chosen_hdpc_original_degree {
-                            chosen_hdpc = Some(row);
-                            chosen_hdpc_original_degree = row_original_degree;
-                        }
-                    } else if row_original_degree < chosen_non_hdpc_original_degree {
-                        chosen_non_hdpc = Some(row);
-                        chosen_non_hdpc_original_degree = row_original_degree;
-                    }
+                if non_zero == r && row_original_degree < chosen_original_degree {
+                    chosen = Some(row);
+                    chosen_original_degree = row_original_degree;
                 }
             }
         } else {
             for row in start_row..end_row {
                 let non_zero = self.non_zeros_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
-                if non_zero == r {
-                    if self.hdpc_rows[row] {
-                        if row_original_degree < chosen_hdpc_original_degree {
-                            chosen_hdpc = Some(row);
-                            chosen_hdpc_original_degree = row_original_degree;
-                        }
-                    } else if row_original_degree < chosen_non_hdpc_original_degree {
-                        chosen_non_hdpc = Some(row);
-                        chosen_non_hdpc_original_degree = row_original_degree;
-                    }
+                if non_zero == r && row_original_degree < chosen_original_degree {
+                    chosen = Some(row);
+                    chosen_original_degree = row_original_degree;
                 }
             }
         }
-        if chosen_non_hdpc != None {
-            return chosen_non_hdpc.unwrap();
-        } else {
-            return chosen_hdpc.unwrap();
-        }
+        return chosen.unwrap();
     }
 
     // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
@@ -335,7 +298,7 @@ impl FirstPhaseRowSelectionStats {
     ) {
         for row in start_row..end_row {
             if self.non_zeros_per_row.get(row) == 2 {
-                assert!(rows_with_two_ones.contains(&row) || self.hdpc_rows[row]);
+                assert!(rows_with_two_ones.contains(&row));
             }
         }
     }
@@ -598,12 +561,8 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 
         let num_hdpc_rows = self.A_hdpc_rows.as_ref().unwrap().height();
 
-        let mut selection_helper = FirstPhaseRowSelectionStats::new(
-            &self.A,
-            self.A.height() - num_hdpc_rows,
-            self.A.width() - self.u,
-            self.num_source_symbols,
-        );
+        let mut selection_helper =
+            FirstPhaseRowSelectionStats::new(&self.A, self.A.width() - self.u);
 
         while self.i + self.u < self.L {
             // Calculate r
