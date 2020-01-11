@@ -13,7 +13,7 @@ matrix:
       script:
         - make test
 
-    - name: Build CPython wrapper
+    - name: Run CPython wrapper tests
       language: rust
       rust: nightly
       before_script:
@@ -22,4 +22,4 @@ matrix:
       install:
         []
       script:
-        - make -C python build
+        - make -C python test
