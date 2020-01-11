@@ -609,6 +609,7 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
             // exactly r nonzeros in V."
+            // Exclude the HDPC rows, since Errata 2 guarantees they won't be chosen.
             let (chosen_row, r) = selection_helper.first_phase_selection(
                 self.i,
                 self.A.height() - num_hdpc_rows,
