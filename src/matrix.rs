@@ -5,6 +5,7 @@ use crate::octets::{add_assign, count_ones_and_nonzeros};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 
+// TODO: change this struct to not use the Octet class, since it's binary not GF(256)
 pub trait BinaryMatrix: Clone {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> Self;
 
