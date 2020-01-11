@@ -18,8 +18,8 @@ matrix:
       rust: nightly
       before_script:
         - sudo apt update && sudo apt install python3 python3-pip python3-dev
-        - pip3 install maturin
+        - pip3 install maturin virtualenv
       install:
-        []
+        - python3 -m virtualenv venv
       script:
-        - make -C python test
+        - source venv/bin/activate && make -C python test
