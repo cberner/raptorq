@@ -12,7 +12,6 @@ matrix:
         []
       script:
         - make test
-      cache: cargo
 
     - name: Build CPython wrapper
       language: rust
@@ -27,6 +26,3 @@ matrix:
         []
       script:
         - make build_py
-      cache:
-        - cargo
-        - pip
