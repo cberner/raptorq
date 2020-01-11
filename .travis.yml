@@ -1,11 +1,11 @@
 language: rust
 rust:
   - stable
-  - nightly
 before_script:
   - cargo install cargo-lichking
   - rustup component add rustfmt
   - rustup component add clippy
+  - rustup install nightly --profile minimal -y
   - rustup override set --path python nightly
 script:
   - make test
