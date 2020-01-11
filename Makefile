@@ -20,3 +20,6 @@ bench: pre
 
 profile:
 	RUSTFLAGS='-Cforce-frame-pointers' cargo bench --no-run --features benchmarking
+
+build_py:
+    $(MAKE) -C python build
