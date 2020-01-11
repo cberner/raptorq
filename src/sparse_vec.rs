@@ -30,7 +30,7 @@ impl SparseBinaryVec {
     }
 
     // Returns a vector of new column indices that this row contains
-    pub fn fma(&mut self, other: &SparseBinaryVec, scalar: &Octet) -> Vec<usize> {
+    pub fn add_assign(&mut self, other: &SparseBinaryVec) -> Vec<usize> {
         // Fast path for a single value that's being eliminated
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
@@ -40,14 +40,14 @@ impl SparseBinaryVec {
             match self.key_to_internal_index(*other_col) {
                 Ok(index) => {
                     let self_value = &mut self.elements[index].1;
-                    self_value.fma(other_value, scalar);
+                    *self_value += other_value;
                     if *self_value == Octet::zero() {
                         self.elements.remove(index);
                     }
                 }
                 Err(index) => {
-                    let value = other_value * scalar;
-                    self.elements.insert(index, (*other_col, value));
+                    self.elements
+                        .insert(index, (*other_col, other_value.clone()));
                     return vec![*other_col];
                 }
             };
@@ -72,7 +72,7 @@ impl SparseBinaryVec {
                             self_entry = self_iter.next();
                         }
                         Ordering::Equal => {
-                            let value = self_value + &(other_value * scalar);
+                            let value = self_value + other_value;
                             if value != Octet::zero() {
                                 result.push((*self_col, value));
                             }
@@ -82,7 +82,7 @@ impl SparseBinaryVec {
                         Ordering::Greater => {
                             if *other_value != Octet::zero() {
                                 new_columns.push(*other_col);
-                                result.push((*other_col, other_value * scalar));
+                                result.push((*other_col, other_value.clone()));
                             }
                             other_entry = other_iter.next();
                         }
@@ -96,7 +96,7 @@ impl SparseBinaryVec {
             } else if let Some((other_col, other_value)) = other_entry {
                 if *other_value != Octet::zero() {
                     new_columns.push(*other_col);
-                    result.push((*other_col, other_value * scalar));
+                    result.push((*other_col, other_value.clone()));
                 }
                 other_entry = other_iter.next();
             } else {
@@ -123,12 +123,6 @@ impl SparseBinaryVec {
         match self.key_to_internal_index(i) {
             Ok(index) => Some(&self.elements[index].1),
             Err(_) => None,
-        }
-    }
-
-    pub fn mul_assign(&mut self, scalar: &Octet) {
-        for (_, value) in self.elements.iter_mut() {
-            *value = value as &Octet * scalar;
         }
     }
 
@@ -254,11 +248,11 @@ mod tests {
             );
         }
 
-        sparse1.fma(&sparse2, &Octet::new(5));
+        sparse1.add_assign(&sparse2);
 
         for i in 0..8 {
             let actual = sparse1.get(i).map(|x| x.clone()).unwrap_or(Octet::zero());
-            let expected = &dense1[i] + &(&Octet::new(5) * &dense2[i]);
+            let expected = &dense1[i] + &dense2[i];
             assert_eq!(
                 actual, expected,
                 "Mismatch at {}. {:?} != {:?}",

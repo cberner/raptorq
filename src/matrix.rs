@@ -1,7 +1,7 @@
 use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
-use crate::octets::{add_assign, count_ones_and_nonzeros, mulassign_scalar};
+use crate::octets::{add_assign, count_ones_and_nonzeros};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 
@@ -21,15 +21,13 @@ pub trait BinaryMatrix: Clone {
         end_col: usize,
     ) -> (usize, usize);
 
-    fn mul_assign_row(&mut self, row: usize, value: &Octet);
-
     // Once "impl Trait" is supported in traits, it would be better to return "impl Iterator<...>"
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
 
     // An iterator over rows for the given col, that may have non-zero values
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter;
 
-    // Get a slice of columns from a row
+    // Get a slice of columns from a row as Octets
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8>;
 
     fn get(&self, i: usize, j: usize) -> Octet;
@@ -52,7 +50,7 @@ pub trait BinaryMatrix: Clone {
     // sets self[0..rows][..] = X * self[0..rows][..]
     fn mul_assign_submatrix(&mut self, other: &Self, rows: usize);
 
-    fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet);
+    fn add_assign_rows(&mut self, dest: usize, src: usize);
 
     fn resize(&mut self, new_height: usize, new_width: usize);
 }
@@ -96,10 +94,6 @@ impl BinaryMatrix for DenseBinaryMatrix {
         end_col: usize,
     ) -> (usize, usize) {
         count_ones_and_nonzeros(&self.elements[row][start_col..end_col])
-    }
-
-    fn mul_assign_row(&mut self, row: usize, value: &Octet) {
-        mulassign_scalar(&mut self.elements[row], value);
     }
 
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
@@ -166,15 +160,10 @@ impl BinaryMatrix for DenseBinaryMatrix {
         }
     }
 
-    fn fma_rows(&mut self, dest: usize, multiplicand: usize, scalar: &Octet) {
-        assert_ne!(dest, multiplicand);
-        let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, multiplicand);
-
-        if *scalar == Octet::one() {
-            add_assign(dest_row, temp_row);
-        } else {
-            fused_addassign_mul_scalar(dest_row, temp_row, scalar);
-        }
+    fn add_assign_rows(&mut self, dest: usize, src: usize) {
+        assert_ne!(dest, src);
+        let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, src);
+        add_assign(dest_row, temp_row);
     }
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
@@ -289,19 +278,6 @@ mod tests {
     }
 
     #[test]
-    fn mul_assign_row() {
-        // rand_dense_and_sparse uses set(), so just check that it works
-        let (mut dense, mut sparse) = rand_dense_and_sparse(8);
-        dense.mul_assign_row(0, &Octet::new(5));
-        dense.mul_assign_row(2, &Octet::one());
-        dense.mul_assign_row(7, &Octet::new(66));
-        sparse.mul_assign_row(0, &Octet::new(5));
-        sparse.mul_assign_row(2, &Octet::one());
-        sparse.mul_assign_row(7, &Octet::new(66));
-        assert_matrices_eq(&dense, &sparse);
-    }
-
-    #[test]
     fn mul_assign_submatrix() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (mut dense, mut sparse) = rand_dense_and_sparse(8);
@@ -328,12 +304,12 @@ mod tests {
     fn fma_rows() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (mut dense, mut sparse) = rand_dense_and_sparse(8);
-        dense.fma_rows(0, 1, &Octet::new(5));
-        dense.fma_rows(0, 2, &Octet::new(55));
-        dense.fma_rows(2, 1, &Octet::one());
-        sparse.fma_rows(0, 1, &Octet::new(5));
-        sparse.fma_rows(0, 2, &Octet::new(55));
-        sparse.fma_rows(2, 1, &Octet::one());
+        dense.add_assign_rows(0, 1);
+        dense.add_assign_rows(0, 2);
+        dense.add_assign_rows(2, 1);
+        sparse.add_assign_rows(0, 1);
+        sparse.add_assign_rows(0, 2);
+        sparse.add_assign_rows(2, 1);
         assert_matrices_eq(&dense, &sparse);
     }
 
