@@ -1,7 +1,7 @@
 use crate::base::intermediate_tuple;
-use crate::matrix::DenseOctetMatrix;
-use crate::matrix::OctetMatrix;
+use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
+use crate::octet_matrix::DenseOctetMatrix;
 use crate::octets::{add_assign, fused_addassign_mul_scalar};
 use crate::rng::rand;
 use crate::systematic_constants::extended_source_block_symbols;
@@ -129,7 +129,7 @@ fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
 // Returns the HDPC rows separately. These logically replace the rows S..(S + H) of the constraint
 // matrix. They are returned separately to allow easier optimizations.
 #[allow(non_snake_case)]
-pub fn generate_constraint_matrix<T: OctetMatrix>(
+pub fn generate_constraint_matrix<T: BinaryMatrix>(
     source_block_symbols: u32,
     encoded_symbol_indices: &[u32],
 ) -> (T, DenseOctetMatrix) {

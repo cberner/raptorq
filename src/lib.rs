@@ -8,6 +8,7 @@ mod encoder;
 mod iterators;
 mod matrix;
 mod octet;
+mod octet_matrix;
 mod octets;
 mod pi_solver;
 mod rng;
@@ -28,15 +29,15 @@ pub use crate::encoder::SourceBlockEncoder;
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;
 #[cfg(feature = "benchmarking")]
-pub use crate::matrix::DenseOctetMatrix;
+pub use crate::matrix::BinaryMatrix;
 #[cfg(feature = "benchmarking")]
-pub use crate::matrix::OctetMatrix;
+pub use crate::matrix::DenseBinaryMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::octet::Octet;
 #[cfg(feature = "benchmarking")]
 pub use crate::pi_solver::IntermediateSymbolDecoder;
 #[cfg(feature = "benchmarking")]
-pub use crate::sparse_matrix::SparseOctetMatrix;
+pub use crate::sparse_matrix::SparseBinaryMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::symbol::Symbol;
 #[cfg(feature = "benchmarking")]

@@ -1,8 +1,8 @@
 use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
-use crate::matrix::DenseOctetMatrix;
-use crate::matrix::OctetMatrix;
+use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
+use crate::octet_matrix::DenseOctetMatrix;
 use crate::symbol::Symbol;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -45,7 +45,7 @@ struct FirstPhaseRowSelectionStats {
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new<T: OctetMatrix>(matrix: &T, end_col: usize) -> FirstPhaseRowSelectionStats {
+    pub fn new<T: BinaryMatrix>(matrix: &T, end_col: usize) -> FirstPhaseRowSelectionStats {
         let mut result = FirstPhaseRowSelectionStats {
             original_degree: UsizeArrayMap::new(0, 0),
             non_zeros_per_row: UsizeArrayMap::new(0, matrix.height()),
@@ -87,7 +87,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     // Recompute all stored statistics for the given row
-    pub fn recompute_row<T: OctetMatrix>(&mut self, row: usize, matrix: &T) {
+    pub fn recompute_row<T: BinaryMatrix>(&mut self, row: usize, matrix: &T) {
         let (ones, non_zero) = matrix.count_ones_and_nonzeros(row, self.start_col, self.end_col);
         self.rows_with_single_nonzero.retain(|x| *x != row);
         if non_zero == 1 {
@@ -119,7 +119,7 @@ impl FirstPhaseRowSelectionStats {
     // Set the valid columns, and recalculate statistics
     // All values in column "start_col - 1" in rows start_row..end_row must be zero
     #[inline(never)]
-    pub fn resize<T: OctetMatrix>(
+    pub fn resize<T: BinaryMatrix>(
         &mut self,
         start_row: usize,
         end_row: usize,
@@ -162,7 +162,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep_build_adjacency<T: OctetMatrix>(
+    fn first_phase_graph_substep_build_adjacency<T: BinaryMatrix>(
         &mut self,
         rows_with_two_ones: &[usize],
         matrix: &T,
@@ -209,7 +209,7 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
-    fn first_phase_graph_substep<T: OctetMatrix>(
+    fn first_phase_graph_substep<T: BinaryMatrix>(
         &mut self,
         start_row: usize,
         end_row: usize,
@@ -306,7 +306,7 @@ impl FirstPhaseRowSelectionStats {
     // Helper method for decoder phase 1
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has)
-    pub fn first_phase_selection<T: OctetMatrix>(
+    pub fn first_phase_selection<T: BinaryMatrix>(
         &mut self,
         start_row: usize,
         end_row: usize,
@@ -359,7 +359,7 @@ impl FirstPhaseRowSelectionStats {
 // See section 5.4.2.1
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
+pub struct IntermediateSymbolDecoder<T: BinaryMatrix> {
     A: T,
     // If present, these are treated as replacing the last rows of A
     // Errata 3 guarantees that these do not need to be included in X
@@ -381,7 +381,7 @@ pub struct IntermediateSymbolDecoder<T: OctetMatrix> {
 }
 
 #[allow(non_snake_case)]
-impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
+impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     pub fn new(
         matrix: T,
         hdpc_rows: DenseOctetMatrix,
@@ -1150,7 +1150,7 @@ impl<T: OctetMatrix> IntermediateSymbolDecoder<T> {
 
 // Fused implementation for self.inverse().mul_symbols(symbols)
 // See section 5.4.2.1
-pub fn fused_inverse_mul_symbols<T: OctetMatrix>(
+pub fn fused_inverse_mul_symbols<T: BinaryMatrix>(
     matrix: T,
     hdpc_rows: DenseOctetMatrix,
     symbols: Vec<Symbol>,
@@ -1163,8 +1163,8 @@ pub fn fused_inverse_mul_symbols<T: OctetMatrix>(
 mod tests {
     use super::IntermediateSymbolDecoder;
     use crate::constraint_matrix::generate_constraint_matrix;
-    use crate::matrix::DenseOctetMatrix;
-    use crate::matrix::OctetMatrix;
+    use crate::matrix::BinaryMatrix;
+    use crate::matrix::DenseBinaryMatrix;
     use crate::symbol::Symbol;
     use crate::systematic_constants::{
         extended_source_block_symbols, num_ldpc_symbols, num_lt_symbols,
@@ -1178,7 +1178,7 @@ mod tests {
         {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
-            let (a, hdpc) = generate_constraint_matrix::<DenseOctetMatrix>(num_symbols, &indices);
+            let (a, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1usize); a.width()];
             let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
             decoder.execute();

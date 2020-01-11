@@ -3,9 +3,9 @@ use crate::base::partition;
 use crate::base::EncodingPacket;
 use crate::base::PayloadId;
 use crate::constraint_matrix::generate_constraint_matrix;
-use crate::matrix::DenseOctetMatrix;
+use crate::matrix::DenseBinaryMatrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
-use crate::sparse_matrix::SparseOctetMatrix;
+use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
@@ -190,11 +190,11 @@ fn gen_intermediate_symbols(
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
     if extended_source_symbols >= sparse_threshold {
         let (A, hdpc) =
-            generate_constraint_matrix::<SparseOctetMatrix>(extended_source_symbols, &indices);
+            generate_constraint_matrix::<SparseBinaryMatrix>(extended_source_symbols, &indices);
         return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
     } else {
         let (A, hdpc) =
-            generate_constraint_matrix::<DenseOctetMatrix>(extended_source_symbols, &indices);
+            generate_constraint_matrix::<DenseBinaryMatrix>(extended_source_symbols, &indices);
         return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols).unwrap();
     }
 }

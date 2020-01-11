@@ -1,5 +1,5 @@
 use crate::octet::Octet;
-use crate::sparse_vec::{SparseOctetVec, SparseValuelessVec};
+use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -158,7 +158,7 @@ pub struct OctetIter<'a> {
     end_col: usize,
     dense_elements: Option<&'a Vec<u8>>,
     dense_index: usize,
-    sparse_elements: Option<&'a SparseOctetVec>,
+    sparse_elements: Option<&'a SparseBinaryVec>,
     sparse_index: usize,
     sparse_physical_col_to_logical: Option<&'a [usize]>,
 }
@@ -167,7 +167,7 @@ impl<'a> OctetIter<'a> {
     pub fn new_sparse(
         start_col: usize,
         end_col: usize,
-        sparse_elements: &'a SparseOctetVec,
+        sparse_elements: &'a SparseBinaryVec,
         sparse_physical_col_to_logical: &'a [usize],
     ) -> OctetIter<'a> {
         OctetIter {
