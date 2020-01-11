@@ -13,6 +13,17 @@ matrix:
       script:
         - make test
 
+    - name: Run CPython wrapper linter
+        language: rust
+        rust: stable
+        install:
+          []
+        before_script:
+          - cargo install cargo-lichking
+          - rustup component add rustfmt
+        script:
+          - make -C python lint
+
     - name: Run CPython wrapper tests
       language: rust
       rust: nightly
