@@ -15,12 +15,7 @@ pub trait BinaryMatrix: Clone {
 
     fn width(&self) -> usize;
 
-    fn count_ones_and_nonzeros(
-        &self,
-        row: usize,
-        start_col: usize,
-        end_col: usize,
-    ) -> (usize, usize);
+    fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize;
 
     // Once "impl Trait" is supported in traits, it would be better to return "impl Iterator<...>"
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
@@ -88,13 +83,9 @@ impl BinaryMatrix for DenseBinaryMatrix {
         self.width
     }
 
-    fn count_ones_and_nonzeros(
-        &self,
-        row: usize,
-        start_col: usize,
-        end_col: usize,
-    ) -> (usize, usize) {
-        count_ones_and_nonzeros(&self.elements[row][start_col..end_col])
+    fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize {
+        // TODO: optimize this to not count the nonzeros
+        count_ones_and_nonzeros(&self.elements[row][start_col..end_col]).0
     }
 
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
@@ -264,18 +255,9 @@ mod tests {
     fn count_ones_and_nonzeros() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (dense, sparse) = rand_dense_and_sparse(8);
-        assert_eq!(
-            dense.count_ones_and_nonzeros(0, 0, 5),
-            sparse.count_ones_and_nonzeros(0, 0, 5)
-        );
-        assert_eq!(
-            dense.count_ones_and_nonzeros(2, 2, 6),
-            sparse.count_ones_and_nonzeros(2, 2, 6)
-        );
-        assert_eq!(
-            dense.count_ones_and_nonzeros(3, 1, 2),
-            sparse.count_ones_and_nonzeros(3, 1, 2)
-        );
+        assert_eq!(dense.count_ones(0, 0, 5), sparse.count_ones(0, 0, 5));
+        assert_eq!(dense.count_ones(2, 2, 6), sparse.count_ones(2, 2, 6));
+        assert_eq!(dense.count_ones(3, 1, 2), sparse.count_ones(3, 1, 2));
     }
 
     #[test]

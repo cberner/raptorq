@@ -105,30 +105,19 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.width
     }
 
-    fn count_ones_and_nonzeros(
-        &self,
-        row: usize,
-        start_col: usize,
-        end_col: usize,
-    ) -> (usize, usize) {
+    fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize {
         if end_col > self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
         let mut ones = 0;
-        let mut nonzeros = 0;
         let physical_row = self.logical_row_to_physical[row];
         for (physical_col, value) in self.sparse_elements[physical_row].keys_values() {
             let col = self.physical_col_to_logical[*physical_col];
-            if col >= start_col && col < end_col {
-                if *value == Octet::one() {
-                    ones += 1;
-                }
-                if *value != Octet::zero() {
-                    nonzeros += 1;
-                }
+            if col >= start_col && col < end_col && *value == Octet::one() {
+                ones += 1;
             }
         }
-        return (ones, nonzeros);
+        return ones;
     }
 
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {

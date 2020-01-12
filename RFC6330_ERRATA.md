@@ -49,3 +49,5 @@ j, then add to this row, row j of I_u". This follows from the fact that all nonz
     For j from 1 to i, perform the following operations:
        For l from 1 to j-1, if A[j,l] is one, then add row l of A to row j of A.
     ```
+8) Section 5.4.2.2 says "If r = 2 and there is no row with exactly 2 ones in V, then choose any row with exactly 2
+nonzeros in V." It follows from Errata 2 & 4 that this can be ignored as it will never happen.
