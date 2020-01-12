@@ -1,3 +1,4 @@
+use crate::matrix::DenseBinaryMatrix;
 use crate::octet::Octet;
 use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use serde::{Deserialize, Serialize};
@@ -119,7 +120,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
 pub struct ClonedOctetIter {
     sparse: bool,
     end_col: usize,
-    dense_elements: Option<Vec<u8>>,
+    dense_elements: Option<Vec<u64>>,
     dense_index: usize,
     sparse_elements: Option<Vec<(usize, Octet)>>,
     sparse_index: usize,
@@ -143,10 +144,16 @@ impl Iterator for ClonedOctetIter {
         } else {
             let old_index = self.dense_index;
             self.dense_index += 1;
-            return Some((
-                old_index,
-                Octet::new(self.dense_elements.as_ref().unwrap()[old_index]),
-            ));
+            let (word, bit) = DenseBinaryMatrix::bit_position(old_index);
+            let value = if self.dense_elements.as_ref().unwrap()[word]
+                & DenseBinaryMatrix::select_mask(bit)
+                == 0
+            {
+                Octet::zero()
+            } else {
+                Octet::one()
+            };
+            return Some((old_index, value));
         }
     }
 }
@@ -156,7 +163,7 @@ pub struct OctetIter<'a> {
     sparse: bool,
     start_col: usize,
     end_col: usize,
-    dense_elements: Option<&'a Vec<u8>>,
+    dense_elements: Option<&'a Vec<u64>>,
     dense_index: usize,
     sparse_elements: Option<&'a SparseBinaryVec>,
     sparse_index: usize,
@@ -183,18 +190,17 @@ impl<'a> OctetIter<'a> {
     }
 
     #[allow(clippy::ptr_arg)]
-    pub fn new_dense(
+    pub fn new_dense_binary(
         start_col: usize,
         end_col: usize,
-        dense_elements: &'a Vec<u8>,
-        dense_index: usize,
+        dense_elements: &'a Vec<u64>,
     ) -> OctetIter<'a> {
         OctetIter {
             sparse: false,
-            start_col,
+            start_col: 0,
             end_col,
             dense_elements: Some(dense_elements),
-            dense_index,
+            dense_index: start_col,
             sparse_elements: None,
             sparse_index: 0,
             sparse_physical_col_to_logical: None,
@@ -252,10 +258,14 @@ impl<'a> Iterator for OctetIter<'a> {
         } else {
             let old_index = self.dense_index;
             self.dense_index += 1;
-            return Some((
-                old_index,
-                Octet::new(self.dense_elements.unwrap()[old_index]),
-            ));
+            let (word, bit) = DenseBinaryMatrix::bit_position(old_index);
+            let value =
+                if self.dense_elements.unwrap()[word] & DenseBinaryMatrix::select_mask(bit) == 0 {
+                    Octet::zero()
+                } else {
+                    Octet::one()
+                };
+            return Some((old_index, value));
         }
     }
 }

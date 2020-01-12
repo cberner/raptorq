@@ -1,7 +1,6 @@
+use crate::gf2::add_assign_binary;
 use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::octet::Octet;
-use crate::octets::fused_addassign_mul_scalar;
-use crate::octets::{add_assign, count_ones_and_nonzeros};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 
@@ -51,19 +50,52 @@ pub trait BinaryMatrix: Clone {
     fn resize(&mut self, new_height: usize, new_width: usize);
 }
 
+const WORD_WIDTH: usize = 64;
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct DenseBinaryMatrix {
     height: usize,
     width: usize,
-    elements: Vec<Vec<u8>>,
+    // Values are bit-packed into u64
+    // TODO: optimize into a single dimensional vec
+    elements: Vec<Vec<u64>>,
+}
+
+impl DenseBinaryMatrix {
+    // Returns (word in elements vec, and bit in word) for the given col
+    pub fn bit_position(col: usize) -> (usize, usize) {
+        return (col / WORD_WIDTH, col % WORD_WIDTH);
+    }
+
+    // Returns mask to select the given bit in a word
+    pub fn select_mask(bit: usize) -> u64 {
+        1u64 << (bit as u64)
+    }
+
+    // Select the bit and all bits to the left
+    fn select_bit_and_all_left_mask(bit: usize) -> u64 {
+        !DenseBinaryMatrix::select_all_right_of_mask(bit)
+    }
+
+    // Select all bits right of the given bit
+    fn select_all_right_of_mask(bit: usize) -> u64 {
+        let mask = DenseBinaryMatrix::select_mask(bit);
+        // Subtract one to convert e.g. 0100 -> 0011
+        (mask - 1)
+    }
+
+    fn clear_bit(word: &mut u64, bit: usize) {
+        *word &= !DenseBinaryMatrix::select_mask(bit);
+    }
+
+    fn set_bit(word: &mut u64, bit: usize) {
+        *word |= DenseBinaryMatrix::select_mask(bit);
+    }
 }
 
 impl BinaryMatrix for DenseBinaryMatrix {
     fn new(height: usize, width: usize, _: usize) -> DenseBinaryMatrix {
-        let mut elements: Vec<Vec<u8>> = Vec::with_capacity(height);
-        for _ in 0..height {
-            elements.push(vec![0; width]);
-        }
+        let elements = vec![vec![0; DenseBinaryMatrix::bit_position(width).0 + 1]; height];
         DenseBinaryMatrix {
             height,
             width,
@@ -72,7 +104,12 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
-        self.elements[i][j] = value.byte();
+        let (word, bit) = DenseBinaryMatrix::bit_position(j);
+        if value == Octet::zero() {
+            DenseBinaryMatrix::clear_bit(&mut self.elements[i][word], bit);
+        } else {
+            DenseBinaryMatrix::set_bit(&mut self.elements[i][word], bit);
+        }
     }
 
     fn height(&self) -> usize {
@@ -84,12 +121,33 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize {
-        // TODO: optimize this to not count the nonzeros
-        count_ones_and_nonzeros(&self.elements[row][start_col..end_col]).0
+        let (start_word, start_bit) = DenseBinaryMatrix::bit_position(start_col);
+        let (end_word, end_bit) = DenseBinaryMatrix::bit_position(end_col);
+        // Handle case when there is only one word
+        if start_word == end_word {
+            let mut mask = DenseBinaryMatrix::select_bit_and_all_left_mask(start_bit);
+            mask &= DenseBinaryMatrix::select_all_right_of_mask(end_bit);
+            let bits = self.elements[row][start_word] & mask;
+            return bits.count_ones() as usize;
+        }
+
+        let first_word_bits = self.elements[row][start_word]
+            & DenseBinaryMatrix::select_bit_and_all_left_mask(start_bit);
+        let mut ones = first_word_bits.count_ones();
+        for word in (start_word + 1)..end_word {
+            ones += self.elements[row][word].count_ones();
+        }
+        if end_bit > 0 {
+            let bits =
+                self.elements[row][end_word] & DenseBinaryMatrix::select_all_right_of_mask(end_bit);
+            ones += bits.count_ones();
+        }
+
+        return ones as usize;
     }
 
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
-        OctetIter::new_dense(start_col, end_col, &self.elements[row], start_col)
+        OctetIter::new_dense_binary(start_col, end_col, &self.elements[row])
     }
 
     fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
@@ -97,11 +155,21 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
-        self.elements[row][start_col..].to_vec()
+        let mut result = Vec::with_capacity(self.width - start_col);
+        for col in start_col..self.width {
+            result.push(self.get(row, col).byte());
+        }
+
+        result
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
-        Octet::new(self.elements[i][j])
+        let (word, bit) = DenseBinaryMatrix::bit_position(j);
+        if self.elements[i][word] & DenseBinaryMatrix::select_mask(bit) == 0 {
+            return Octet::zero();
+        } else {
+            return Octet::one();
+        }
     }
 
     fn swap_rows(&mut self, i: usize, j: usize) {
@@ -110,7 +178,10 @@ impl BinaryMatrix for DenseBinaryMatrix {
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize) {
         for row in start_row_hint..self.elements.len() {
-            self.elements[row].swap(i, j);
+            let value_i = self.get(row, i);
+            let value_j = self.get(row, j);
+            self.set(row, i, value_j);
+            self.set(row, j, value_i);
         }
     }
 
@@ -132,7 +203,7 @@ impl BinaryMatrix for DenseBinaryMatrix {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
-        let mut temp = vec![vec![0; self.width]; rows];
+        let mut temp = vec![vec![0; DenseBinaryMatrix::bit_position(self.width).0 + 1]; rows];
         #[allow(clippy::needless_range_loop)]
         for row in 0..rows {
             for i in 0..rows {
@@ -140,11 +211,7 @@ impl BinaryMatrix for DenseBinaryMatrix {
                 if scalar == Octet::zero() {
                     continue;
                 }
-                if scalar == Octet::one() {
-                    add_assign(&mut temp[row], &self.elements[i]);
-                } else {
-                    fused_addassign_mul_scalar(&mut temp[row], &self.elements[i], &scalar);
-                }
+                add_assign_binary(&mut temp[row], &self.elements[i]);
             }
         }
         for row in (0..rows).rev() {
@@ -155,15 +222,16 @@ impl BinaryMatrix for DenseBinaryMatrix {
     fn add_assign_rows(&mut self, dest: usize, src: usize) {
         assert_ne!(dest, src);
         let (dest_row, temp_row) = get_both_indices(&mut self.elements, dest, src);
-        add_assign(dest_row, temp_row);
+        add_assign_binary(dest_row, temp_row);
     }
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
         assert!(new_height <= self.height);
         assert!(new_width <= self.width);
+        let (new_words, _) = DenseBinaryMatrix::bit_position(new_width);
         self.elements.truncate(new_height);
         for row in 0..self.elements.len() {
-            self.elements[row].truncate(new_width);
+            self.elements[row].truncate(new_words + 1);
         }
         self.height = new_height;
         self.width = new_width;
@@ -201,7 +269,7 @@ mod tests {
         for _ in 0..(size * size / 2) {
             let i = rand::thread_rng().gen_range(0, size);
             let j = rand::thread_rng().gen_range(0, size);
-            let value = rand::thread_rng().gen();
+            let value = rand::thread_rng().gen_range(0, 2);
             dense.set(i, j, Octet::new(value));
             sparse.set(i, j, Octet::new(value));
         }
@@ -252,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn count_ones_and_nonzeros() {
+    fn count_ones() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (dense, sparse) = rand_dense_and_sparse(8);
         assert_eq!(dense.count_ones(0, 0, 5), sparse.count_ones(0, 0, 5));
