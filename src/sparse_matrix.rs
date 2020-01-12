@@ -5,7 +5,6 @@ use crate::octets::add_assign;
 use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
 // The logical storage is as follows:
@@ -300,7 +299,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn resize(&mut self, new_height: usize, new_width: usize) {
         assert!(new_height <= self.height);
-        assert!(new_width <= self.width);
+        // Only support same width or removing all the dense columns
+        assert!(new_width == self.width || new_width <= self.width - self.num_dense_columns);
         if !self.column_index_disabled {
             unimplemented!(
                 "Resize should only be used in phase 2, after column indexing is no longer needed"
@@ -339,24 +339,20 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
 
         let mut columns_to_remove = self.width - new_width;
-        let dense_columns_to_remove = min(self.num_dense_columns, columns_to_remove);
-        // First remove from dense
-        for row in 0..self.dense_elements.len() {
-            self.dense_elements[row].truncate(self.num_dense_columns - dense_columns_to_remove);
+        assert!(columns_to_remove == 0 || columns_to_remove >= self.num_dense_columns);
+        if columns_to_remove >= self.num_dense_columns {
+            columns_to_remove -= self.num_dense_columns;
+            self.dense_elements.clear();
+            self.num_dense_columns = 0;
         }
-        columns_to_remove -= dense_columns_to_remove;
 
         // Next remove sparse columns
         if columns_to_remove > 0 {
             let physical_to_logical = &self.physical_col_to_logical;
             for row in 0..self.sparse_elements.len() {
-                // Current number of sparse columns - number to remove
-                let sparse_width = self.width - self.num_dense_columns - columns_to_remove;
-                self.sparse_elements[row]
-                    .retain(|(col, _)| physical_to_logical[*col] < sparse_width);
+                self.sparse_elements[row].retain(|(col, _)| physical_to_logical[*col] < new_width);
             }
         }
-        self.num_dense_columns -= dense_columns_to_remove;
 
         self.height = new_height;
         self.width = new_width;
