@@ -1,5 +1,5 @@
-use crate::arraymap::UsizeArrayMap;
 use crate::arraymap::{ArrayMap, BoolArrayMap};
+use crate::arraymap::{U16ArrayMap, U32VecMap};
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::octet_matrix::DenseOctetMatrix;
@@ -31,9 +31,9 @@ enum SymbolOps {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct FirstPhaseRowSelectionStats {
-    original_degree: UsizeArrayMap,
-    ones_per_row: UsizeArrayMap,
-    ones_histogram: UsizeArrayMap,
+    original_degree: U16ArrayMap,
+    ones_per_row: U16ArrayMap,
+    ones_histogram: U32VecMap,
     start_col: usize,
     end_col: usize,
     start_row: usize,
@@ -47,9 +47,9 @@ impl FirstPhaseRowSelectionStats {
     #[allow(non_snake_case)]
     pub fn new<T: BinaryMatrix>(matrix: &T, end_col: usize) -> FirstPhaseRowSelectionStats {
         let mut result = FirstPhaseRowSelectionStats {
-            original_degree: UsizeArrayMap::new(0, 0),
-            ones_per_row: UsizeArrayMap::new(0, matrix.height()),
-            ones_histogram: UsizeArrayMap::new(0, end_col + 1),
+            original_degree: U16ArrayMap::new(0, 0),
+            ones_per_row: U16ArrayMap::new(0, matrix.height()),
+            ones_histogram: U32VecMap::new(0),
             start_col: 0,
             end_col,
             start_row: 0,
@@ -59,7 +59,7 @@ impl FirstPhaseRowSelectionStats {
 
         for row in 0..matrix.height() {
             let ones = matrix.count_ones(row, 0, end_col);
-            result.ones_per_row.insert(row, ones);
+            result.ones_per_row.insert(row, ones as u16);
             result.ones_histogram.increment(ones);
             if ones == 1 {
                 result.rows_with_single_one.push(row);
@@ -102,9 +102,10 @@ impl FirstPhaseRowSelectionStats {
         if ones == 1 {
             self.rows_with_single_one.push(row);
         }
-        self.ones_histogram.decrement(self.ones_per_row.get(row));
+        self.ones_histogram
+            .decrement(self.ones_per_row.get(row) as usize);
         self.ones_histogram.increment(ones);
-        self.ones_per_row.insert(row, ones);
+        self.ones_per_row.insert(row, ones as u16);
     }
 
     pub fn eliminate_leading_value(&mut self, row: usize, value: &Octet) {
@@ -117,8 +118,8 @@ impl FirstPhaseRowSelectionStats {
         } else if ones == 1 {
             self.rows_with_single_one.push(row);
         }
-        self.ones_histogram.decrement(ones + 1);
-        self.ones_histogram.increment(ones);
+        self.ones_histogram.decrement((ones + 1) as usize);
+        self.ones_histogram.increment(ones as usize);
     }
 
     // Set the valid columns, and recalculate statistics
@@ -138,7 +139,7 @@ impl FirstPhaseRowSelectionStats {
         assert_eq!(self.start_col, start_col - 1);
 
         self.ones_histogram
-            .decrement(self.ones_per_row.get(self.start_row));
+            .decrement(self.ones_per_row.get(self.start_row) as usize);
         self.rows_with_single_one.retain(|x| *x != start_row - 1);
 
         for col in end_col..self.end_col {
@@ -151,8 +152,8 @@ impl FirstPhaseRowSelectionStats {
                     } else if ones == 1 {
                         self.rows_with_single_one.push(row);
                     }
-                    self.ones_histogram.decrement(ones + 1);
-                    self.ones_histogram.increment(ones);
+                    self.ones_histogram.decrement((ones + 1) as usize);
+                    self.ones_histogram.increment(ones as usize);
                 }
             }
         }
@@ -263,14 +264,14 @@ impl FirstPhaseRowSelectionStats {
         // There's no need for special handling of HDPC rows, since Errata 2 guarantees we won't
         // select any, and they're excluded in the first_phase solver
         let mut chosen = None;
-        let mut chosen_original_degree = std::usize::MAX;
+        let mut chosen_original_degree = std::u16::MAX;
         // Fast path for r=1, since this is super common
         if r == 1 {
             assert_ne!(0, self.rows_with_single_one.len());
             for &row in self.rows_with_single_one.iter() {
                 let ones = self.ones_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
-                if ones == r && row_original_degree < chosen_original_degree {
+                if ones as usize == r && row_original_degree < chosen_original_degree {
                     chosen = Some(row);
                     chosen_original_degree = row_original_degree;
                 }
@@ -279,7 +280,7 @@ impl FirstPhaseRowSelectionStats {
             for row in start_row..end_row {
                 let ones = self.ones_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
-                if ones == r && row_original_degree < chosen_original_degree {
+                if ones as usize == r && row_original_degree < chosen_original_degree {
                     chosen = Some(row);
                     chosen_original_degree = row_original_degree;
                 }
