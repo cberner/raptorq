@@ -1150,19 +1150,20 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         self.apply_deferred_symbol_ops();
 
         // See end of section 5.4.2.1
-        let mut index_mapping = UsizeArrayMap::new(0, self.L);
+        let mut index_mapping = vec![0; self.L];
         for i in 0..self.L {
-            index_mapping.insert(self.c[i], self.d[i]);
+            index_mapping[self.c[i]] = self.d[i];
         }
 
         #[allow(non_snake_case)]
         let mut removable_D: Vec<Option<Symbol>> = self.D.drain(..).map(Some).collect();
 
         let mut result = Vec::with_capacity(self.L);
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.L {
             // push a None so it can be swapped in
             removable_D.push(None);
-            result.push(removable_D.swap_remove(index_mapping.get(i)).unwrap());
+            result.push(removable_D.swap_remove(index_mapping[i]).unwrap());
         }
         Some(result)
     }
