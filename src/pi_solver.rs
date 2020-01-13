@@ -386,15 +386,22 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
         let num_rows = matrix.height();
 
+        let pi_symbols = num_pi_symbols(num_source_symbols) as usize;
+        let A = matrix.clone();
+        let mut X = matrix;
+        // Drop the PI symbols, since they will never be accessed in X. X will be resized to
+        // i-by-i in the second phase.
+        X.resize(X.height(), X.width() - pi_symbols);
+
         let mut temp = IntermediateSymbolDecoder {
-            A: matrix.clone(),
+            A,
             A_hdpc_rows: None,
-            X: matrix,
+            X,
             D: symbols,
             c,
             d,
             i: 0,
-            u: num_pi_symbols(num_source_symbols) as usize,
+            u: pi_symbols,
             L: intermediate_symbols,
             deferred_D_ops: Vec::with_capacity(70 * intermediate_symbols),
             num_source_symbols,
