@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ArrayMap<T> {
@@ -12,6 +13,10 @@ impl<T: std::clone::Clone> ArrayMap<T> {
             offset: start_key,
             elements: vec![None; end_key - start_key],
         }
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        size_of::<Self>() + size_of::<Option<T>>() * self.elements.len()
     }
 
     pub fn reset<F: Fn(&mut T) -> ()>(
@@ -64,6 +69,10 @@ impl UsizeArrayMap {
             offset: start_key,
             elements: vec![0; end_key - start_key],
         }
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        size_of::<Self>() + size_of::<usize>() * self.elements.len()
     }
 
     pub fn swap(&mut self, key: usize, other_key: usize) {
