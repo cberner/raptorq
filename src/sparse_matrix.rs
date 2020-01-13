@@ -46,8 +46,8 @@ impl SparseBinaryMatrix {
         }
         for row in 0..self.height {
             for (col, value) in self.sparse_elements[row].keys_values() {
-                if *value != Octet::zero() {
-                    debug_assert!(self.sparse_column_index[*col].exists(row));
+                if value != Octet::zero() {
+                    debug_assert!(self.sparse_column_index[col].exists(row));
                 }
             }
         }
@@ -143,8 +143,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let mut ones = 0;
         let physical_row = self.logical_row_to_physical[row];
         for (physical_col, value) in self.sparse_elements[physical_row].keys_values() {
-            let col = self.physical_col_to_logical[*physical_col];
-            if col >= start_col && col < end_col && *value == Octet::one() {
+            let col = self.physical_col_to_logical[physical_col];
+            if col >= start_col && col < end_col && value == Octet::one() {
                 ones += 1;
             }
         }
@@ -175,8 +175,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         } else {
             return self.sparse_elements[physical_i]
                 .get(physical_j)
-                .unwrap_or(&Octet::zero())
-                .clone();
+                .unwrap_or_else(Octet::zero);
         }
     }
 
@@ -228,7 +227,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.sparse_column_index = vec![SparseValuelessVec::with_capacity(50); self.width];
         for (physical_row, elements) in self.sparse_elements.iter().enumerate() {
             for (physical_col, _) in elements.keys_values() {
-                self.sparse_column_index[*physical_col].insert_last(physical_row);
+                self.sparse_column_index[physical_col].insert_last(physical_row);
             }
         }
     }
@@ -301,7 +300,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             }
             if !self.column_index_disabled {
                 for (col, _) in self.sparse_elements[physical_row].keys_values() {
-                    self.sparse_column_index[*col].insert(physical_row)
+                    self.sparse_column_index[col].insert(physical_row)
                 }
             }
         }
@@ -331,7 +330,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let new_columns = dest_row.add_assign(temp_row);
         if !self.column_index_disabled {
             for new_col in new_columns {
-                self.sparse_column_index[new_col].insert(physical_dest);
+                self.sparse_column_index[new_col as usize].insert(physical_dest);
             }
         }
 
