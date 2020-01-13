@@ -30,8 +30,8 @@ pub struct SparseBinaryMatrix {
     // Mapping of logical row numbers to index in sparse_elements, dense_elements, and sparse_column_index
     logical_row_to_physical: Vec<u32>,
     physical_row_to_logical: Vec<u32>,
-    logical_col_to_physical: Vec<u32>,
-    physical_col_to_logical: Vec<u32>,
+    logical_col_to_physical: Vec<u16>,
+    physical_col_to_logical: Vec<u16>,
     column_index_disabled: bool,
     num_dense_columns: usize,
 }
@@ -80,7 +80,8 @@ impl SparseBinaryMatrix {
 impl BinaryMatrix for SparseBinaryMatrix {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseBinaryMatrix {
         debug_assert!(height < 16777216);
-        debug_assert!(width < 16777216);
+        // Matrix width can never exceed maximum L
+        debug_assert!(width < 65536);
         let mut col_mapping = vec![0; width];
         let elements = vec![SparseBinaryVec::with_capacity(10); height];
         let mut row_mapping = vec![0; height];
@@ -90,7 +91,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
         #[allow(clippy::needless_range_loop)]
         for i in 0..width {
-            col_mapping[i] = i as u32;
+            col_mapping[i] = i as u16;
         }
         let dense_elements = if trailing_dense_column_hint > 0 {
             vec![0; height * ((trailing_dense_column_hint - 1) / WORD_WIDTH + 1)]
@@ -393,7 +394,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             let physical_to_logical = &self.physical_col_to_logical;
             for row in 0..self.sparse_elements.len() {
                 self.sparse_elements[row]
-                    .retain(|(col, _)| physical_to_logical[*col] < new_width as u32);
+                    .retain(|(col, _)| physical_to_logical[*col] < new_width as u16);
             }
         }
 
@@ -415,9 +416,21 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
         bytes += size_of::<u32>() * self.logical_row_to_physical.len();
         bytes += size_of::<u32>() * self.physical_row_to_logical.len();
-        bytes += size_of::<u32>() * self.logical_col_to_physical.len();
-        bytes += size_of::<u32>() * self.physical_col_to_logical.len();
+        bytes += size_of::<u16>() * self.logical_col_to_physical.len();
+        bytes += size_of::<u16>() * self.physical_col_to_logical.len();
 
         bytes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::systematic_constants::{num_intermediate_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
+
+    #[test]
+    fn check_max_width_optimization() {
+        // Check that the optimization of limiting matrix width to 2^16 is safe.
+        // Matrix width will never exceed L
+        assert!(num_intermediate_symbols(MAX_SOURCE_SYMBOLS_PER_BLOCK) < 65536);
     }
 }

@@ -168,7 +168,7 @@ pub struct OctetIter<'a> {
     dense_index: usize,
     sparse_elements: Option<&'a SparseBinaryVec>,
     sparse_index: usize,
-    sparse_physical_col_to_logical: Option<&'a [u32]>,
+    sparse_physical_col_to_logical: Option<&'a [u16]>,
 }
 
 impl<'a> OctetIter<'a> {
@@ -176,7 +176,7 @@ impl<'a> OctetIter<'a> {
         start_col: usize,
         end_col: usize,
         sparse_elements: &'a SparseBinaryVec,
-        sparse_physical_col_to_logical: &'a [u32],
+        sparse_physical_col_to_logical: &'a [u16],
     ) -> OctetIter<'a> {
         OctetIter {
             sparse: true,
@@ -248,7 +248,7 @@ impl<'a> Iterator for OctetIter<'a> {
                     let entry = elements.get_by_raw_index(self.sparse_index);
                     self.sparse_index += 1;
                     let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
-                    if logical_col >= self.start_col as u32 && logical_col < self.end_col as u32 {
+                    if logical_col >= self.start_col as u16 && logical_col < self.end_col as u16 {
                         return Some((logical_col as usize, entry.1));
                     }
                 }
