@@ -387,7 +387,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         let num_rows = matrix.height();
 
         let pi_symbols = num_pi_symbols(num_source_symbols) as usize;
-        let A = matrix.clone();
+        let mut A = matrix.clone();
+        A.enable_column_acccess_acceleration();
         let mut X = matrix;
         // Drop the PI symbols, since they will never be accessed in X. X will be resized to
         // i-by-i in the second phase.
@@ -1120,7 +1121,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     pub fn execute(&mut self) -> Option<Vec<Symbol>> {
         self.X.disable_column_acccess_acceleration();
-        self.A.enable_column_acccess_acceleration();
 
         if !self.first_phase() {
             return None;
