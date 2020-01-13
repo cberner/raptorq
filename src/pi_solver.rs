@@ -10,7 +10,6 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "benchmarking")]
 use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -70,6 +69,18 @@ impl FirstPhaseRowSelectionStats {
         result.original_degree = result.ones_per_row.clone();
 
         result
+    }
+
+    #[allow(dead_code)]
+    pub fn size_in_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+
+        bytes += self.original_degree.size_in_bytes();
+        bytes += self.ones_per_row.size_in_bytes();
+        bytes += self.ones_histogram.size_in_bytes();
+        bytes += self.scratch_adjacent_nodes.size_in_bytes();
+
+        bytes
     }
 
     pub fn swap_rows(&mut self, i: usize, j: usize) {
