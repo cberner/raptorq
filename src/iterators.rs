@@ -75,7 +75,7 @@ impl<'a> BorrowedKeyIter<'a> {
         // Convert to logical indices, since ClonedOctetIter doesn't handle physical
         let sparse_rows = self.sparse_rows.map(|x| {
             x.keys()
-                .map(|physical_row| self.physical_row_to_logical.unwrap()[*physical_row])
+                .map(|physical_row| self.physical_row_to_logical.unwrap()[physical_row])
                 .filter(|logical_row| {
                     *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row
                 })
@@ -100,7 +100,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
             while self.sparse_index < elements.len() {
                 let physical_row = elements.get_by_raw_index(self.sparse_index);
                 self.sparse_index += 1;
-                let logical_row = self.physical_row_to_logical.unwrap()[*physical_row];
+                let logical_row = self.physical_row_to_logical.unwrap()[physical_row];
                 if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
                     return Some(logical_row);
                 }
