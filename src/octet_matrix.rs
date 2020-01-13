@@ -3,6 +3,8 @@ use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, mulassign_scalar};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "benchmarking")]
+use std::mem::size_of;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct DenseOctetMatrix {
@@ -45,6 +47,15 @@ impl DenseOctetMatrix {
 
     pub fn height(&self) -> usize {
         self.height
+    }
+
+    #[cfg(feature = "benchmarking")]
+    pub fn size_in_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+        bytes += size_of::<Vec<u8>>() * self.elements.len();
+        bytes += size_of::<u8>() * self.height * self.width;
+
+        bytes
     }
 
     pub fn mul_assign_row(&mut self, row: usize, value: &Octet) {

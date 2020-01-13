@@ -10,6 +10,8 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "benchmarking")]
+use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 enum SymbolOps {
@@ -1000,6 +1002,22 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     #[allow(dead_code)]
     pub fn get_symbol_add_ops_by_phase(&self) -> Vec<u32> {
         self.debug_symbol_add_ops_by_phase.clone()
+    }
+
+    #[cfg(feature = "benchmarking")]
+    pub fn get_non_symbol_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+
+        bytes += self.A.size_in_bytes();
+        if let Some(ref hdpc) = self.A_hdpc_rows {
+            bytes += hdpc.size_in_bytes();
+        }
+        bytes += self.X.size_in_bytes();
+        // Skip self.D, since we're calculating non-Symbol bytes
+        bytes += size_of::<usize>() * self.c.len();
+        bytes += size_of::<usize>() * self.d.len();
+
+        bytes
     }
 
     // Record operation to apply operations to D.

@@ -3,6 +3,7 @@ use crate::iterators::{BorrowedKeyIter, OctetIter};
 use crate::octet::Octet;
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
+use std::mem::size_of;
 
 // TODO: change this struct to not use the Octet class, since it's binary not GF(256)
 pub trait BinaryMatrix: Clone {
@@ -13,6 +14,8 @@ pub trait BinaryMatrix: Clone {
     fn height(&self) -> usize;
 
     fn width(&self) -> usize;
+
+    fn size_in_bytes(&self) -> usize;
 
     fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize;
 
@@ -118,6 +121,14 @@ impl BinaryMatrix for DenseBinaryMatrix {
 
     fn width(&self) -> usize {
         self.width
+    }
+
+    fn size_in_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+        bytes += size_of::<Vec<u64>>() * self.elements.len();
+        bytes += size_of::<u64>() * self.height * self.width;
+
+        bytes
     }
 
     fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize {
