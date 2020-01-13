@@ -28,10 +28,10 @@ pub struct SparseBinaryMatrix {
     // Does not guarantee that the row has a non-zero value, since FMA may have added to zero
     sparse_column_index: Vec<SparseValuelessVec>,
     // Mapping of logical row numbers to index in sparse_elements, dense_elements, and sparse_column_index
-    logical_row_to_physical: Vec<usize>,
-    physical_row_to_logical: Vec<usize>,
-    logical_col_to_physical: Vec<usize>,
-    physical_col_to_logical: Vec<usize>,
+    logical_row_to_physical: Vec<u32>,
+    physical_row_to_logical: Vec<u32>,
+    logical_col_to_physical: Vec<u32>,
+    physical_col_to_logical: Vec<u32>,
     column_index_disabled: bool,
     num_dense_columns: usize,
 }
@@ -79,16 +79,18 @@ impl SparseBinaryMatrix {
 
 impl BinaryMatrix for SparseBinaryMatrix {
     fn new(height: usize, width: usize, trailing_dense_column_hint: usize) -> SparseBinaryMatrix {
+        debug_assert!(height < 16777216);
+        debug_assert!(width < 16777216);
         let mut col_mapping = vec![0; width];
         let elements = vec![SparseBinaryVec::with_capacity(10); height];
         let mut row_mapping = vec![0; height];
         #[allow(clippy::needless_range_loop)]
         for i in 0..height {
-            row_mapping[i] = i;
+            row_mapping[i] = i as u32;
         }
         #[allow(clippy::needless_range_loop)]
         for i in 0..width {
-            col_mapping[i] = i;
+            col_mapping[i] = i as u32;
         }
         let dense_elements = if trailing_dense_column_hint > 0 {
             vec![0; height * ((trailing_dense_column_hint - 1) / WORD_WIDTH + 1)]
@@ -111,8 +113,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
     }
 
     fn set(&mut self, i: usize, j: usize, value: Octet) {
-        let physical_i = self.logical_row_to_physical[i];
-        let physical_j = self.logical_col_to_physical[j];
+        let physical_i = self.logical_row_to_physical[i] as usize;
+        let physical_j = self.logical_col_to_physical[j] as usize;
         if self.width - j <= self.num_dense_columns {
             let (word, bit) = self.bit_position(physical_i, self.width - j - 1);
             if value == Octet::zero() {
@@ -141,9 +143,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
         let mut ones = 0;
-        let physical_row = self.logical_row_to_physical[row];
+        let physical_row = self.logical_row_to_physical[row] as usize;
         for (physical_col, value) in self.sparse_elements[physical_row].keys_values() {
-            let col = self.physical_col_to_logical[physical_col];
+            let col = self.physical_col_to_logical[physical_col] as usize;
             if col >= start_col && col < end_col && value == Octet::one() {
                 ones += 1;
             }
@@ -163,8 +165,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
-        let physical_i = self.logical_row_to_physical[i];
-        let physical_j = self.logical_col_to_physical[j];
+        let physical_i = self.logical_row_to_physical[i] as usize;
+        let physical_j = self.logical_col_to_physical[j] as usize;
         if self.width - j <= self.num_dense_columns {
             let (word, bit) = self.bit_position(physical_i, self.width - j - 1);
             if self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) == 0 {
@@ -183,7 +185,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         if end_col > self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
-        let physical_row = self.logical_row_to_physical[row];
+        let physical_row = self.logical_row_to_physical[row] as usize;
         let sparse_elements = &self.sparse_elements[physical_row];
         OctetIter::new_sparse(
             start_col,
@@ -195,18 +197,18 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
         assert_eq!(self.column_index_disabled, false);
-        let physical_col = self.logical_col_to_physical[col];
+        let physical_col = self.logical_col_to_physical[col] as usize;
         BorrowedKeyIter::new_sparse(
             &self.sparse_column_index[physical_col],
-            start_row,
-            end_row,
+            start_row as u32,
+            end_row as u32,
             &self.physical_row_to_logical,
         )
     }
 
     fn swap_rows(&mut self, i: usize, j: usize) {
-        let physical_i = self.logical_row_to_physical[i];
-        let physical_j = self.logical_row_to_physical[j];
+        let physical_i = self.logical_row_to_physical[i] as usize;
+        let physical_j = self.logical_row_to_physical[j] as usize;
         self.logical_row_to_physical.swap(i, j);
         self.physical_row_to_logical.swap(physical_i, physical_j);
     }
@@ -216,8 +218,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
 
-        let physical_i = self.logical_col_to_physical[i];
-        let physical_j = self.logical_col_to_physical[j];
+        let physical_i = self.logical_col_to_physical[i] as usize;
+        let physical_j = self.logical_col_to_physical[j] as usize;
         self.logical_col_to_physical.swap(i, j);
         self.physical_col_to_logical.swap(physical_i, physical_j);
     }
@@ -251,7 +253,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             // Append a new set of words
             self.dense_elements.extend(vec![0; self.height]);
         }
-        let physical_i = self.logical_col_to_physical[i];
+        let physical_i = self.logical_col_to_physical[i] as usize;
         for maybe_present_in_row in self.sparse_column_index[physical_i].keys() {
             let physical_row = maybe_present_in_row;
             if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
@@ -279,7 +281,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let mut temp_dense = vec![0; rows * ((self.num_dense_columns - 1) / WORD_WIDTH + 1)];
         for row in 0..rows {
             for (i, scalar) in other.get_row_iter(row, 0, rows) {
-                let physical_i = self.logical_row_to_physical[i];
+                let physical_i = self.logical_row_to_physical[i] as usize;
                 if scalar != Octet::zero() {
                     temp_sparse[row].add_assign(&self.sparse_elements[physical_i]);
                     let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
@@ -291,7 +293,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             }
         }
         for row in (0..rows).rev() {
-            let physical_row = self.logical_row_to_physical[row];
+            let physical_row = self.logical_row_to_physical[row] as usize;
             self.sparse_elements[physical_row] = temp_sparse.pop().unwrap();
             let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
             for word in 0..words {
@@ -311,8 +313,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn add_assign_rows(&mut self, dest: usize, src: usize) {
         assert_ne!(dest, src);
-        let physical_dest = self.logical_row_to_physical[dest];
-        let physical_src = self.logical_row_to_physical[src];
+        let physical_dest = self.logical_row_to_physical[dest] as usize;
+        let physical_src = self.logical_row_to_physical[src] as usize;
         // First handle the dense columns
         if self.num_dense_columns > 0 {
             let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
@@ -350,7 +352,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
         let mut new_sparse = vec![None; new_height];
         for i in (0..self.sparse_elements.len()).rev() {
-            let logical_row = self.physical_row_to_logical[i];
+            let logical_row = self.physical_row_to_logical[i] as usize;
             let sparse = self.sparse_elements.pop();
             if logical_row < new_height {
                 new_sparse[logical_row] = sparse;
@@ -364,7 +366,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
             for word in 0..words {
                 for logical_row in 0..new_height {
-                    let physical_row = self.logical_row_to_physical[logical_row];
+                    let physical_row = self.logical_row_to_physical[logical_row] as usize;
                     new_dense[word * new_height + logical_row] =
                         self.dense_elements[word * self.height + physical_row];
                 }
@@ -379,8 +381,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.logical_row_to_physical.truncate(new_height);
         self.physical_row_to_logical.truncate(new_height);
         for i in 0..new_height {
-            self.logical_row_to_physical[i] = i;
-            self.physical_row_to_logical[i] = i;
+            self.logical_row_to_physical[i] = i as u32;
+            self.physical_row_to_logical[i] = i as u32;
         }
         for row in new_sparse.drain(0..new_height) {
             self.sparse_elements.push(row.unwrap());
@@ -390,7 +392,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
         if columns_to_remove > 0 {
             let physical_to_logical = &self.physical_col_to_logical;
             for row in 0..self.sparse_elements.len() {
-                self.sparse_elements[row].retain(|(col, _)| physical_to_logical[*col] < new_width);
+                self.sparse_elements[row]
+                    .retain(|(col, _)| physical_to_logical[*col] < new_width as u32);
             }
         }
 
@@ -410,10 +413,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
         for x in self.sparse_column_index.iter() {
             bytes += x.size_in_bytes();
         }
-        bytes += size_of::<usize>() * self.logical_row_to_physical.len();
-        bytes += size_of::<usize>() * self.physical_row_to_logical.len();
-        bytes += size_of::<usize>() * self.logical_col_to_physical.len();
-        bytes += size_of::<usize>() * self.physical_col_to_logical.len();
+        bytes += size_of::<u32>() * self.logical_row_to_physical.len();
+        bytes += size_of::<u32>() * self.physical_row_to_logical.len();
+        bytes += size_of::<u32>() * self.logical_col_to_physical.len();
+        bytes += size_of::<u32>() * self.physical_col_to_logical.len();
 
         bytes
     }

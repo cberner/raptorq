@@ -33,18 +33,18 @@ pub struct BorrowedKeyIter<'a> {
     dense_index: usize,
     dense_end: usize,
     sparse_rows: Option<&'a SparseValuelessVec>,
-    sparse_start_row: usize,
-    sparse_end_row: usize,
+    sparse_start_row: u32,
+    sparse_end_row: u32,
     sparse_index: usize,
-    physical_row_to_logical: Option<&'a [usize]>,
+    physical_row_to_logical: Option<&'a [u32]>,
 }
 
 impl<'a> BorrowedKeyIter<'a> {
     pub fn new_sparse(
         sparse_rows: &'a SparseValuelessVec,
-        sparse_start_row: usize,
-        sparse_end_row: usize,
-        physical_row_to_logical: &'a [usize],
+        sparse_start_row: u32,
+        sparse_end_row: u32,
+        physical_row_to_logical: &'a [u32],
     ) -> BorrowedKeyIter<'a> {
         BorrowedKeyIter {
             sparse: true,
@@ -75,9 +75,10 @@ impl<'a> BorrowedKeyIter<'a> {
         // Convert to logical indices, since ClonedOctetIter doesn't handle physical
         let sparse_rows = self.sparse_rows.map(|x| {
             x.keys()
-                .map(|physical_row| self.physical_row_to_logical.unwrap()[physical_row])
+                .map(|physical_row| self.physical_row_to_logical.unwrap()[physical_row] as usize)
                 .filter(|logical_row| {
-                    *logical_row >= self.sparse_start_row && *logical_row < self.sparse_end_row
+                    *logical_row >= self.sparse_start_row as usize
+                        && *logical_row < self.sparse_end_row as usize
                 })
                 .collect()
         });
@@ -102,7 +103,7 @@ impl<'a> Iterator for BorrowedKeyIter<'a> {
                 self.sparse_index += 1;
                 let logical_row = self.physical_row_to_logical.unwrap()[physical_row];
                 if logical_row >= self.sparse_start_row && logical_row < self.sparse_end_row {
-                    return Some(logical_row);
+                    return Some(logical_row as usize);
                 }
             }
             return None;
@@ -167,7 +168,7 @@ pub struct OctetIter<'a> {
     dense_index: usize,
     sparse_elements: Option<&'a SparseBinaryVec>,
     sparse_index: usize,
-    sparse_physical_col_to_logical: Option<&'a [usize]>,
+    sparse_physical_col_to_logical: Option<&'a [u32]>,
 }
 
 impl<'a> OctetIter<'a> {
@@ -175,7 +176,7 @@ impl<'a> OctetIter<'a> {
         start_col: usize,
         end_col: usize,
         sparse_elements: &'a SparseBinaryVec,
-        sparse_physical_col_to_logical: &'a [usize],
+        sparse_physical_col_to_logical: &'a [u32],
     ) -> OctetIter<'a> {
         OctetIter {
             sparse: true,
@@ -213,7 +214,7 @@ impl<'a> OctetIter<'a> {
             x.keys_values()
                 .map(|(physical_col, value)| {
                     (
-                        self.sparse_physical_col_to_logical.unwrap()[physical_col],
+                        self.sparse_physical_col_to_logical.unwrap()[physical_col] as usize,
                         value,
                     )
                 })
@@ -247,8 +248,8 @@ impl<'a> Iterator for OctetIter<'a> {
                     let entry = elements.get_by_raw_index(self.sparse_index);
                     self.sparse_index += 1;
                     let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
-                    if logical_col >= self.start_col && logical_col < self.end_col {
-                        return Some((logical_col, entry.1));
+                    if logical_col >= self.start_col as u32 && logical_col < self.end_col as u32 {
+                        return Some((logical_col as usize, entry.1));
                     }
                 }
                 return None;
