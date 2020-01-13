@@ -327,6 +327,7 @@ impl FirstPhaseRowSelectionStats {
         }
 
         if r.unwrap() == 2 {
+            // TODO: optimize to not allocate this Vec
             let mut rows_with_two_ones = vec![];
             for row in start_row..end_row {
                 let ones = self.ones_per_row.get(row);
