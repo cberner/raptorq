@@ -213,8 +213,8 @@ impl<'a> OctetIter<'a> {
             x.keys_values()
                 .map(|(physical_col, value)| {
                     (
-                        self.sparse_physical_col_to_logical.unwrap()[*physical_col],
-                        value.clone(),
+                        self.sparse_physical_col_to_logical.unwrap()[physical_col],
+                        value,
                     )
                 })
                 .filter(|(logical_col, _)| {
@@ -248,7 +248,7 @@ impl<'a> Iterator for OctetIter<'a> {
                     self.sparse_index += 1;
                     let logical_col = self.sparse_physical_col_to_logical.unwrap()[entry.0];
                     if logical_col >= self.start_col && logical_col < self.end_col {
-                        return Some((logical_col, entry.1.clone()));
+                        return Some((logical_col, entry.1));
                     }
                 }
                 return None;
