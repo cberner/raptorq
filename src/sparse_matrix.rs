@@ -5,6 +5,7 @@ use crate::octets::add_assign;
 use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
+use std::mem::size_of;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
 // The logical storage is as follows:
@@ -359,5 +360,25 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
         #[cfg(debug_assertions)]
         self.verify();
+    }
+
+    fn size_in_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+        for x in self.sparse_elements.iter() {
+            bytes += x.size_in_bytes();
+        }
+        for x in self.dense_elements.iter() {
+            bytes += size_of::<Vec<u8>>();
+            bytes += size_of::<u8>() * x.len();
+        }
+        for x in self.sparse_column_index.iter() {
+            bytes += x.size_in_bytes();
+        }
+        bytes += size_of::<usize>() * self.logical_row_to_physical.len();
+        bytes += size_of::<usize>() * self.physical_row_to_logical.len();
+        bytes += size_of::<usize>() * self.logical_col_to_physical.len();
+        bytes += size_of::<usize>() * self.physical_col_to_logical.len();
+
+        bytes
     }
 }

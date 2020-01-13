@@ -1,6 +1,7 @@
 use crate::octet::Octet;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::mem::size_of;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct SparseBinaryVec {
@@ -19,6 +20,10 @@ impl SparseBinaryVec {
     // at which it can be inserted (maintaining sorted order)
     fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
         self.elements.binary_search_by_key(&i, |(index, _)| *index)
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        size_of::<Self>() + size_of::<(usize, Octet)>() * self.elements.len()
     }
 
     pub fn len(&self) -> usize {
@@ -155,6 +160,10 @@ impl SparseValuelessVec {
     // at which it can be inserted (maintaining sorted order)
     fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
         self.elements.binary_search(&i)
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        size_of::<Self>() + size_of::<usize>() * self.elements.len()
     }
 
     pub fn len(&self) -> usize {
