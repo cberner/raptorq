@@ -1,4 +1,4 @@
-use crate::arraymap::{ArrayMap, BoolArrayMap};
+use crate::arraymap::{AdjacencyList, BoolArrayMap};
 use crate::arraymap::{U16ArrayMap, U32VecMap};
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
@@ -39,7 +39,7 @@ struct FirstPhaseRowSelectionStats {
     start_row: usize,
     rows_with_single_one: Vec<usize>,
     // Scratch data struct that is reused across calls because it's expensive to construct
-    scratch_adjacent_nodes: ArrayMap<Vec<(usize, usize)>>,
+    scratch_adjacent_nodes: AdjacencyList,
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -54,7 +54,7 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_one: vec![],
-            scratch_adjacent_nodes: ArrayMap::new(0, end_col),
+            scratch_adjacent_nodes: AdjacencyList::new(0, end_col),
         };
 
         for row in 0..matrix.height() {
