@@ -358,7 +358,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             }
         }
 
-        if columns_to_remove == 0 {
+        if columns_to_remove == 0 && self.num_dense_columns > 0 {
             // TODO: optimize to not allocate this extra vec
             let mut new_dense =
                 vec![0; new_height * ((self.num_dense_columns - 1) / WORD_WIDTH + 1)];
