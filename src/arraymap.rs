@@ -2,24 +2,33 @@ use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct ArrayMap<T> {
+pub struct AdjacencyList {
     offset: usize,
-    elements: Vec<Option<T>>,
+    elements: Vec<Option<Vec<(usize, usize)>>>,
 }
 
-impl<T: std::clone::Clone> ArrayMap<T> {
-    pub fn new(start_key: usize, end_key: usize) -> ArrayMap<T> {
-        ArrayMap {
+impl AdjacencyList {
+    pub fn new(start_key: usize, end_key: usize) -> AdjacencyList {
+        AdjacencyList {
             offset: start_key,
             elements: vec![None; end_key - start_key],
         }
     }
 
     pub fn size_in_bytes(&self) -> usize {
-        size_of::<Self>() + size_of::<Option<T>>() * self.elements.len()
+        let mut bytes = size_of::<Self>();
+        bytes += size_of::<Option<Vec<(usize, usize)>>>() * self.elements.len();
+
+        for node_adjacencies in self.elements.iter() {
+            if let Some(x) = node_adjacencies {
+                bytes += size_of::<(usize, usize)>() * x.len();
+            }
+        }
+
+        bytes
     }
 
-    pub fn reset<F: Fn(&mut T) -> ()>(
+    pub fn reset<F: Fn(&mut Vec<(usize, usize)>) -> ()>(
         &mut self,
         new_start: usize,
         new_end: usize,
@@ -34,15 +43,15 @@ impl<T: std::clone::Clone> ArrayMap<T> {
         }
     }
 
-    pub fn insert(&mut self, key: usize, value: T) {
+    pub fn insert(&mut self, key: usize, value: Vec<(usize, usize)>) {
         self.elements[key - self.offset] = Some(value);
     }
 
-    pub fn get(&self, key: usize) -> Option<&T> {
+    pub fn get(&self, key: usize) -> Option<&Vec<(usize, usize)>> {
         self.elements[key - self.offset].as_ref()
     }
 
-    pub fn get_mut(&mut self, key: usize) -> Option<&mut T> {
+    pub fn get_mut(&mut self, key: usize) -> Option<&mut Vec<(usize, usize)>> {
         self.elements[key - self.offset].as_mut()
     }
 
