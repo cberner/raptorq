@@ -254,7 +254,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
         let physical_i = self.logical_col_to_physical[i];
         for maybe_present_in_row in self.sparse_column_index[physical_i].keys() {
-            let physical_row = *maybe_present_in_row;
+            let physical_row = maybe_present_in_row;
             if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 let (word, bit) = self.bit_position(physical_row, self.num_dense_columns - 1);
                 if value == Octet::zero() {

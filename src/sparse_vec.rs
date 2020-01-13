@@ -144,9 +144,10 @@ impl SparseBinaryVec {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
+// Sparse vector over 24-bit address space
 pub struct SparseValuelessVec {
     // Kept sorted
-    elements: Vec<usize>,
+    elements: Vec<u32>,
 }
 
 impl SparseValuelessVec {
@@ -158,12 +159,12 @@ impl SparseValuelessVec {
 
     // Returns the internal index into self.elements matching key i, or the index
     // at which it can be inserted (maintaining sorted order)
-    fn key_to_internal_index(&self, i: usize) -> Result<usize, usize> {
+    fn key_to_internal_index(&self, i: u32) -> Result<usize, usize> {
         self.elements.binary_search(&i)
     }
 
     pub fn size_in_bytes(&self) -> usize {
-        size_of::<Self>() + size_of::<usize>() * self.elements.len()
+        size_of::<Self>() + size_of::<u32>() * self.elements.len()
     }
 
     pub fn len(&self) -> usize {
@@ -172,27 +173,29 @@ impl SparseValuelessVec {
 
     #[cfg(debug_assertions)]
     pub fn exists(&self, i: usize) -> bool {
-        self.key_to_internal_index(i).is_ok()
+        self.key_to_internal_index(i as u32).is_ok()
     }
 
-    pub fn get_by_raw_index(&self, i: usize) -> &usize {
-        &self.elements[i]
+    pub fn get_by_raw_index(&self, i: usize) -> usize {
+        self.elements[i] as usize
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &usize> {
-        self.elements.iter()
+    pub fn keys(&self) -> impl Iterator<Item = usize> + '_ {
+        self.elements.iter().map(|x| *x as usize)
     }
 
     pub fn insert(&mut self, i: usize) {
-        match self.key_to_internal_index(i) {
-            Ok(index) => self.elements[index] = i,
-            Err(index) => self.elements.insert(index, i),
+        // Encoding indices can't exceed 24-bits, so neither can these
+        debug_assert!(i < 16777216);
+        match self.key_to_internal_index(i as u32) {
+            Ok(index) => self.elements[index] = i as u32,
+            Err(index) => self.elements.insert(index, i as u32),
         }
     }
 
     pub fn insert_last(&mut self, i: usize) {
-        debug_assert!(self.elements.is_empty() || *self.elements.last().unwrap() < i);
-        self.elements.push(i);
+        debug_assert!(self.elements.is_empty() || *self.elements.last().unwrap() < i as u32);
+        self.elements.push(i as u32);
     }
 }
 
