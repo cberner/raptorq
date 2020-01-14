@@ -2,60 +2,64 @@ use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct AdjacencyList {
+pub struct UndirectedGraph {
     offset: usize,
-    elements: Vec<Option<Vec<(usize, usize)>>>,
+    elements: Vec<Option<Vec<usize>>>,
 }
 
-impl AdjacencyList {
-    pub fn new(start_key: usize, end_key: usize) -> AdjacencyList {
-        AdjacencyList {
-            offset: start_key,
-            elements: vec![None; end_key - start_key],
+impl UndirectedGraph {
+    pub fn new(start_node: usize, nodes: usize) -> UndirectedGraph {
+        UndirectedGraph {
+            offset: start_node,
+            elements: vec![None; nodes - start_node],
         }
     }
 
     pub fn size_in_bytes(&self) -> usize {
         let mut bytes = size_of::<Self>();
-        bytes += size_of::<Option<Vec<(usize, usize)>>>() * self.elements.len();
+        bytes += size_of::<Option<Vec<usize>>>() * self.elements.len();
 
         for node_adjacencies in self.elements.iter() {
             if let Some(x) = node_adjacencies {
-                bytes += size_of::<(usize, usize)>() * x.len();
+                bytes += size_of::<usize>() * x.len();
             }
         }
 
         bytes
     }
 
-    pub fn reset<F: Fn(&mut Vec<(usize, usize)>) -> ()>(
-        &mut self,
-        new_start: usize,
-        new_end: usize,
-        reset_value_fn: F,
-    ) {
+    pub fn reset(&mut self, new_start: usize, new_end: usize) {
         self.offset = new_start;
         self.elements.resize(new_end - new_start, None);
         for value in self.elements.iter_mut() {
             if let Some(ref mut x) = value {
-                reset_value_fn(x);
+                x.clear();
             }
         }
     }
 
-    pub fn insert(&mut self, key: usize, value: Vec<(usize, usize)>) {
-        self.elements[key - self.offset] = Some(value);
+    pub fn add_edge(&mut self, node1: usize, node2: usize) {
+        if self.elements[node1 - self.offset].is_none() {
+            self.elements[node1 - self.offset] = Some(vec![]);
+        }
+        if self.elements[node2 - self.offset].is_none() {
+            self.elements[node2 - self.offset] = Some(vec![]);
+        }
+        self.elements[node1 - self.offset]
+            .as_mut()
+            .unwrap()
+            .push(node2);
+        self.elements[node2 - self.offset]
+            .as_mut()
+            .unwrap()
+            .push(node1);
     }
 
-    pub fn get(&self, key: usize) -> Option<&Vec<(usize, usize)>> {
-        self.elements[key - self.offset].as_ref()
+    pub fn get_adjacent_nodes(&self, node: usize) -> impl Iterator<Item = &usize> {
+        self.elements[node - self.offset].as_ref().unwrap().iter()
     }
 
-    pub fn get_mut(&mut self, key: usize) -> Option<&mut Vec<(usize, usize)>> {
-        self.elements[key - self.offset].as_mut()
-    }
-
-    pub fn keys<'s>(&'s self) -> impl DoubleEndedIterator<Item = usize> + 's {
+    pub fn keys<'s>(&'s self) -> impl Iterator<Item = usize> + 's {
         self.elements
             .iter()
             .enumerate()
