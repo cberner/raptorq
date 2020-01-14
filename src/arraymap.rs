@@ -22,27 +22,12 @@ impl UndirectedGraph {
         self.edges.sort_unstable();
     }
 
-    pub fn get_adjacent_nodes(&self, node: u16) -> Vec<u16> {
+    pub fn get_adjacent_nodes(&self, node: u16) -> impl Iterator<Item = u16> + '_ {
         let first_candidate = match self.edges.binary_search(&(node as u16, 0)) {
             Ok(index) => index,
             Err(index) => index,
         };
-        if first_candidate == self.edges.len() {
-            return vec![];
-        }
-        if self.edges[first_candidate].0 != node as u16 {
-            return vec![];
-        }
-
-        let mut result = vec![];
-        for i in first_candidate..self.edges.len() {
-            if self.edges[i].0 == node as u16 {
-                result.push(self.edges[i].1);
-            } else {
-                break;
-            }
-        }
-        return result;
+        AdjacentIterator::new(self.edges.iter().skip(first_candidate), node)
     }
 
     pub fn nodes(&self) -> Vec<u16> {
@@ -54,6 +39,30 @@ impl UndirectedGraph {
         }
 
         result
+    }
+}
+
+struct AdjacentIterator<T> {
+    edges: T,
+    node: u16,
+}
+
+impl<'a, T: Iterator<Item = &'a (u16, u16)>> AdjacentIterator<T> {
+    fn new(edges: T, node: u16) -> AdjacentIterator<T> {
+        AdjacentIterator { edges, node }
+    }
+}
+
+impl<'a, T: Iterator<Item = &'a (u16, u16)>> Iterator for AdjacentIterator<T> {
+    type Item = u16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((node, adjacent)) = self.edges.next() {
+            if *node == self.node {
+                return Some(*adjacent);
+            }
+        }
+        None
     }
 }
 
