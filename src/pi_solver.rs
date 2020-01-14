@@ -1,4 +1,4 @@
-use crate::arraymap::{AdjacencyList, BoolArrayMap};
+use crate::arraymap::{BoolArrayMap, UndirectedGraph};
 use crate::arraymap::{U16ArrayMap, U32VecMap};
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
@@ -39,7 +39,7 @@ struct FirstPhaseRowSelectionStats {
     start_row: usize,
     rows_with_single_one: Vec<usize>,
     // Scratch data struct that is reused across calls because it's expensive to construct
-    scratch_adjacent_nodes: AdjacencyList,
+    scratch_adjacent_nodes: UndirectedGraph,
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -54,7 +54,7 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_one: vec![],
-            scratch_adjacent_nodes: AdjacencyList::new(0, end_col),
+            scratch_adjacent_nodes: UndirectedGraph::new(0, end_col),
         };
 
         for row in 0..matrix.height() {
@@ -170,7 +170,7 @@ impl FirstPhaseRowSelectionStats {
         matrix: &T,
     ) {
         self.scratch_adjacent_nodes
-            .reset(self.start_col, self.end_col, |nodes| nodes.clear());
+            .reset(self.start_col, self.end_col);
 
         for row in rows_with_two_ones.iter() {
             let mut ones = [0; 2];
@@ -191,22 +191,7 @@ impl FirstPhaseRowSelectionStats {
                 }
             }
             assert_eq!(found, 2);
-            let first = self.scratch_adjacent_nodes.get_mut(ones[0]);
-            if first == None {
-                let mut new_nodes = Vec::with_capacity(10);
-                new_nodes.push((ones[1], *row));
-                self.scratch_adjacent_nodes.insert(ones[0], new_nodes);
-            } else {
-                first.unwrap().push((ones[1], *row));
-            }
-            let second = self.scratch_adjacent_nodes.get_mut(ones[1]);
-            if second == None {
-                let mut new_nodes = Vec::with_capacity(10);
-                new_nodes.push((ones[0], *row));
-                self.scratch_adjacent_nodes.insert(ones[1], new_nodes);
-            } else {
-                second.unwrap().push((ones[0], *row));
-            }
+            self.scratch_adjacent_nodes.add_edge(ones[0], ones[1]);
         }
     }
 
@@ -221,13 +206,14 @@ impl FirstPhaseRowSelectionStats {
         self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
         let mut visited = BoolArrayMap::new(start_row, end_row);
 
-        let mut examplar_largest_component_row = None;
+        let mut examplar_largest_component_node = None;
         let mut largest_component_size = 0;
 
         let mut node_queue = Vec::with_capacity(10);
         for key in self.scratch_adjacent_nodes.keys() {
             let mut component_size = 0;
-            let mut examplar_row = None;
+            // We can choose any edge (row) that connects this col to another in the graph
+            let mut examplar_node = None;
             // Pick arbitrary node (column) to start
             node_queue.clear();
             node_queue.push(key);
@@ -237,21 +223,26 @@ impl FirstPhaseRowSelectionStats {
                     continue;
                 }
                 visited.insert(node, true);
-                let next_nodes = self.scratch_adjacent_nodes.get(node).unwrap();
                 component_size += 1;
-                for &(next_node, row) in next_nodes.iter() {
-                    node_queue.push(next_node);
-                    examplar_row = Some(row);
+                for next_node in self.scratch_adjacent_nodes.get_adjacent_nodes(node) {
+                    node_queue.push(*next_node);
+                    examplar_node = Some(node);
                 }
             }
 
             if component_size > largest_component_size {
-                examplar_largest_component_row = examplar_row;
+                examplar_largest_component_node = examplar_node;
                 largest_component_size = component_size;
             }
         }
 
-        return examplar_largest_component_row.unwrap();
+        let node = examplar_largest_component_node.unwrap();
+        for row in matrix.get_col_index_iter(node, start_row, end_row) {
+            if matrix.get(row, node) == Octet::one() && self.ones_per_row.get(row) == 2 {
+                return row;
+            }
+        }
+        unreachable!();
     }
 
     #[inline(never)]
