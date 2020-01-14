@@ -4,12 +4,18 @@ use std::mem::size_of;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct UndirectedGraph {
     edges: Vec<(u16, u16)>,
+    // Mapping from node id to starting index in edges array
+    node_edge_starting_index: U32VecMap,
 }
 
 impl UndirectedGraph {
-    pub fn with_capacity(edges: usize) -> UndirectedGraph {
+    pub fn with_capacity(start_node: u16, end_node: u16, edges: usize) -> UndirectedGraph {
         UndirectedGraph {
             edges: Vec::with_capacity(edges * 2),
+            node_edge_starting_index: U32VecMap::with_capacity(
+                start_node as usize,
+                end_node as usize,
+            ),
         }
     }
 
@@ -19,15 +25,25 @@ impl UndirectedGraph {
     }
 
     pub fn build(&mut self) {
-        self.edges.sort_unstable();
+        // Ordering of adjacencies doesn't matter, so just sort by the first node
+        self.edges.sort_unstable_by_key(|x| x.0);
+        if self.edges.is_empty() {
+            return;
+        }
+        let mut last_node = self.edges[0].0;
+        self.node_edge_starting_index.insert(last_node as usize, 0);
+        for (index, (node, _)) in self.edges.iter().enumerate() {
+            if last_node != *node {
+                last_node = *node;
+                self.node_edge_starting_index
+                    .insert(last_node as usize, index as u32);
+            }
+        }
     }
 
     pub fn get_adjacent_nodes(&self, node: u16) -> impl Iterator<Item = u16> + '_ {
-        let first_candidate = match self.edges.binary_search(&(node as u16, 0)) {
-            Ok(index) => index,
-            Err(index) => index,
-        };
-        AdjacentIterator::new(self.edges.iter().skip(first_candidate), node)
+        let first_candidate = self.node_edge_starting_index.get(node as usize);
+        AdjacentIterator::new(self.edges.iter().skip(first_candidate as usize), node)
     }
 
     pub fn nodes(&self) -> Vec<u16> {
@@ -117,6 +133,13 @@ impl U32VecMap {
         U32VecMap {
             offset: start_key,
             elements: vec![0; 1],
+        }
+    }
+
+    pub fn with_capacity(start_key: usize, end_key: usize) -> U32VecMap {
+        U32VecMap {
+            offset: start_key,
+            elements: vec![0; end_key],
         }
     }
 

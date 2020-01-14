@@ -165,7 +165,11 @@ impl FirstPhaseRowSelectionStats {
         rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> UndirectedGraph {
-        let mut graph = UndirectedGraph::with_capacity(rows_with_two_ones.len());
+        let mut graph = UndirectedGraph::with_capacity(
+            self.start_col as u16,
+            self.end_col as u16,
+            rows_with_two_ones.len(),
+        );
 
         for row in rows_with_two_ones.iter() {
             let mut ones = [0; 2];
