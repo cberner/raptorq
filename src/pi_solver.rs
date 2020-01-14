@@ -54,7 +54,7 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_one: vec![],
-            scratch_adjacent_nodes: UndirectedGraph::new(0, end_col),
+            scratch_adjacent_nodes: UndirectedGraph::new(),
         };
 
         for row in 0..matrix.height() {
@@ -169,8 +169,7 @@ impl FirstPhaseRowSelectionStats {
         rows_with_two_ones: &[usize],
         matrix: &T,
     ) {
-        self.scratch_adjacent_nodes
-            .reset(self.start_col, self.end_col);
+        self.scratch_adjacent_nodes.reset();
 
         for row in rows_with_two_ones.iter() {
             let mut ones = [0; 2];
@@ -191,8 +190,10 @@ impl FirstPhaseRowSelectionStats {
                 }
             }
             assert_eq!(found, 2);
-            self.scratch_adjacent_nodes.add_edge(ones[0], ones[1]);
+            self.scratch_adjacent_nodes
+                .add_edge(ones[0] as u16, ones[1] as u16);
         }
+        self.scratch_adjacent_nodes.build_graph();
     }
 
     #[inline(never)]
@@ -219,13 +220,13 @@ impl FirstPhaseRowSelectionStats {
             node_queue.push(key);
             while !node_queue.is_empty() {
                 let node = node_queue.pop().unwrap();
-                if visited.get(node) {
+                if visited.get(node as usize) {
                     continue;
                 }
-                visited.insert(node, true);
+                visited.insert(node as usize, true);
                 component_size += 1;
                 for next_node in self.scratch_adjacent_nodes.get_adjacent_nodes(node) {
-                    node_queue.push(*next_node);
+                    node_queue.push(next_node);
                     examplar_node = Some(node);
                 }
             }
@@ -237,8 +238,8 @@ impl FirstPhaseRowSelectionStats {
         }
 
         let node = examplar_largest_component_node.unwrap();
-        for row in matrix.get_col_index_iter(node, start_row, end_row) {
-            if matrix.get(row, node) == Octet::one() && self.ones_per_row.get(row) == 2 {
+        for row in matrix.get_col_index_iter(node as usize, start_row, end_row) {
+            if matrix.get(row, node as usize) == Octet::one() && self.ones_per_row.get(row) == 2 {
                 return row;
             }
         }
