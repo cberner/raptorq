@@ -38,8 +38,6 @@ struct FirstPhaseRowSelectionStats {
     end_col: usize,
     start_row: usize,
     rows_with_single_one: Vec<usize>,
-    // Scratch data struct that is reused across calls because it's expensive to construct
-    scratch_adjacent_nodes: UndirectedGraph,
 }
 
 impl FirstPhaseRowSelectionStats {
@@ -54,7 +52,6 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_one: vec![],
-            scratch_adjacent_nodes: UndirectedGraph::new(),
         };
 
         for row in 0..matrix.height() {
@@ -78,7 +75,6 @@ impl FirstPhaseRowSelectionStats {
         bytes += self.original_degree.size_in_bytes();
         bytes += self.ones_per_row.size_in_bytes();
         bytes += self.ones_histogram.size_in_bytes();
-        bytes += self.scratch_adjacent_nodes.size_in_bytes();
 
         bytes
     }
@@ -165,11 +161,11 @@ impl FirstPhaseRowSelectionStats {
 
     #[inline(never)]
     fn first_phase_graph_substep_build_adjacency<T: BinaryMatrix>(
-        &mut self,
+        &self,
         rows_with_two_ones: &[usize],
         matrix: &T,
-    ) {
-        self.scratch_adjacent_nodes.reset();
+    ) -> UndirectedGraph {
+        let mut graph = UndirectedGraph::with_capacity(rows_with_two_ones.len());
 
         for row in rows_with_two_ones.iter() {
             let mut ones = [0; 2];
@@ -190,28 +186,28 @@ impl FirstPhaseRowSelectionStats {
                 }
             }
             assert_eq!(found, 2);
-            self.scratch_adjacent_nodes
-                .add_edge(ones[0] as u16, ones[1] as u16);
+            graph.add_edge(ones[0] as u16, ones[1] as u16);
         }
-        self.scratch_adjacent_nodes.build_graph();
+        graph.build();
+        return graph;
     }
 
     #[inline(never)]
     fn first_phase_graph_substep<T: BinaryMatrix>(
-        &mut self,
+        &self,
         start_row: usize,
         end_row: usize,
         rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> usize {
-        self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
+        let graph = self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
         let mut visited = BoolArrayMap::new(start_row, end_row);
 
         let mut examplar_largest_component_node = None;
         let mut largest_component_size = 0;
 
         let mut node_queue = Vec::with_capacity(10);
-        for key in self.scratch_adjacent_nodes.keys() {
+        for key in graph.nodes() {
             let mut component_size = 0;
             // We can choose any edge (row) that connects this col to another in the graph
             let mut examplar_node = None;
@@ -225,7 +221,7 @@ impl FirstPhaseRowSelectionStats {
                 }
                 visited.insert(node as usize, true);
                 component_size += 1;
-                for next_node in self.scratch_adjacent_nodes.get_adjacent_nodes(node) {
+                for next_node in graph.get_adjacent_nodes(node) {
                     node_queue.push(next_node);
                     examplar_node = Some(node);
                 }
@@ -301,7 +297,7 @@ impl FirstPhaseRowSelectionStats {
     // selects from [start_row, end_row) reading [start_col, end_col)
     // Returns (the chosen row, and "r" number of non-zero values the row has)
     pub fn first_phase_selection<T: BinaryMatrix>(
-        &mut self,
+        &self,
         start_row: usize,
         end_row: usize,
         matrix: &T,

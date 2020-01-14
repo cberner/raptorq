@@ -7,16 +7,10 @@ pub struct UndirectedGraph {
 }
 
 impl UndirectedGraph {
-    pub fn new() -> UndirectedGraph {
-        UndirectedGraph { edges: vec![] }
-    }
-
-    pub fn size_in_bytes(&self) -> usize {
-        size_of::<Self>() + size_of::<(usize, usize)>() * self.edges.len()
-    }
-
-    pub fn reset(&mut self) {
-        self.edges.clear();
+    pub fn with_capacity(edges: usize) -> UndirectedGraph {
+        UndirectedGraph {
+            edges: Vec::with_capacity(edges * 2),
+        }
     }
 
     pub fn add_edge(&mut self, node1: u16, node2: u16) {
@@ -24,7 +18,7 @@ impl UndirectedGraph {
         self.edges.push((node2, node1));
     }
 
-    pub fn build_graph(&mut self) {
+    pub fn build(&mut self) {
         self.edges.sort_unstable();
     }
 
@@ -51,7 +45,7 @@ impl UndirectedGraph {
         return result;
     }
 
-    pub fn keys(&self) -> Vec<u16> {
+    pub fn nodes(&self) -> Vec<u16> {
         let mut result = vec![];
         for &(node, _) in self.edges.iter() {
             if result.is_empty() || result[result.len() - 1] != node {
