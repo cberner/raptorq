@@ -3,70 +3,63 @@ use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct UndirectedGraph {
-    offset: usize,
-    elements: Vec<Option<Vec<usize>>>,
+    edges: Vec<(u16, u16)>,
 }
 
 impl UndirectedGraph {
-    pub fn new(start_node: usize, nodes: usize) -> UndirectedGraph {
-        UndirectedGraph {
-            offset: start_node,
-            elements: vec![None; nodes - start_node],
-        }
+    pub fn new() -> UndirectedGraph {
+        UndirectedGraph { edges: vec![] }
     }
 
     pub fn size_in_bytes(&self) -> usize {
-        let mut bytes = size_of::<Self>();
-        bytes += size_of::<Option<Vec<usize>>>() * self.elements.len();
+        size_of::<Self>() + size_of::<(usize, usize)>() * self.edges.len()
+    }
 
-        for node_adjacencies in self.elements.iter() {
-            if let Some(x) = node_adjacencies {
-                bytes += size_of::<usize>() * x.len();
+    pub fn reset(&mut self) {
+        self.edges.clear();
+    }
+
+    pub fn add_edge(&mut self, node1: u16, node2: u16) {
+        self.edges.push((node1, node2));
+        self.edges.push((node2, node1));
+    }
+
+    pub fn build_graph(&mut self) {
+        self.edges.sort_unstable();
+    }
+
+    pub fn get_adjacent_nodes(&self, node: u16) -> Vec<u16> {
+        let first_candidate = match self.edges.binary_search(&(node as u16, 0)) {
+            Ok(index) => index,
+            Err(index) => index,
+        };
+        if first_candidate == self.edges.len() {
+            return vec![];
+        }
+        if self.edges[first_candidate].0 != node as u16 {
+            return vec![];
+        }
+
+        let mut result = vec![];
+        for i in first_candidate..self.edges.len() {
+            if self.edges[i].0 == node as u16 {
+                result.push(self.edges[i].1);
+            } else {
+                break;
+            }
+        }
+        return result;
+    }
+
+    pub fn keys(&self) -> Vec<u16> {
+        let mut result = vec![];
+        for &(node, _) in self.edges.iter() {
+            if result.is_empty() || result[result.len() - 1] != node {
+                result.push(node);
             }
         }
 
-        bytes
-    }
-
-    pub fn reset(&mut self, new_start: usize, new_end: usize) {
-        self.offset = new_start;
-        self.elements.resize(new_end - new_start, None);
-        for value in self.elements.iter_mut() {
-            if let Some(ref mut x) = value {
-                x.clear();
-            }
-        }
-    }
-
-    pub fn add_edge(&mut self, node1: usize, node2: usize) {
-        if self.elements[node1 - self.offset].is_none() {
-            self.elements[node1 - self.offset] = Some(vec![]);
-        }
-        if self.elements[node2 - self.offset].is_none() {
-            self.elements[node2 - self.offset] = Some(vec![]);
-        }
-        self.elements[node1 - self.offset]
-            .as_mut()
-            .unwrap()
-            .push(node2);
-        self.elements[node2 - self.offset]
-            .as_mut()
-            .unwrap()
-            .push(node1);
-    }
-
-    pub fn get_adjacent_nodes(&self, node: usize) -> impl Iterator<Item = &usize> {
-        self.elements[node - self.offset].as_ref().unwrap().iter()
-    }
-
-    pub fn keys<'s>(&'s self) -> impl Iterator<Item = usize> + 's {
-        self.elements
-            .iter()
-            .enumerate()
-            .filter_map(move |(i, elem)| match elem {
-                Some(_) => Some(i + self.offset),
-                None => None,
-            })
+        result
     }
 }
 
