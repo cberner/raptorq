@@ -33,6 +33,9 @@ pub struct SparseBinaryMatrix {
     logical_col_to_physical: Vec<u16>,
     physical_col_to_logical: Vec<u16>,
     column_index_disabled: bool,
+    // Only include for debug to avoid taking up extra memory in the cache
+    #[cfg(debug_assertions)]
+    debug_indexed_column_valid: Vec<bool>,
     num_dense_columns: usize,
 }
 
@@ -110,6 +113,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
             physical_col_to_logical: col_mapping,
             column_index_disabled: true,
             num_dense_columns: trailing_dense_column_hint,
+            #[cfg(debug_assertions)]
+            debug_indexed_column_valid: vec![true; width],
         }
     }
 
@@ -198,6 +203,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
         assert_eq!(self.column_index_disabled, false);
+        #[cfg(debug_assertions)]
+        debug_assert!(self.debug_indexed_column_valid[col]);
         let physical_col = self.logical_col_to_physical[col] as usize;
         BorrowedKeyIter::new_sparse(
             &self.sparse_column_index[physical_col],
@@ -218,6 +225,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
         if j >= self.width - self.num_dense_columns {
             unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
         }
+
+        #[cfg(debug_assertions)]
+        self.debug_indexed_column_valid.swap(i, j);
 
         let physical_i = self.logical_col_to_physical[i] as usize;
         let physical_j = self.logical_col_to_physical[j] as usize;
@@ -329,11 +339,22 @@ impl BinaryMatrix for SparseBinaryMatrix {
         // Then the sparse columns
         let (dest_row, temp_row) =
             get_both_indices(&mut self.sparse_elements, physical_dest, physical_src);
+        // This shouldn't be needed, because while column indexing is enabled in first phase,
+        // columns are only eliminated one at a time in sparse section of matrix.
+        assert!(self.column_index_disabled || temp_row.len() == 1);
 
         let column_added = dest_row.add_assign(temp_row);
         // This shouldn't be needed, because while column indexing is enabled in first phase,
         // columns are only removed.
         assert!(self.column_index_disabled || !column_added);
+
+        #[cfg(debug_assertions)]
+        {
+            if !self.column_index_disabled {
+                let col = self.physical_col_to_logical[temp_row.get_by_raw_index(0).0];
+                self.debug_indexed_column_valid[col as usize] = false;
+            }
+        }
 
         #[cfg(debug_assertions)]
         self.verify();
@@ -416,6 +437,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
         bytes += size_of::<u32>() * self.physical_row_to_logical.len();
         bytes += size_of::<u16>() * self.logical_col_to_physical.len();
         bytes += size_of::<u16>() * self.physical_col_to_logical.len();
+        #[cfg(debug_assertions)]
+        {
+            bytes += size_of::<bool>() * self.debug_indexed_column_valid.len();
+        }
 
         bytes
     }
