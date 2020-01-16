@@ -591,6 +591,19 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
             // because of Errata 2.
             let temp_value = self.A.get(temp, temp);
+
+            for i in 0..(r - 1) {
+                self.A
+                    .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
+            }
+            selection_helper.resize(
+                self.i + 1,
+                self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
+                self.i + 1,
+                self.A.width() - self.u - (r - 1),
+                &self.A,
+            );
+
             // Cloning the iterator is safe here, because we don't re-read any of the rows that
             // we add to
             for row in self
@@ -611,11 +624,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                         selection_helper.recompute_row(row, &self.A);
                     }
                 }
-            }
-
-            for i in 0..(r - 1) {
-                self.A
-                    .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
             }
 
             // apply to hdpc rows as well, which are stored separately
@@ -643,13 +651,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
             self.i += 1;
             self.u += r - 1;
-            selection_helper.resize(
-                self.i,
-                self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
-                self.i,
-                self.A.width() - self.u,
-                &self.A,
-            );
             #[cfg(debug_assertions)]
             self.first_phase_verify();
         }
