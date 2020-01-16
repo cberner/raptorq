@@ -330,12 +330,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let (dest_row, temp_row) =
             get_both_indices(&mut self.sparse_elements, physical_dest, physical_src);
 
-        let new_columns = dest_row.add_assign(temp_row);
-        if !self.column_index_disabled {
-            for new_col in new_columns {
-                self.sparse_column_index[new_col as usize].insert(physical_dest);
-            }
-        }
+        let column_added = dest_row.add_assign(temp_row);
+        // This shouldn't be needed, because while column indexing is enabled in first phase,
+        // columns are only removed.
+        assert!(self.column_index_disabled || !column_added);
 
         #[cfg(debug_assertions)]
         self.verify();

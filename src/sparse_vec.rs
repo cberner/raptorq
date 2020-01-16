@@ -36,8 +36,8 @@ impl SparseBinaryVec {
         (self.elements[i] as usize, Octet::one())
     }
 
-    // Returns a vector of new column indices that this row contains
-    pub fn add_assign(&mut self, other: &SparseBinaryVec) -> Vec<u16> {
+    // Returns true, if a new column was added
+    pub fn add_assign(&mut self, other: &SparseBinaryVec) -> bool {
         // Fast path for a single value that's being eliminated
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
@@ -51,10 +51,10 @@ impl SparseBinaryVec {
                 }
                 Err(index) => {
                     self.elements.insert(index, *other_index);
-                    return vec![*other_index];
+                    return true;
                 }
             };
-            return vec![];
+            return false;
         }
 
         let mut result = Vec::with_capacity(self.elements.len() + other.elements.len());
@@ -63,7 +63,7 @@ impl SparseBinaryVec {
         let mut self_next = self_iter.next();
         let mut other_next = other_iter.next();
 
-        let mut new_columns = Vec::with_capacity(10);
+        let mut column_added = false;
         loop {
             if let Some(self_index) = self_next {
                 if let Some(other_index) = other_next {
@@ -78,7 +78,7 @@ impl SparseBinaryVec {
                             other_next = other_iter.next();
                         }
                         Ordering::Greater => {
-                            new_columns.push(*other_index);
+                            column_added = true;
                             result.push(*other_index);
                             other_next = other_iter.next();
                         }
@@ -88,7 +88,7 @@ impl SparseBinaryVec {
                     self_next = self_iter.next();
                 }
             } else if let Some(other_index) = other_next {
-                new_columns.push(*other_index);
+                column_added = true;
                 result.push(*other_index);
                 other_next = other_iter.next();
             } else {
@@ -97,7 +97,7 @@ impl SparseBinaryVec {
         }
         self.elements = result;
 
-        return new_columns;
+        return column_added;
     }
 
     pub fn remove(&mut self, i: usize) -> Option<Octet> {
