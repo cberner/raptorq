@@ -4,41 +4,15 @@ use std::cmp::Ordering;
 use std::mem::size_of;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
-struct PackedEntry {
-    value: u32,
-}
-
-impl PackedEntry {
-    fn new(index: u32, binary_value: u8) -> PackedEntry {
-        debug_assert!(index < 16777216);
-        debug_assert!(binary_value < 2);
-        PackedEntry {
-            value: index << 8 | (binary_value as u32),
-        }
-    }
-
-    fn value(&self) -> Octet {
-        Octet::new((self.value & 0xFF) as u8)
-    }
-
-    fn add_value(&mut self, value: Octet) {
-        // Index is stored in upper 24-bits, but XOR'ing with zero won't change it.
-        self.value ^= value.byte() as u32
-    }
-
-    fn index(&self) -> u32 {
-        self.value >> 8
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
 pub struct SparseBinaryVec {
-    // Kept sorted by the usize (key)
-    elements: Vec<PackedEntry>,
+    // Kept sorted by the usize (key). Only ones are stored, zeros are implicit
+    elements: Vec<u16>,
 }
 
 impl SparseBinaryVec {
     pub fn with_capacity(capacity: usize) -> SparseBinaryVec {
+        // Matrix width can never exceed maximum L
+        debug_assert!(capacity < 65536);
         SparseBinaryVec {
             elements: Vec::with_capacity(capacity),
         }
@@ -46,13 +20,12 @@ impl SparseBinaryVec {
 
     // Returns the internal index into self.elements matching key i, or the index
     // at which it can be inserted (maintaining sorted order)
-    fn key_to_internal_index(&self, i: u32) -> Result<usize, usize> {
-        self.elements
-            .binary_search_by_key(&i, |entry| entry.index())
+    fn key_to_internal_index(&self, i: u16) -> Result<usize, usize> {
+        self.elements.binary_search(&i)
     }
 
     pub fn size_in_bytes(&self) -> usize {
-        size_of::<Self>() + size_of::<PackedEntry>() * self.elements.len()
+        size_of::<Self>() + size_of::<u16>() * self.elements.len()
     }
 
     pub fn len(&self) -> usize {
@@ -60,28 +33,25 @@ impl SparseBinaryVec {
     }
 
     pub fn get_by_raw_index(&self, i: usize) -> (usize, Octet) {
-        (self.elements[i].index() as usize, self.elements[i].value())
+        (self.elements[i] as usize, Octet::one())
     }
 
     // Returns a vector of new column indices that this row contains
-    pub fn add_assign(&mut self, other: &SparseBinaryVec) -> Vec<u32> {
+    pub fn add_assign(&mut self, other: &SparseBinaryVec) -> Vec<u16> {
         // Fast path for a single value that's being eliminated
         // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
         // required for the HDPC rows may be performed for all such rows in one
         // process, by using the algorithm described in Section 5.3.3.3."
         if other.elements.len() == 1 {
-            let other_entry = &other.elements[0];
-            match self.key_to_internal_index(other_entry.index()) {
+            let other_index = &other.elements[0];
+            match self.key_to_internal_index(*other_index) {
                 Ok(index) => {
-                    let self_entry = &mut self.elements[index];
-                    self_entry.add_value(other_entry.value());
-                    if self_entry.value() == Octet::zero() {
-                        self.elements.remove(index);
-                    }
+                    // Adding 1 + 1 = 0 in GF(256), so remove this
+                    self.elements.remove(index);
                 }
                 Err(index) => {
-                    self.elements.insert(index, other_entry.clone());
-                    return vec![other_entry.index()];
+                    self.elements.insert(index, *other_index);
+                    return vec![*other_index];
                 }
             };
             return vec![];
@@ -95,42 +65,31 @@ impl SparseBinaryVec {
 
         let mut new_columns = Vec::with_capacity(10);
         loop {
-            if let Some(self_entry) = self_next {
-                if let Some(other_entry) = other_next {
-                    match self_entry.index().cmp(&other_entry.index()) {
+            if let Some(self_index) = self_next {
+                if let Some(other_index) = other_next {
+                    match self_index.cmp(&other_index) {
                         Ordering::Less => {
-                            if self_entry.value() != Octet::zero() {
-                                result.push(self_entry.clone());
-                            }
+                            result.push(self_index.clone());
                             self_next = self_iter.next();
                         }
                         Ordering::Equal => {
-                            let value = self_entry.value() + other_entry.value();
-                            if value != Octet::zero() {
-                                result.push(PackedEntry::new(self_entry.index(), value.byte()));
-                            }
+                            // Adding 1 + 1 = 0 in GF(256), so skip this index
                             self_next = self_iter.next();
                             other_next = other_iter.next();
                         }
                         Ordering::Greater => {
-                            if other_entry.value() != Octet::zero() {
-                                new_columns.push(other_entry.index());
-                                result.push(other_entry.clone());
-                            }
+                            new_columns.push(*other_index);
+                            result.push(*other_index);
                             other_next = other_iter.next();
                         }
                     }
                 } else {
-                    if self_entry.value() != Octet::zero() {
-                        result.push(self_entry.clone());
-                    }
+                    result.push(*self_index);
                     self_next = self_iter.next();
                 }
-            } else if let Some(other_entry) = other_next {
-                if other_entry.value() != Octet::zero() {
-                    new_columns.push(other_entry.index());
-                    result.push(other_entry.clone());
-                }
+            } else if let Some(other_index) = other_next {
+                new_columns.push(*other_index);
+                result.push(*other_index);
                 other_next = other_iter.next();
             } else {
                 break;
@@ -142,20 +101,23 @@ impl SparseBinaryVec {
     }
 
     pub fn remove(&mut self, i: usize) -> Option<Octet> {
-        match self.key_to_internal_index(i as u32) {
-            Ok(index) => Some(self.elements.remove(index).value()),
+        match self.key_to_internal_index(i as u16) {
+            Ok(index) => {
+                self.elements.remove(index);
+                Some(Octet::one())
+            }
             Err(_) => None,
         }
     }
 
     pub fn retain<P: Fn(&(usize, Octet)) -> bool>(&mut self, predicate: P) {
         self.elements
-            .retain(|entry| predicate(&(entry.index() as usize, entry.value())));
+            .retain(|entry| predicate(&(*entry as usize, Octet::one())));
     }
 
     pub fn get(&self, i: usize) -> Option<Octet> {
-        match self.key_to_internal_index(i as u32) {
-            Ok(index) => Some(self.elements[index].value()),
+        match self.key_to_internal_index(i as u16) {
+            Ok(_) => Some(Octet::one()),
             Err(_) => None,
         }
     }
@@ -163,15 +125,18 @@ impl SparseBinaryVec {
     pub fn keys_values(&self) -> impl Iterator<Item = (usize, Octet)> + '_ {
         self.elements
             .iter()
-            .map(|entry| (entry.index() as usize, entry.value()))
+            .map(|entry| (*entry as usize, Octet::one()))
     }
 
     pub fn insert(&mut self, i: usize, value: Octet) {
-        match self.key_to_internal_index(i as u32) {
-            Ok(index) => self.elements[index] = PackedEntry::new(i as u32, value.byte()),
-            Err(index) => self
-                .elements
-                .insert(index, PackedEntry::new(i as u32, value.byte())),
+        debug_assert!(i < 65536);
+        if value == Octet::zero() {
+            self.remove(i);
+        } else {
+            match self.key_to_internal_index(i as u16) {
+                Ok(_) => {}
+                Err(index) => self.elements.insert(index, i as u16),
+            }
         }
     }
 }
