@@ -165,17 +165,9 @@ impl SparseValuelessVec {
         size_of::<Self>() + size_of::<u32>() * self.elements.len()
     }
 
-    pub fn len(&self) -> usize {
-        self.elements.len()
-    }
-
     #[cfg(debug_assertions)]
     pub fn exists(&self, i: usize) -> bool {
         self.key_to_internal_index(i as u32).is_ok()
-    }
-
-    pub fn get_by_raw_index(&self, i: usize) -> usize {
-        self.elements[i] as usize
     }
 
     pub fn keys(&self) -> impl Iterator<Item = usize> + '_ {

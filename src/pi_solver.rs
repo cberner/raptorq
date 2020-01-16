@@ -139,18 +139,17 @@ impl FirstPhaseRowSelectionStats {
         self.rows_with_single_one.retain(|x| *x != start_row - 1);
 
         for col in end_col..self.end_col {
-            for row in matrix.get_col_index_iter(col, start_row, end_row) {
-                if matrix.get(row, col) == Octet::one() {
-                    self.ones_per_row.decrement(row);
-                    let ones = self.ones_per_row.get(row);
-                    if ones == 0 {
-                        self.rows_with_single_one.retain(|x| *x != row);
-                    } else if ones == 1 {
-                        self.rows_with_single_one.push(row);
-                    }
-                    self.ones_histogram.decrement((ones + 1) as usize);
-                    self.ones_histogram.increment(ones as usize);
+            for row in matrix.get_ones_in_column(col, start_row, end_row) {
+                let row = row as usize;
+                self.ones_per_row.decrement(row);
+                let ones = self.ones_per_row.get(row);
+                if ones == 0 {
+                    self.rows_with_single_one.retain(|x| *x != row);
+                } else if ones == 1 {
+                    self.rows_with_single_one.push(row);
                 }
+                self.ones_histogram.decrement((ones + 1) as usize);
+                self.ones_histogram.increment(ones as usize);
             }
         }
 
@@ -238,8 +237,9 @@ impl FirstPhaseRowSelectionStats {
         }
 
         let node = examplar_largest_component_node.unwrap();
-        for row in matrix.get_col_index_iter(node as usize, start_row, end_row) {
-            if matrix.get(row, node as usize) == Octet::one() && self.ones_per_row.get(row) == 2 {
+        for row in matrix.get_ones_in_column(node as usize, start_row, end_row) {
+            let row = row as usize;
+            if self.ones_per_row.get(row) == 2 {
                 return row;
             }
         }
@@ -608,21 +608,18 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // we add to
             for row in self
                 .A
-                .get_col_index_iter(temp, self.i + 1, self.A.height() - num_hdpc_rows)
-                .clone()
+                .get_ones_in_column(temp, self.i + 1, self.A.height() - num_hdpc_rows)
             {
-                let leading_value = self.A.get(row, temp);
-                if leading_value != Octet::zero() {
-                    // Addition is equivalent to subtraction
-                    let beta = &leading_value / &temp_value;
-                    self.fma_rows(temp, row, beta);
-                    if r == 1 {
-                        // Hot path for r == 1, since it's very common due to maximum connected
-                        // component selection, and recompute_row() is expensive
-                        selection_helper.eliminate_leading_value(row, &leading_value);
-                    } else {
-                        selection_helper.recompute_row(row, &self.A);
-                    }
+                let row = row as usize;
+                assert_eq!(&temp_value, &Octet::one());
+                // Addition is equivalent to subtraction.
+                self.fma_rows(temp, row, Octet::one());
+                if r == 1 {
+                    // Hot path for r == 1, since it's very common due to maximum connected
+                    // component selection, and recompute_row() is expensive
+                    selection_helper.eliminate_leading_value(row, &Octet::one());
+                } else {
+                    selection_helper.recompute_row(row, &self.A);
                 }
             }
 

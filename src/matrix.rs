@@ -1,5 +1,5 @@
 use crate::gf2::add_assign_binary;
-use crate::iterators::{BorrowedKeyIter, OctetIter};
+use crate::iterators::OctetIter;
 use crate::octet::Octet;
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
@@ -22,8 +22,8 @@ pub trait BinaryMatrix: Clone {
     // Once "impl Trait" is supported in traits, it would be better to return "impl Iterator<...>"
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter;
 
-    // An iterator over rows for the given col, that may have non-zero values
-    fn get_col_index_iter(&self, col: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter;
+    // An iterator over rows with a 1-valued entry for the given col
+    fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32>;
 
     // Get a slice of columns from a row as Octets
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8>;
@@ -161,8 +161,15 @@ impl BinaryMatrix for DenseBinaryMatrix {
         OctetIter::new_dense_binary(start_col, end_col, &self.elements[row])
     }
 
-    fn get_col_index_iter(&self, _: usize, start_row: usize, end_row: usize) -> BorrowedKeyIter {
-        BorrowedKeyIter::new_dense(start_row, end_row)
+    fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32> {
+        let mut rows = vec![];
+        for row in start_row..end_row {
+            if self.get(row, col) == Octet::one() {
+                rows.push(row as u32);
+            }
+        }
+
+        rows
     }
 
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
