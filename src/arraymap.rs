@@ -2,6 +2,82 @@ use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+// Map<u16, Vec<u32>>
+pub struct ImmutableListMap {
+    // offset of std::u32::MAX indicates that the key is not present
+    offsets: Vec<u32>,
+    values: Vec<u32>,
+}
+
+impl ImmutableListMap {
+    pub fn get(&self, i: u16) -> &[u32] {
+        let i = i as usize;
+        let start = self.offsets[i] as usize;
+        let end = if i == self.offsets.len() - 1 {
+            self.values.len()
+        } else {
+            self.offsets[i + 1] as usize
+        };
+        &self.values[start..end]
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        let mut bytes = size_of::<Self>();
+        bytes += size_of::<u32>() * self.offsets.len();
+        bytes += size_of::<u32>() * self.values.len();
+
+        bytes
+    }
+}
+
+pub struct ImmutableListMapBuilder {
+    entries: Vec<(u16, u32)>,
+    num_keys: usize,
+}
+
+impl ImmutableListMapBuilder {
+    pub fn new(num_keys: usize) -> ImmutableListMapBuilder {
+        ImmutableListMapBuilder {
+            entries: vec![],
+            num_keys,
+        }
+    }
+
+    pub fn add(&mut self, key: u16, value: u32) {
+        self.entries.push((key, value));
+    }
+
+    pub fn build(self) -> ImmutableListMap {
+        let mut entries = self.entries;
+        entries.sort_unstable_by_key(|x| x.0);
+        assert!(entries.len() < std::u32::MAX as usize);
+        assert!(!entries.is_empty());
+        let mut offsets = vec![std::u32::MAX; self.num_keys];
+        let mut last_key = entries[0].0;
+        offsets[last_key as usize] = 0;
+        let mut values = vec![];
+        for (index, (key, value)) in entries.iter().enumerate() {
+            if last_key != *key {
+                last_key = *key;
+                offsets[*key as usize] = index as u32;
+            }
+            values.push(*value);
+        }
+        for i in (0..offsets.len()).rev() {
+            if offsets[i] == std::u32::MAX {
+                if i == offsets.len() - 1 {
+                    offsets[i] = entries.len() as u32;
+                } else {
+                    offsets[i] = offsets[i + 1];
+                }
+            }
+        }
+
+        ImmutableListMap { offsets, values }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct UndirectedGraph {
     edges: Vec<(u16, u16)>,
     // Mapping from node id to starting index in edges array
@@ -203,5 +279,29 @@ impl BoolArrayMap {
 
     pub fn get(&self, key: usize) -> bool {
         self.elements[key - self.offset]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::arraymap::ImmutableListMapBuilder;
+
+    #[test]
+    fn list_map() {
+        let mut builder = ImmutableListMapBuilder::new(10);
+        builder.add(0, 1);
+        builder.add(3, 1);
+        builder.add(3, 2);
+
+        let map = builder.build();
+        dbg!(&map);
+        assert!(map.get(0).contains(&1));
+        assert!(!map.get(0).contains(&2));
+
+        assert!(map.get(3).contains(&1));
+        assert!(map.get(3).contains(&2));
+        assert!(!map.get(3).contains(&3));
+
+        assert!(!map.get(2).contains(&1));
     }
 }

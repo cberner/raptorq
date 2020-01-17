@@ -1,7 +1,8 @@
+use crate::arraymap::{ImmutableListMap, ImmutableListMapBuilder};
 use crate::iterators::OctetIter;
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
-use crate::sparse_vec::{SparseBinaryVec, SparseValuelessVec};
+use crate::sparse_vec::SparseBinaryVec;
 use crate::util::get_both_indices;
 use serde::{Deserialize, Serialize};
 use std::mem::size_of;
@@ -25,7 +26,7 @@ pub struct SparseBinaryMatrix {
     // dense_elements[row] & 0b2.
     dense_elements: Vec<u64>,
     // Columnar storage of values. Only stores rows that have a 1-valued entry in the given column
-    sparse_columnar_values: Vec<SparseValuelessVec>,
+    sparse_columnar_values: Option<ImmutableListMap>,
     // Mapping of logical row numbers to index in sparse_elements, dense_elements, and sparse_column_index
     logical_row_to_physical: Vec<u32>,
     physical_row_to_logical: Vec<u32>,
@@ -46,10 +47,11 @@ impl SparseBinaryMatrix {
         if self.column_index_disabled {
             return;
         }
+        let columns = self.sparse_columnar_values.as_ref().unwrap();
         for row in 0..self.height {
             for (col, value) in self.sparse_elements[row].keys_values() {
                 if value != Octet::zero() {
-                    debug_assert!(self.sparse_columnar_values[col].exists(row));
+                    debug_assert!(columns.get(col as u16).contains(&(row as u32)));
                 }
             }
         }
@@ -105,7 +107,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             width,
             sparse_elements: elements,
             dense_elements,
-            sparse_columnar_values: vec![],
+            sparse_columnar_values: None,
             logical_row_to_physical: row_mapping.clone(),
             physical_row_to_logical: row_mapping,
             logical_col_to_physical: col_mapping.clone(),
@@ -129,9 +131,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             }
         } else {
             self.sparse_elements[physical_i].insert(physical_j, value);
-            if !self.column_index_disabled {
-                self.sparse_columnar_values[physical_j].insert(physical_i);
-            }
+            assert!(self.column_index_disabled);
         }
     }
 
@@ -204,10 +204,15 @@ impl BinaryMatrix for SparseBinaryMatrix {
         assert_eq!(self.column_index_disabled, false);
         #[cfg(debug_assertions)]
         debug_assert!(self.debug_indexed_column_valid[col]);
-        let physical_col = self.logical_col_to_physical[col] as usize;
+        let physical_col = self.logical_col_to_physical[col];
         let mut rows = vec![];
-        for physical_row in self.sparse_columnar_values[physical_col].keys() {
-            let logical_row = self.physical_row_to_logical[physical_row];
+        for physical_row in self
+            .sparse_columnar_values
+            .as_ref()
+            .unwrap()
+            .get(physical_col)
+        {
+            let logical_row = self.physical_row_to_logical[*physical_row as usize];
             if start_row <= logical_row as usize && logical_row < end_row as u32 {
                 rows.push(logical_row);
             }
@@ -239,17 +244,18 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn enable_column_acccess_acceleration(&mut self) {
         self.column_index_disabled = false;
-        self.sparse_columnar_values = vec![SparseValuelessVec::with_capacity(50); self.width];
+        let mut builder = ImmutableListMapBuilder::new(self.height);
         for (physical_row, elements) in self.sparse_elements.iter().enumerate() {
             for (physical_col, _) in elements.keys_values() {
-                self.sparse_columnar_values[physical_col].insert_last(physical_row);
+                builder.add(physical_col as u16, physical_row as u32);
             }
         }
+        self.sparse_columnar_values = Some(builder.build());
     }
 
     fn disable_column_acccess_acceleration(&mut self) {
         self.column_index_disabled = true;
-        self.sparse_columnar_values.clear();
+        self.sparse_columnar_values = None;
     }
 
     fn hint_column_dense_and_frozen(&mut self, i: usize) {
@@ -267,8 +273,13 @@ impl BinaryMatrix for SparseBinaryMatrix {
             self.dense_elements.extend(vec![0; self.height]);
         }
         let physical_i = self.logical_col_to_physical[i] as usize;
-        for maybe_present_in_row in self.sparse_columnar_values[physical_i].keys() {
-            let physical_row = maybe_present_in_row;
+        for maybe_present_in_row in self
+            .sparse_columnar_values
+            .as_ref()
+            .unwrap()
+            .get(physical_i as u16)
+        {
+            let physical_row = *maybe_present_in_row as usize;
             if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
                 let (word, bit) = self.bit_position(physical_row, self.num_dense_columns - 1);
                 if value == Octet::zero() {
@@ -286,6 +297,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         assert_eq!(rows, other.height());
         assert_eq!(rows, other.width());
         assert!(rows <= self.height());
+        assert!(self.column_index_disabled);
         if other.num_dense_columns != 0 {
             unimplemented!();
         }
@@ -312,11 +324,6 @@ impl BinaryMatrix for SparseBinaryMatrix {
             for word in 0..words {
                 let (dest_word, _) = self.bit_position(physical_row, word * WORD_WIDTH);
                 self.dense_elements[dest_word] = temp_dense[word * rows + row];
-            }
-            if !self.column_index_disabled {
-                for (col, _) in self.sparse_elements[physical_row].keys_values() {
-                    self.sparse_columnar_values[col].insert(physical_row)
-                }
             }
         }
 
@@ -432,8 +439,8 @@ impl BinaryMatrix for SparseBinaryMatrix {
             bytes += x.size_in_bytes();
         }
         bytes += size_of::<u64>() * self.dense_elements.len();
-        for x in self.sparse_columnar_values.iter() {
-            bytes += x.size_in_bytes();
+        if let Some(ref columns) = self.sparse_columnar_values {
+            bytes += columns.size_in_bytes();
         }
         bytes += size_of::<u32>() * self.logical_row_to_physical.len();
         bytes += size_of::<u32>() * self.physical_row_to_logical.len();
