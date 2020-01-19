@@ -353,7 +353,7 @@ mod codec_tests {
     #[test]
     #[ignore]
     fn round_trip_dense_extended() {
-        round_trip(99_999, 56403, true);
+        round_trip(99_999, 5000, true);
     }
 
     #[test]
@@ -391,38 +391,57 @@ mod codec_tests {
     }
 
     #[test]
+    #[ignore]
+    fn repair_dense_extended() {
+        repair(99_999, 5000, true);
+    }
+
+    #[test]
+    #[ignore]
+    fn repair_sparse_extended() {
+        repair(0, 56403, true);
+    }
+
+    #[test]
     fn repair_dense() {
-        repair(99_999);
+        repair(99_999, 50, false);
     }
 
     #[test]
     fn repair_sparse() {
-        repair(0);
+        repair(0, 50, false);
     }
 
-    fn repair(sparse_threshold: u32) {
-        let elements = 1024;
-        let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
-        }
-
-        let encoder = SourceBlockEncoder::new(1, 8, &data);
-
-        let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
-        decoder.set_sparse_threshold(sparse_threshold);
-
-        let mut result = None;
-        let mut parsed_packets = 0;
-        // This test can theoretically fail with ~1/256^5 probability
-        for packet in encoder.repair_packets(0, (elements / 8 + 4) as u32) {
-            if parsed_packets < elements / 8 {
-                assert_eq!(result, None);
+    fn repair(sparse_threshold: u32, max_symbols: usize, progress: bool) {
+        let symbol_size = 8;
+        for symbol_count in 1..=max_symbols {
+            let elements = symbol_size * symbol_count;
+            let mut data: Vec<u8> = vec![0; elements];
+            for i in 0..elements {
+                data[i] = rand::thread_rng().gen();
             }
-            result = decoder.decode(vec![packet]);
-            parsed_packets += 1;
-        }
 
-        assert_eq!(result.unwrap(), data);
+            if progress && symbol_count % 100 == 0 {
+                println!("[repair] Completed {} symbols", symbol_count)
+            }
+
+            let encoder = SourceBlockEncoder::new(1, 8, &data);
+
+            let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
+            decoder.set_sparse_threshold(sparse_threshold);
+
+            let mut result = None;
+            let mut parsed_packets = 0;
+            // This test can theoretically fail with ~1/256^5 probability
+            for packet in encoder.repair_packets(0, (elements / symbol_size + 4) as u32) {
+                if parsed_packets < elements / 8 {
+                    assert_eq!(result, None);
+                }
+                result = decoder.decode(vec![packet]);
+                parsed_packets += 1;
+            }
+
+            assert_eq!(result.unwrap(), data);
+        }
     }
 }
