@@ -56,7 +56,7 @@ fn main() {
         );
 
         let symbols = vec![Symbol::zero(1usize); a.width()];
-        let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols, false);
+        let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
         println!(
             "Initial memory usage: {}KB",
             decoder.get_non_symbol_bytes() / 1024

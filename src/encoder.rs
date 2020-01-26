@@ -117,8 +117,9 @@ impl SourceBlockEncodingPlan {
     // Generates an encoding plan that is valid for any combination of data length and symbol size
     // where ceil(data_length / symbol_size) = symbol_count
     pub fn generate(symbol_count: u16) -> SourceBlockEncodingPlan {
+        // TODO: refactor pi_solver, so that we don't need this dummy data to generate a plan
         let symbols = vec![Symbol::new(vec![0]); symbol_count as usize];
-        let (_, ops) = gen_intermediate_symbols(&symbols, 1, SPARSE_MATRIX_THRESHOLD, true);
+        let (_, ops) = gen_intermediate_symbols(&symbols, 1, SPARSE_MATRIX_THRESHOLD);
         SourceBlockEncodingPlan {
             operations: ops.unwrap(),
             source_symbol_count: symbol_count,
@@ -145,7 +146,6 @@ impl SourceBlockEncoder {
             &source_symbols,
             symbol_size as usize,
             SPARSE_MATRIX_THRESHOLD,
-            false,
         );
 
         SourceBlockEncoder {
@@ -169,7 +169,7 @@ impl SourceBlockEncoder {
         // TODO: this could be more lenient and support anything with the same extended symbol count
         assert_eq!(source_symbols.len(), plan.source_symbol_count as usize);
 
-        let intermediate_symbols = gen_intermediate_symbols_ops_vec(
+        let intermediate_symbols = gen_intermediate_symbols_with_plan(
             &source_symbols,
             symbol_size as usize,
             &plan.operations,
@@ -251,7 +251,6 @@ fn gen_intermediate_symbols(
     source_block: &[Symbol],
     symbol_size: usize,
     sparse_threshold: u32,
-    store_operations: bool,
 ) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
     let D = create_d(source_block, symbol_size, extended_source_symbols as usize);
@@ -260,16 +259,16 @@ fn gen_intermediate_symbols(
     if extended_source_symbols >= sparse_threshold {
         let (A, hdpc) =
             generate_constraint_matrix::<SparseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, store_operations);
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols);
     } else {
         let (A, hdpc) =
             generate_constraint_matrix::<DenseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, store_operations);
+        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols);
     }
 }
 
 #[allow(non_snake_case)]
-fn gen_intermediate_symbols_ops_vec(
+fn gen_intermediate_symbols_with_plan(
     source_block: &[Symbol],
     symbol_size: usize,
     operation_vector: &[SymbolOps],
@@ -372,9 +371,9 @@ mod tests {
     fn enc_constraint(sparse_threshold: u32) {
         let source_symbols = gen_test_symbols();
 
-        let (is, _ops_vec) =
-            gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold, false);
-        let intermediate_symbols = is.unwrap();
+        let (intermediate_symbols, _) =
+            gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
+        let intermediate_symbols = intermediate_symbols.unwrap();
 
         let lt_symbols = num_lt_symbols(NUM_SYMBOLS);
         let sys_index = systematic_index(NUM_SYMBOLS);
@@ -399,9 +398,9 @@ mod tests {
 
     #[allow(non_snake_case)]
     fn ldpc_constraint(sparse_threshold: u32) {
-        let (is, _ops_vec) =
-            gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold, false);
-        let C = is.unwrap();
+        let (intermediate_symbols, _) =
+            gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold);
+        let C = intermediate_symbols.unwrap();
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;
         let P = num_pi_symbols(NUM_SYMBOLS) as usize;
         let W = num_lt_symbols(NUM_SYMBOLS) as usize;

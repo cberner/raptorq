@@ -346,7 +346,6 @@ pub struct IntermediateSymbolDecoder<T: BinaryMatrix> {
     // Operations on D are deferred to the end of the codec to improve cache hits
     deferred_D_ops: Vec<SymbolOps>,
     num_source_symbols: u32,
-    store_operations: bool,
     debug_symbol_mul_ops: u32,
     debug_symbol_add_ops: u32,
     debug_symbol_mul_ops_by_phase: Vec<u32>,
@@ -360,7 +359,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         hdpc_rows: DenseOctetMatrix,
         symbols: Vec<Symbol>,
         num_source_symbols: u32,
-        store_operations: bool,
     ) -> IntermediateSymbolDecoder<T> {
         assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
@@ -397,7 +395,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             L: intermediate_symbols,
             deferred_D_ops: Vec::with_capacity(70 * intermediate_symbols),
             num_source_symbols,
-            store_operations,
             debug_symbol_mul_ops: 0,
             debug_symbol_add_ops: 0,
             debug_symbol_mul_ops_by_phase: vec![0; 5],
@@ -420,18 +417,18 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     #[inline(never)]
     fn apply_deferred_symbol_ops(&mut self) {
-        for op in self.deferred_D_ops.drain(..) {
+        for op in self.deferred_D_ops.iter() {
             match op {
                 SymbolOps::AddAssign { dest, src } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, dest, src);
+                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
                     *dest += temp;
                 }
                 SymbolOps::MulAssign { dest, scalar } => {
-                    self.D[dest].mulassign_scalar(&scalar);
+                    self.D[*dest].mulassign_scalar(scalar);
                 }
                 SymbolOps::FMA { dest, src, scalar } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, dest, src);
-                    dest.fused_addassign_mul_scalar(&temp, &scalar);
+                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
+                    dest.fused_addassign_mul_scalar(&temp, scalar);
                 }
                 SymbolOps::Reorder { order: _order } => {}
             }
@@ -1127,12 +1124,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         self.fourth_phase();
         self.fifth_phase();
 
-        let mut operation_vector: Vec<SymbolOps> = if self.store_operations {
-            self.deferred_D_ops.clone()
-        } else {
-            Vec::with_capacity(0)
-        };
-
         self.apply_deferred_symbol_ops();
 
         // See end of section 5.4.2.1
@@ -1151,16 +1142,15 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             removable_D.push(None);
             result.push(removable_D.swap_remove(index_mapping[i]).unwrap());
         }
-        if self.store_operations {
-            let mut reorder = Vec::with_capacity(self.L);
-            for i in index_mapping.iter().take(self.L) {
-                reorder.push(*i);
-            }
-            operation_vector.push(SymbolOps::Reorder { order: reorder });
-            return (Some(result), Some(operation_vector));
+
+        let mut reorder = Vec::with_capacity(self.L);
+        for i in index_mapping.iter().take(self.L) {
+            reorder.push(*i);
         }
 
-        (Some(result), None)
+        let mut operation_vector = std::mem::replace(&mut self.deferred_D_ops, vec![]);
+        operation_vector.push(SymbolOps::Reorder { order: reorder });
+        return (Some(result), Some(operation_vector));
     }
 }
 
@@ -1171,16 +1161,8 @@ pub fn fused_inverse_mul_symbols<T: BinaryMatrix>(
     hdpc_rows: DenseOctetMatrix,
     symbols: Vec<Symbol>,
     num_source_symbols: u32,
-    store_operations: bool,
 ) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
-    IntermediateSymbolDecoder::new(
-        matrix,
-        hdpc_rows,
-        symbols,
-        num_source_symbols,
-        store_operations,
-    )
-    .execute()
+    IntermediateSymbolDecoder::new(matrix, hdpc_rows, symbols, num_source_symbols).execute()
 }
 
 #[cfg(test)]
@@ -1204,7 +1186,7 @@ mod tests {
             let indices: Vec<u32> = (0..num_symbols).collect();
             let (a, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(num_symbols, &indices);
             let symbols = vec![Symbol::zero(1usize); a.width()];
-            let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols, false);
+            let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
             decoder.execute();
             assert!(
                 (decoder.get_symbol_mul_ops() as f64 / num_symbols as f64) < expected_mul_ops,
