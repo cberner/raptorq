@@ -17,8 +17,6 @@ use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::ObjectTransmissionInformation;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
@@ -42,46 +40,50 @@ impl Encoder {
         assert_eq!(1, config.sub_blocks());
         //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
 
-        let cache = SourceBlockEncoderCache::new();
         let mut data_index = 0;
         let mut blocks = vec![];
-        for i in 0..zl {
-            let offset = kl as usize * config.symbol_size() as usize;
-            blocks.push(SourceBlockEncoder::new(
-                i as u8,
-                config.symbol_size(),
-                &data[data_index..(data_index + offset)],
-                Some(&cache),
-            ));
-            data_index += offset;
-        }
-
-        for i in 0..zs {
-            let offset = ks as usize * config.symbol_size() as usize;
-            if data_index + offset <= data.len() {
-                blocks.push(SourceBlockEncoder::new(
+        if zl > 0 {
+            let kl_plan = SourceBlockEncodingPlan::generate(kl as u16);
+            for i in 0..zl {
+                let offset = kl as usize * config.symbol_size() as usize;
+                blocks.push(SourceBlockEncoder::with_encoding_plan(
                     i as u8,
                     config.symbol_size(),
                     &data[data_index..(data_index + offset)],
-                    Some(&cache),
+                    &kl_plan,
                 ));
-            } else {
-                // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
-                assert!(kt as usize * config.symbol_size() as usize > data.len());
-                // Zero pad the last symbol
-                let mut padded = Vec::from(&data[data_index..]);
-                padded.extend(vec![
-                    0;
-                    kt as usize * config.symbol_size() as usize - data.len()
-                ]);
-                blocks.push(SourceBlockEncoder::new(
-                    i as u8,
-                    config.symbol_size(),
-                    &padded,
-                    Some(&cache),
-                ));
+                data_index += offset;
             }
-            data_index += offset;
+        }
+
+        if zs > 0 {
+            let ks_plan = SourceBlockEncodingPlan::generate(ks as u16);
+            for i in 0..zs {
+                let offset = ks as usize * config.symbol_size() as usize;
+                if data_index + offset <= data.len() {
+                    blocks.push(SourceBlockEncoder::with_encoding_plan(
+                        i as u8,
+                        config.symbol_size(),
+                        &data[data_index..(data_index + offset)],
+                        &ks_plan,
+                    ));
+                } else {
+                    // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
+                    assert!(kt as usize * config.symbol_size() as usize > data.len());
+                    // Zero pad the last symbol
+                    let mut padded = Vec::from(&data[data_index..]);
+                    padded.extend(vec![
+                        0;
+                        kt as usize * config.symbol_size() as usize - data.len()
+                    ]);
+                    blocks.push(SourceBlockEncoder::new(
+                        i as u8,
+                        config.symbol_size(),
+                        &padded,
+                    ));
+                }
+                data_index += offset;
+            }
         }
 
         Encoder { config, blocks }
@@ -105,15 +107,22 @@ impl Encoder {
     }
 }
 
-#[derive(Default)]
-pub struct SourceBlockEncoderCache {
-    cache: Arc<RwLock<HashMap<usize, Vec<SymbolOps>>>>,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SourceBlockEncodingPlan {
+    operations: Vec<SymbolOps>,
+    source_symbol_count: u16,
 }
 
-impl SourceBlockEncoderCache {
-    pub fn new() -> SourceBlockEncoderCache {
-        let cache = Arc::new(RwLock::new(HashMap::new()));
-        SourceBlockEncoderCache { cache }
+impl SourceBlockEncodingPlan {
+    // Generates an encoding plan that is valid for any combination of data length and symbol size
+    // where ceil(data_length / symbol_size) = symbol_count
+    pub fn generate(symbol_count: u16) -> SourceBlockEncodingPlan {
+        let symbols = vec![Symbol::new(vec![0]); symbol_count as usize];
+        let (_, ops) = gen_intermediate_symbols(&symbols, 1, SPARSE_MATRIX_THRESHOLD, true);
+        SourceBlockEncodingPlan {
+            operations: ops.unwrap(),
+            source_symbol_count: symbol_count,
+        }
     }
 }
 
@@ -125,59 +134,46 @@ pub struct SourceBlockEncoder {
 }
 
 impl SourceBlockEncoder {
-    pub fn new(
-        source_block_id: u8,
-        symbol_size: u16,
-        data: &[u8],
-        cache: Option<&SourceBlockEncoderCache>,
-    ) -> SourceBlockEncoder {
+    pub fn new(source_block_id: u8, symbol_size: u16, data: &[u8]) -> SourceBlockEncoder {
         assert_eq!(data.len() % symbol_size as usize, 0);
         let source_symbols: Vec<Symbol> = data
             .chunks(symbol_size as usize)
             .map(|x| Symbol::new(Vec::from(x)))
             .collect();
 
-        let intermediate_symbols = match cache {
-            Some(c) => {
-                let key = source_symbols.len();
-                let read_map = c.cache.read().unwrap();
-                let value = read_map.get(&key);
+        let (intermediate_symbols, _) = gen_intermediate_symbols(
+            &source_symbols,
+            symbol_size as usize,
+            SPARSE_MATRIX_THRESHOLD,
+            false,
+        );
 
-                match value {
-                    None => {
-                        drop(read_map);
-                        let (is, ops_vec) = gen_intermediate_symbols(
-                            &source_symbols,
-                            symbol_size as usize,
-                            SPARSE_MATRIX_THRESHOLD,
-                            true,
-                        );
-                        let mut write_map = c.cache.write().unwrap();
-                        write_map.insert(key, ops_vec.unwrap());
-                        drop(write_map);
-                        is.unwrap()
-                    }
-                    Some(operation_vector) => {
-                        let is = gen_intermediate_symbols_ops_vec(
-                            &source_symbols,
-                            symbol_size as usize,
-                            &(*operation_vector),
-                        );
-                        drop(read_map);
-                        is
-                    }
-                }
-            }
-            None => {
-                let (is, _ops_vec) = gen_intermediate_symbols(
-                    &source_symbols,
-                    symbol_size as usize,
-                    SPARSE_MATRIX_THRESHOLD,
-                    false,
-                );
-                is.unwrap()
-            }
-        };
+        SourceBlockEncoder {
+            source_block_id,
+            source_symbols,
+            intermediate_symbols: intermediate_symbols.unwrap(),
+        }
+    }
+
+    pub fn with_encoding_plan(
+        source_block_id: u8,
+        symbol_size: u16,
+        data: &[u8],
+        plan: &SourceBlockEncodingPlan,
+    ) -> SourceBlockEncoder {
+        assert_eq!(data.len() % symbol_size as usize, 0);
+        let source_symbols: Vec<Symbol> = data
+            .chunks(symbol_size as usize)
+            .map(|x| Symbol::new(Vec::from(x)))
+            .collect();
+        // TODO: this could be more lenient and support anything with the same extended symbol count
+        assert_eq!(source_symbols.len(), plan.source_symbol_count as usize);
+
+        let intermediate_symbols = gen_intermediate_symbols_ops_vec(
+            &source_symbols,
+            symbol_size as usize,
+            &plan.operations,
+        );
 
         SourceBlockEncoder {
             source_block_id,
