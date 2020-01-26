@@ -156,7 +156,6 @@ impl SourceBlockDecoder {
             hdpc_rows,
             symbols,
             self.source_block_symbols,
-            false,
         ) {
             (None, _) => return None,
             (Some(s), _) => s,
