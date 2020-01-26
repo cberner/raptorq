@@ -292,11 +292,10 @@ impl SourceBlockDecoder {
 
 #[cfg(test)]
 mod codec_tests {
-    use crate::Decoder;
     use crate::Encoder;
     use crate::SourceBlockDecoder;
     use crate::SourceBlockEncoder;
-    use crate::SourceBlockEncoderCache;
+    use crate::{Decoder, SourceBlockEncodingPlan};
     use rand::seq::SliceRandom;
     use rand::Rng;
 
@@ -377,7 +376,7 @@ mod codec_tests {
                 println!("Completed {} symbols", symbol_count)
             }
 
-            let encoder = SourceBlockEncoder::new(1, symbol_size as u16, &data, None);
+            let encoder = SourceBlockEncoder::new(1, symbol_size as u16, &data);
 
             let mut decoder = SourceBlockDecoder::new(1, symbol_size as u16, elements as u64);
             decoder.set_sparse_threshold(sparse_threshold);
@@ -395,43 +394,36 @@ mod codec_tests {
     #[test]
     #[ignore]
     fn repair_dense_extended() {
-        repair(99_999, 5000, true, None);
+        repair(99_999, 5000, true, false);
     }
 
     #[test]
     #[ignore]
     fn repair_sparse_extended() {
-        repair(0, 56403, true, None);
+        repair(0, 56403, true, false);
     }
 
     #[test]
     fn repair_dense() {
-        repair(99_999, 50, false, None);
+        repair(99_999, 50, false, false);
     }
 
     #[test]
     fn repair_sparse() {
-        repair(0, 50, false, None);
+        repair(0, 50, false, false);
     }
 
     #[test]
-    fn repair_dense_cache() {
-        let cache = SourceBlockEncoderCache::new();
-        repair(99_999, 50, false, Some(&cache));
+    fn repair_dense_pre_planned() {
+        repair(99_999, 50, false, true);
     }
 
     #[test]
-    fn repair_sparse_cache() {
-        let cache = SourceBlockEncoderCache::new();
-        repair(0, 50, false, Some(&cache));
+    fn repair_sparse_pre_planned() {
+        repair(0, 50, false, true);
     }
 
-    fn repair(
-        sparse_threshold: u32,
-        max_symbols: usize,
-        progress: bool,
-        cache: Option<&SourceBlockEncoderCache>,
-    ) {
+    fn repair(sparse_threshold: u32, max_symbols: usize, progress: bool, pre_plan: bool) {
         let symbol_size = 8;
         for symbol_count in 1..=max_symbols {
             let elements = symbol_size * symbol_count;
@@ -444,7 +436,12 @@ mod codec_tests {
                 println!("[repair] Completed {} symbols", symbol_count)
             }
 
-            let encoder = SourceBlockEncoder::new(1, 8, &data, cache);
+            let encoder = if pre_plan {
+                let plan = SourceBlockEncodingPlan::generate(symbol_count as u16);
+                SourceBlockEncoder::with_encoding_plan(1, 8, &data, &plan)
+            } else {
+                SourceBlockEncoder::new(1, 8, &data)
+            };
 
             let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
             decoder.set_sparse_threshold(sparse_threshold);

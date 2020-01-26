@@ -1,6 +1,5 @@
 use rand::Rng;
-use raptorq::SourceBlockEncoder;
-use raptorq::SourceBlockEncoderCache;
+use raptorq::{SourceBlockEncoder, SourceBlockEncodingPlan};
 use std::time::Instant;
 
 const TARGET_TOTAL_BYTES: usize = 128 * 1024 * 1024;
@@ -12,7 +11,7 @@ fn black_box(value: u64) {
     }
 }
 
-fn benchmark(symbol_size: u16, cache: Option<&SourceBlockEncoderCache>) -> u64 {
+fn benchmark(symbol_size: u16, pre_plan: bool) -> u64 {
     let mut black_box_value = 0;
     for symbol_count in SYMBOL_COUNTS.iter() {
         let elements = symbol_count * symbol_size as usize;
@@ -21,15 +20,20 @@ fn benchmark(symbol_size: u16, cache: Option<&SourceBlockEncoderCache>) -> u64 {
             data[i] = rand::thread_rng().gen();
         }
 
-        if cache.is_some() {
-            // Create and store the operation vector to measure performance when the cache is in use for all blocks.
-            SourceBlockEncoder::new(1, symbol_size, &data, cache);
-        }
+        let plan = if pre_plan {
+            Some(SourceBlockEncodingPlan::generate(*symbol_count as u16))
+        } else {
+            None
+        };
 
         let now = Instant::now();
         let iterations = TARGET_TOTAL_BYTES / elements;
         for _ in 0..iterations {
-            let encoder = SourceBlockEncoder::new(1, symbol_size, &data, cache);
+            let encoder = if let Some(ref plan) = plan {
+                SourceBlockEncoder::with_encoding_plan(1, symbol_size, &data, plan)
+            } else {
+                SourceBlockEncoder::new(1, symbol_size, &data)
+            };
             let packets = encoder.repair_packets(0, 1);
             black_box_value += packets[0].data()[0] as u64;
         }
@@ -50,15 +54,11 @@ fn benchmark(symbol_size: u16, cache: Option<&SourceBlockEncoderCache>) -> u64 {
 fn main() {
     let symbol_size = 1280;
     println!(
-        "Symbol size: {} bytes (without operation vectors)",
+        "Symbol size: {} bytes (without pre-built plan)",
         symbol_size
     );
-    black_box(benchmark(symbol_size, None));
+    black_box(benchmark(symbol_size, false));
     println!();
-    let cache = SourceBlockEncoderCache::new();
-    println!(
-        "Symbol size: {} bytes (with operation vectors)",
-        symbol_size
-    );
-    black_box(benchmark(symbol_size, Some(&cache)));
+    println!("Symbol size: {} bytes (with pre-built plan)", symbol_size);
+    black_box(benchmark(symbol_size, true));
 }
