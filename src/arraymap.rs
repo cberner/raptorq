@@ -294,7 +294,6 @@ mod tests {
         builder.add(3, 2);
 
         let map = builder.build();
-        dbg!(&map);
         assert!(map.get(0).contains(&1));
         assert!(!map.get(0).contains(&2));
 
