@@ -145,19 +145,23 @@ impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     fn first_phase_graph_substep_build_adjacency<T: BinaryMatrix>(
         &self,
-        rows_with_two_ones: &[usize],
+        start_row: usize,
+        end_row: usize,
         matrix: &T,
     ) -> UndirectedGraph {
         let mut graph = UndirectedGraph::with_capacity(
             self.start_col as u16,
             self.end_col as u16,
-            rows_with_two_ones.len(),
+            end_row - start_row,
         );
 
-        for row in rows_with_two_ones.iter() {
+        for row in start_row..end_row {
+            if self.ones_per_row.get(row) != 2 {
+                continue;
+            }
             let mut ones = [0; 2];
             let mut found = 0;
-            for (col, value) in matrix.get_row_iter(*row, self.start_col, self.end_col) {
+            for (col, value) in matrix.get_row_iter(row, self.start_col, self.end_col) {
                 // "The following graph defined by the structure of V is used in determining which
                 // row of A is chosen. The columns that intersect V are the nodes in the graph,
                 // and the rows that have exactly 2 nonzero entries in V and are not HDPC rows
@@ -184,10 +188,9 @@ impl FirstPhaseRowSelectionStats {
         &self,
         start_row: usize,
         end_row: usize,
-        rows_with_two_ones: &[usize],
         matrix: &T,
     ) -> usize {
-        let graph = self.first_phase_graph_substep_build_adjacency(rows_with_two_ones, matrix);
+        let graph = self.first_phase_graph_substep_build_adjacency(start_row, end_row, matrix);
         let mut visited = BoolArrayMap::new(start_row, end_row);
 
         let mut examplar_largest_component_node = None;
@@ -268,17 +271,13 @@ impl FirstPhaseRowSelectionStats {
     // Verify there there are no non-HPDC rows with exactly two non-zero entries, greater than one
     #[inline(never)]
     #[cfg(debug_assertions)]
-    fn first_phase_graph_substep_verify(
-        &self,
-        start_row: usize,
-        end_row: usize,
-        rows_with_two_ones: &[usize],
-    ) {
+    fn first_phase_graph_substep_verify(&self, start_row: usize, end_row: usize) {
         for row in start_row..end_row {
             if self.ones_per_row.get(row) == 2 {
-                assert!(rows_with_two_ones.contains(&row));
+                return;
             }
         }
+        unreachable!("A row with 2 ones must exist given Errata 8");
     }
 
     // Helper method for decoder phase 1
@@ -303,23 +302,13 @@ impl FirstPhaseRowSelectionStats {
         }
 
         if r.unwrap() == 2 {
-            // TODO: optimize to not allocate this Vec
-            let mut rows_with_two_ones = vec![];
-            for row in start_row..end_row {
-                let ones = self.ones_per_row.get(row);
-                if ones == 2 {
-                    rows_with_two_ones.push(row);
-                }
-            }
             // Paragraph starting "If r = 2 and there is no row with exactly 2 ones in V" can
             // be ignored due to Errata 8.
-            assert!(!rows_with_two_ones.is_empty());
 
             // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
             #[cfg(debug_assertions)]
-            self.first_phase_graph_substep_verify(start_row, end_row, &rows_with_two_ones);
-            let row =
-                self.first_phase_graph_substep(start_row, end_row, &rows_with_two_ones, matrix);
+            self.first_phase_graph_substep_verify(start_row, end_row);
+            let row = self.first_phase_graph_substep(start_row, end_row, matrix);
             return (Some(row), r);
         } else {
             let row = self.first_phase_original_degree_substep(start_row, end_row, r.unwrap());
