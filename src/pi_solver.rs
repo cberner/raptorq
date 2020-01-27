@@ -779,7 +779,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     fn fourth_phase(&mut self) {
         for i in 0..self.i {
-            // TODO: optimize for sparse
             for j in 0..self.u {
                 let b = self.A.get(i, j + self.i);
                 if b != Octet::zero() {
@@ -881,7 +880,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     // Returns the reduced submatrix, which should be written back into this submatrix of A.
     // The state of this submatrix in A is undefined, after calling this function.
     #[inline(never)]
-    // TODO: optimize for sparse
     fn record_reduce_to_row_echelon(
         &mut self,
         hdpc_rows: DenseOctetMatrix,
@@ -944,10 +942,10 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     // Performs backwards elimination in a size x size submatrix, starting at
     // row_offset and col_offset as the upper left corner of the submatrix
-    #[inline(never)]
-    // TODO: optimize for sparse
+    //
     // Applies the submatrix to the size-by-size lower right of A, and performs backwards
     // elimination on it. "submatrix" must be in row echelon form.
+    #[inline(never)]
     fn backwards_elimination(
         &mut self,
         submatrix: DenseOctetMatrix,
