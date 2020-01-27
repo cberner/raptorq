@@ -39,9 +39,6 @@ impl SparseBinaryVec {
     // Returns true, if a new column was added
     pub fn add_assign(&mut self, other: &SparseBinaryVec) -> bool {
         // Fast path for a single value that's being eliminated
-        // TODO: Probably wouldn't need this if we implemented "Furthermore, the row operations
-        // required for the HDPC rows may be performed for all such rows in one
-        // process, by using the algorithm described in Section 5.3.3.3."
         if other.elements.len() == 1 {
             let other_index = &other.elements[0];
             match self.key_to_internal_index(*other_index) {
