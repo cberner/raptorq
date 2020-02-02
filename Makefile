@@ -13,7 +13,7 @@ test: pre
 	cargo test --features benchmarking
 
 test_extended: pre
-	RUSTFLAGS="-C opt-level=3" cargo test --features benchmarking -- --ignored --nocapture
+	RUSTFLAGS="-C opt-level=3" nice cargo test --features benchmarking -- --ignored --nocapture
 
 bench: pre
 	cargo bench --features benchmarking
