@@ -190,7 +190,7 @@ dependencies = [
 
 [[package]]
 name = "raptorq"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -200,7 +200,7 @@ name = "raptorq-py"
 version = "0.1.0"
 dependencies = [
  "pyo3 0.8.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "raptorq 1.0.0",
+ "raptorq 1.2.0",
 ]
 
 [[package]]

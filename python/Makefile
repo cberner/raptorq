@@ -8,7 +8,7 @@ install:
 	maturin develop
 
 lint:
-	cargo lichking check
+	cargo deny check licenses
 	cargo fmt --all -- --check
 
 test: install

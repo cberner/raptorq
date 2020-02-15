@@ -7,7 +7,7 @@ matrix:
       install:
         []
       before_script:
-        - cargo install cargo-lichking
+        - cargo install cargo-deny
         - rustup component add rustfmt
         - rustup component add clippy
       script:
@@ -19,7 +19,7 @@ matrix:
       install:
         []
       before_script:
-        - cargo install cargo-lichking
+        - cargo install cargo-deny
         - rustup component add rustfmt
       script:
         - make -C python lint
