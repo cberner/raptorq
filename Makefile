@@ -2,7 +2,7 @@ build: pre
 	cargo build
 
 pre:
-	cargo lichking check
+	cargo deny check licenses
 	cargo fmt --all -- --check
 	cargo clippy --all
 
