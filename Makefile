@@ -20,3 +20,18 @@ bench: pre
 
 profile:
 	RUSTFLAGS='-Cforce-frame-pointers' cargo bench --no-run --features benchmarking
+
+build_py: pre
+	maturin build --cargo-extra-args="--features python"
+
+release_py: pre
+	maturin build --release --cargo-extra-args="--features python"
+
+publish_py: test_py
+	maturin publish --cargo-extra-args="--features python"
+
+install_py: pre
+	maturin develop --cargo-extra-args="--features python"
+
+test_py: install_py
+	python3 -m unittest discover

@@ -13,6 +13,8 @@ mod octet_matrix;
 mod octets;
 mod operation_vector;
 mod pi_solver;
+#[cfg(feature = "python")]
+mod python;
 mod rng;
 mod sparse_matrix;
 mod sparse_vec;
@@ -23,11 +25,19 @@ mod util;
 pub use crate::base::EncodingPacket;
 pub use crate::base::ObjectTransmissionInformation;
 pub use crate::base::PayloadId;
+#[cfg(not(feature = "python"))]
 pub use crate::decoder::Decoder;
 pub use crate::decoder::SourceBlockDecoder;
+#[cfg(not(feature = "python"))]
 pub use crate::encoder::Encoder;
 pub use crate::encoder::SourceBlockEncoder;
 pub use crate::encoder::SourceBlockEncodingPlan;
+#[cfg(feature = "python")]
+pub use crate::python::raptorq;
+#[cfg(feature = "python")]
+pub use crate::python::Decoder;
+#[cfg(feature = "python")]
+pub use crate::python::Encoder;
 
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;

@@ -1,12 +1,11 @@
+use crate::base::{EncodingPacket, ObjectTransmissionInformation};
+use crate::decoder::Decoder as DecoderNative;
+use crate::encoder::Encoder as EncoderNative;
 use pyo3::prelude::*;
 use pyo3::types::*;
-use raptorq::{
-    Decoder as DecoderNative, Encoder as EncoderNative, EncodingPacket,
-    ObjectTransmissionInformation,
-};
 
 #[pyclass]
-struct Encoder {
+pub struct Encoder {
     encoder: EncoderNative,
 }
 
@@ -35,7 +34,7 @@ impl Encoder {
 }
 
 #[pyclass]
-struct Decoder {
+pub struct Decoder {
     decoder: DecoderNative,
 }
 
@@ -67,7 +66,7 @@ impl Decoder {
 }
 
 #[pymodule]
-fn raptorq(_py: Python, m: &PyModule) -> PyResult<()> {
+pub fn raptorq(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Encoder>()?;
     m.add_class::<Decoder>()?;
     Ok(())
