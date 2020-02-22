@@ -109,7 +109,8 @@ impl ObjectTransmissionInformation {
         sub_blocks: u16,
         alignment: u8,
     ) -> ObjectTransmissionInformation {
-        assert!(transfer_length <= 946270874880);
+        // See errata (https://www.rfc-editor.org/errata/eid5548)
+        assert!(transfer_length <= 942574504275);
         assert_eq!(symbol_size % alignment as u16, 0);
         ObjectTransmissionInformation {
             transfer_length,
