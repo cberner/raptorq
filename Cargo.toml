@@ -7,8 +7,12 @@ version = "1.2.0"
 edition = "2018"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"]}
+pyo3 = {version = "0.8.4", features=["extension-module"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -37,3 +41,4 @@ debug = true
 
 [features]
 benchmarking = []
+python = ["pyo3"]
