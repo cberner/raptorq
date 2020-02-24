@@ -172,14 +172,14 @@ impl ObjectTransmissionInformation {
         self.symbol_alignment
     }
 
-    pub fn with_defaults(
+    pub(crate) fn generate_encoding_parameters(
         transfer_length: u64,
         max_packet_size: u16,
+        decoder_memory_requirement: u64,
     ) -> ObjectTransmissionInformation {
         let alignment = 8;
         assert!(max_packet_size >= alignment);
         let symbol_size = max_packet_size - (max_packet_size % alignment);
-        let max_memory = 10 * 1024 * 1024;
         let sub_symbol_size = 8;
 
         let kt = (transfer_length as f64 / symbol_size as f64).ceil();
@@ -188,7 +188,7 @@ impl ObjectTransmissionInformation {
         let kl = |n: u32| -> u32 {
             for &(kprime, _, _, _, _) in SYSTEMATIC_INDICES_AND_PARAMETERS.iter().rev() {
                 let x = (symbol_size as f64 / (alignment as u32 * n) as f64).ceil();
-                if kprime <= (max_memory as f64 / (alignment as f64 * x)) as u32 {
+                if kprime <= (decoder_memory_requirement as f64 / (alignment as f64 * x)) as u32 {
                     return kprime;
                 }
             }
@@ -212,6 +212,17 @@ impl ObjectTransmissionInformation {
             num_sub_blocks: n as u16,
             symbol_alignment: alignment as u8,
         }
+    }
+
+    pub fn with_defaults(
+        transfer_length: u64,
+        max_packet_size: u16,
+    ) -> ObjectTransmissionInformation {
+        ObjectTransmissionInformation::generate_encoding_parameters(
+            transfer_length,
+            max_packet_size,
+            10 * 1024 * 1024,
+        )
     }
 }
 
