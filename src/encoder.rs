@@ -20,6 +20,39 @@ use serde::{Deserialize, Serialize};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
+#[derive(Default, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EncoderBuilder {
+    decoder_memory_requirement: u64,
+    max_packet_size: u16,
+}
+
+impl EncoderBuilder {
+    pub fn new() -> EncoderBuilder {
+        EncoderBuilder {
+            decoder_memory_requirement: 10 * 1024 * 1024,
+            max_packet_size: 1024,
+        }
+    }
+
+    pub fn set_decoder_memory_requirement(&mut self, bytes: u64) {
+        self.decoder_memory_requirement = bytes;
+    }
+
+    pub fn set_max_packet_size(&mut self, bytes: u16) {
+        self.max_packet_size = bytes;
+    }
+
+    pub fn build(&self, data: &[u8]) -> Encoder {
+        let config = ObjectTransmissionInformation::generate_encoding_parameters(
+            data.len() as u64,
+            self.max_packet_size,
+            self.decoder_memory_requirement,
+        );
+
+        Encoder::new(data, config)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Encoder {
     config: ObjectTransmissionInformation,
@@ -27,12 +60,7 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    pub fn with_defaults(data: &[u8], maximum_transmission_unit: u16) -> Encoder {
-        let config = ObjectTransmissionInformation::with_defaults(
-            data.len() as u64,
-            maximum_transmission_unit,
-        );
-
+    fn new(data: &[u8], config: ObjectTransmissionInformation) -> Encoder {
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
         let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
@@ -87,6 +115,15 @@ impl Encoder {
         }
 
         Encoder { config, blocks }
+    }
+
+    pub fn with_defaults(data: &[u8], maximum_transmission_unit: u16) -> Encoder {
+        let config = ObjectTransmissionInformation::with_defaults(
+            data.len() as u64,
+            maximum_transmission_unit,
+        );
+
+        Encoder::new(data, config)
     }
 
     pub fn get_config(&self) -> ObjectTransmissionInformation {
@@ -336,7 +373,7 @@ mod tests {
     use crate::systematic_constants::{
         calculate_p1, num_ldpc_symbols, systematic_index, MAX_SOURCE_SYMBOLS_PER_BLOCK,
     };
-    use crate::{Encoder, EncodingPacket};
+    use crate::{Encoder, EncoderBuilder, EncodingPacket};
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
@@ -434,6 +471,15 @@ mod tests {
         for i in 0..S {
             assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
         }
+    }
+
+    #[test]
+    fn test_builder() {
+        let data = vec![0, 1, 2, 3];
+        let encoder = Encoder::with_defaults(&data, 1024);
+        let mut builder = EncoderBuilder::new();
+        builder.set_max_packet_size(1024);
+        assert_eq!(builder.build(&data), encoder);
     }
 
     #[test]
