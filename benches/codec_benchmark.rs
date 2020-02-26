@@ -5,10 +5,10 @@ use criterion::Criterion;
 use criterion::Throughput;
 
 use rand::Rng;
-use raptorq::Octet;
 use raptorq::SourceBlockDecoder;
 use raptorq::SourceBlockEncoder;
 use raptorq::Symbol;
+use raptorq::{ObjectTransmissionInformation, Octet};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let octet1 = Octet::new(rand::thread_rng().gen_range(1, 255));
@@ -77,7 +77,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         "encode 10KB",
         Benchmark::new("", move |b| {
             b.iter(|| {
-                let encoder = SourceBlockEncoder::new(1, symbol_size, &encode_data);
+                let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+                let encoder = SourceBlockEncoder::new2(1, &config, &encode_data);
                 return encoder.source_packets();
             })
         })
@@ -89,8 +90,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         "roundtrip 10KB",
         Benchmark::new("", move |b| {
             b.iter(|| {
-                let encoder = SourceBlockEncoder::new(1, symbol_size, &roundtrip_data);
-                let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
+                let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+                let encoder = SourceBlockEncoder::new2(1, &config, &roundtrip_data);
+                let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
                 return decoder.decode(encoder.source_packets());
             })
         })
@@ -102,9 +104,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         "roundtrip repair 10KB",
         Benchmark::new("", move |b| {
             b.iter(|| {
-                let encoder = SourceBlockEncoder::new(1, symbol_size, &repair_data);
+                let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+                let encoder = SourceBlockEncoder::new2(1, &config, &repair_data);
                 let repair_packets = (elements / symbol_size as usize) as u32;
-                let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
+                let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
                 return decoder.decode(encoder.repair_packets(0, repair_packets));
             })
         })
