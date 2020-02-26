@@ -1,5 +1,5 @@
 use rand::Rng;
-use raptorq::{SourceBlockDecoder, SourceBlockEncoder};
+use raptorq::{ObjectTransmissionInformation, SourceBlockDecoder, SourceBlockEncoder};
 use std::time::Instant;
 
 const TARGET_TOTAL_BYTES: usize = 128 * 1024 * 1024;
@@ -21,13 +21,14 @@ fn benchmark(symbol_size: u16, overhead: f64) -> u64 {
         }
 
         let iterations = TARGET_TOTAL_BYTES / elements;
-        let encoder = SourceBlockEncoder::new(1, symbol_size, &data);
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new2(1, &config, &data);
         let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
         let mut packets =
             encoder.repair_packets(0, (iterations as u32 * elements_and_overhead) as u32);
         let now = Instant::now();
         for _ in 0..iterations {
-            let mut decoder = SourceBlockDecoder::new(1, symbol_size, elements as u64);
+            let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
             let start = packets.len() - elements_and_overhead as usize;
             if let Some(result) = decoder.decode(packets.drain(start..)) {
                 black_box_value += result[0] as u64;

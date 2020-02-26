@@ -64,19 +64,15 @@ impl Encoder {
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
         let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
-        // TODO: support subblocks
-        assert_eq!(1, config.sub_blocks());
-        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
-
         let mut data_index = 0;
         let mut blocks = vec![];
         if zl > 0 {
             let kl_plan = SourceBlockEncodingPlan::generate(kl as u16);
             for i in 0..zl {
                 let offset = kl as usize * config.symbol_size() as usize;
-                blocks.push(SourceBlockEncoder::with_encoding_plan(
+                blocks.push(SourceBlockEncoder::with_encoding_plan2(
                     i as u8,
-                    config.symbol_size(),
+                    &config,
                     &data[data_index..(data_index + offset)],
                     &kl_plan,
                 ));
@@ -89,9 +85,9 @@ impl Encoder {
             for i in 0..zs {
                 let offset = ks as usize * config.symbol_size() as usize;
                 if data_index + offset <= data.len() {
-                    blocks.push(SourceBlockEncoder::with_encoding_plan(
+                    blocks.push(SourceBlockEncoder::with_encoding_plan2(
                         i as u8,
-                        config.symbol_size(),
+                        &config,
                         &data[data_index..(data_index + offset)],
                         &ks_plan,
                     ));
@@ -104,11 +100,7 @@ impl Encoder {
                         0;
                         kt as usize * config.symbol_size() as usize - data.len()
                     ]);
-                    blocks.push(SourceBlockEncoder::new(
-                        i as u8,
-                        config.symbol_size(),
-                        &padded,
-                    ));
+                    blocks.push(SourceBlockEncoder::new2(i as u8, &config, &padded));
                 }
                 data_index += offset;
             }
@@ -172,16 +164,57 @@ pub struct SourceBlockEncoder {
 }
 
 impl SourceBlockEncoder {
+    #[deprecated(
+        since = "1.3.0",
+        note = "Use the new2() function instead. In version 2.0, that function will replace this one"
+    )]
     pub fn new(source_block_id: u8, symbol_size: u16, data: &[u8]) -> SourceBlockEncoder {
-        assert_eq!(data.len() % symbol_size as usize, 0);
-        let source_symbols: Vec<Symbol> = data
-            .chunks(symbol_size as usize)
-            .map(|x| Symbol::new(Vec::from(x)))
-            .collect();
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+        SourceBlockEncoder::new2(source_block_id, &config, data)
+    }
+
+    fn create_symbols(config: &ObjectTransmissionInformation, data: &[u8]) -> Vec<Symbol> {
+        assert_eq!(data.len() % config.symbol_size() as usize, 0);
+        if config.sub_blocks() > 1 {
+            let mut symbols = vec![vec![]; data.len() / config.symbol_size() as usize];
+            let (tl, ts, nl, ns) = partition(
+                (config.symbol_size() / config.symbol_alignment() as u16) as u32,
+                config.sub_blocks(),
+            );
+            // Divide the block into sub-blocks and then concatenate the sub-symbols into symbols
+            // See second to last paragraph in section 4.4.1.2.
+            let mut offset = 0;
+            for sub_block in 0..(nl + ns) as u32 {
+                let bytes = if sub_block < nl {
+                    tl as usize * config.symbol_alignment() as usize
+                } else {
+                    ts as usize * config.symbol_alignment() as usize
+                };
+                for symbol in &mut symbols {
+                    symbol.extend_from_slice(&data[offset..offset + bytes]);
+                    offset += bytes;
+                }
+            }
+            assert_eq!(offset, data.len());
+            symbols.drain(..).map(Symbol::new).collect()
+        } else {
+            data.chunks(config.symbol_size() as usize)
+                .map(|x| Symbol::new(Vec::from(x)))
+                .collect()
+        }
+    }
+
+    // TODO: rename this to new() in version 2.0
+    pub fn new2(
+        source_block_id: u8,
+        config: &ObjectTransmissionInformation,
+        data: &[u8],
+    ) -> SourceBlockEncoder {
+        let source_symbols = SourceBlockEncoder::create_symbols(config, data);
 
         let (intermediate_symbols, _) = gen_intermediate_symbols(
             &source_symbols,
-            symbol_size as usize,
+            config.symbol_size() as usize,
             SPARSE_MATRIX_THRESHOLD,
         );
 
@@ -192,23 +225,34 @@ impl SourceBlockEncoder {
         }
     }
 
+    #[deprecated(
+        since = "1.3.0",
+        note = "Use the with_encoding_plan2() function instead. In version 2.0, that function will replace this one"
+    )]
     pub fn with_encoding_plan(
         source_block_id: u8,
         symbol_size: u16,
         data: &[u8],
         plan: &SourceBlockEncodingPlan,
     ) -> SourceBlockEncoder {
-        assert_eq!(data.len() % symbol_size as usize, 0);
-        let source_symbols: Vec<Symbol> = data
-            .chunks(symbol_size as usize)
-            .map(|x| Symbol::new(Vec::from(x)))
-            .collect();
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+        SourceBlockEncoder::with_encoding_plan2(source_block_id, &config, data, plan)
+    }
+
+    // TODO: rename this to with_encoding_plan() in version 2.0
+    pub fn with_encoding_plan2(
+        source_block_id: u8,
+        config: &ObjectTransmissionInformation,
+        data: &[u8],
+        plan: &SourceBlockEncodingPlan,
+    ) -> SourceBlockEncoder {
+        let source_symbols = SourceBlockEncoder::create_symbols(config, data);
         // TODO: this could be more lenient and support anything with the same extended symbol count
         assert_eq!(source_symbols.len(), plan.source_symbol_count as usize);
 
         let intermediate_symbols = gen_intermediate_symbols_with_plan(
             &source_symbols,
-            symbol_size as usize,
+            config.symbol_size() as usize,
             &plan.operations,
         );
 

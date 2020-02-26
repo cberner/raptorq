@@ -30,23 +30,19 @@ impl Decoder {
         let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
         let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
-        // TODO: support subblocks
-        assert_eq!(1, config.sub_blocks());
-        //        let (tl, ts, nl, ns) = partition((config.symbol_size() / config.alignment() as u16) as u32, config.sub_blocks());
-
         let mut decoders = vec![];
         for i in 0..zl {
-            decoders.push(SourceBlockDecoder::new(
+            decoders.push(SourceBlockDecoder::new2(
                 i as u8,
-                config.symbol_size(),
+                &config,
                 u64::from(kl) * u64::from(config.symbol_size()),
             ));
         }
 
         for i in 0..zs {
-            decoders.push(SourceBlockDecoder::new(
+            decoders.push(SourceBlockDecoder::new2(
                 i as u8,
-                config.symbol_size(),
+                &config,
                 u64::from(ks) * u64::from(config.symbol_size()),
             ));
         }
@@ -111,6 +107,8 @@ impl Decoder {
 pub struct SourceBlockDecoder {
     source_block_id: u8,
     symbol_size: u16,
+    num_sub_blocks: u16,
+    symbol_alignment: u8,
     source_block_symbols: u32,
     source_symbols: Vec<Option<Symbol>>,
     repair_packets: Vec<EncodingPacket>,
@@ -121,15 +119,31 @@ pub struct SourceBlockDecoder {
 }
 
 impl SourceBlockDecoder {
+    #[deprecated(
+        since = "1.3.0",
+        note = "Use the new2() function instead. In version 2.0, that function will replace this one"
+    )]
     pub fn new(source_block_id: u8, symbol_size: u16, block_length: u64) -> SourceBlockDecoder {
-        let source_symbols = (block_length as f64 / symbol_size as f64).ceil() as u32;
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+        SourceBlockDecoder::new2(source_block_id, &config, block_length)
+    }
+
+    // TODO: rename this to new() in version 2.0
+    pub fn new2(
+        source_block_id: u8,
+        config: &ObjectTransmissionInformation,
+        block_length: u64,
+    ) -> SourceBlockDecoder {
+        let source_symbols = (block_length as f64 / config.symbol_size() as f64).ceil() as u32;
         let mut received_esi = HashSet::new();
         for i in source_symbols..extended_source_block_symbols(source_symbols) {
             received_esi.insert(i);
         }
         SourceBlockDecoder {
             source_block_id,
-            symbol_size,
+            symbol_size: config.symbol_size(),
+            num_sub_blocks: config.sub_blocks(),
+            symbol_alignment: config.symbol_alignment(),
             source_block_symbols: source_symbols,
             source_symbols: vec![None; source_symbols as usize],
             repair_packets: vec![],
@@ -143,6 +157,28 @@ impl SourceBlockDecoder {
     #[cfg(any(test, feature = "benchmarking"))]
     pub fn set_sparse_threshold(&mut self, value: u32) {
         self.sparse_threshold = value;
+    }
+
+    fn unpack_sub_blocks(&self, result: &mut Vec<u8>, symbol: &Symbol, symbol_index: usize) {
+        let (tl, ts, nl, ns) = partition(
+            (self.symbol_size / self.symbol_alignment as u16) as u32,
+            self.num_sub_blocks,
+        );
+
+        let mut symbol_offset = 0;
+        let mut sub_block_offset = 0;
+        for sub_block in 0..(nl + ns) as u32 {
+            let bytes = if sub_block < nl {
+                tl as usize * self.symbol_alignment as usize
+            } else {
+                ts as usize * self.symbol_alignment as usize
+            };
+            let start = sub_block_offset + bytes * symbol_index;
+            result[start..start + bytes]
+                .copy_from_slice(&symbol.as_bytes()[symbol_offset..symbol_offset + bytes]);
+            symbol_offset += bytes;
+            sub_block_offset += bytes * self.source_block_symbols as usize;
+        }
     }
 
     fn try_pi_decode(
@@ -161,14 +197,14 @@ impl SourceBlockDecoder {
             (Some(s), _) => s,
         };
 
-        let mut result = vec![];
+        let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
         let lt_symbols = num_lt_symbols(self.source_block_symbols);
         let pi_symbols = num_pi_symbols(self.source_block_symbols);
         let sys_index = systematic_index(self.source_block_symbols);
         let p1 = calculate_p1(self.source_block_symbols);
         for i in 0..self.source_block_symbols as usize {
             if let Some(ref symbol) = self.source_symbols[i] {
-                result.extend(symbol.as_bytes())
+                self.unpack_sub_blocks(&mut result, symbol, i);
             } else {
                 let rebuilt = self.rebuild_source_symbol(
                     &intermediate_symbols,
@@ -178,7 +214,7 @@ impl SourceBlockDecoder {
                     sys_index,
                     p1,
                 );
-                result.extend(rebuilt.as_bytes());
+                self.unpack_sub_blocks(&mut result, &rebuilt, i);
             }
         }
 
@@ -216,13 +252,11 @@ impl SourceBlockDecoder {
 
         let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
         if self.received_source_symbols == self.source_block_symbols {
-            let result = self
-                .source_symbols
-                .iter()
-                .cloned()
-                .map(|symbol| symbol.unwrap().into_bytes())
-                .flatten()
-                .collect();
+            let mut result =
+                vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
+            for (i, symbol) in self.source_symbols.iter().enumerate() {
+                self.unpack_sub_blocks(&mut result, symbol.as_ref().unwrap(), i);
+            }
 
             self.decoded = true;
             return Some(result);
@@ -291,10 +325,10 @@ impl SourceBlockDecoder {
 
 #[cfg(test)]
 mod codec_tests {
-    use crate::Encoder;
-    use crate::SourceBlockDecoder;
     use crate::SourceBlockEncoder;
     use crate::{Decoder, SourceBlockEncodingPlan};
+    use crate::{Encoder, EncoderBuilder};
+    use crate::{ObjectTransmissionInformation, SourceBlockDecoder};
     use rand::seq::SliceRandom;
     use rand::Rng;
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -343,6 +377,49 @@ mod codec_tests {
     }
 
     #[test]
+    fn sub_block_erasure() {
+        let elements: usize = 10_000;
+        let mut data: Vec<u8> = vec![0; elements];
+        for i in 0..elements {
+            data[i] = rand::thread_rng().gen();
+        }
+
+        let mut builder = EncoderBuilder::new();
+        builder.set_decoder_memory_requirement(5000);
+        builder.set_max_packet_size(500);
+        let encoder = builder.build(&data);
+        assert!(encoder.get_config().sub_blocks() > 2);
+
+        // Test round trip
+        let mut decoder = Decoder::new(encoder.get_config());
+        let mut result = None;
+        for packet in encoder.get_encoded_packets(0) {
+            assert_eq!(result, None);
+            result = decoder.decode(packet);
+        }
+        assert_eq!(result.unwrap(), data);
+
+        // Test repair
+        let mut packets = encoder.get_encoded_packets(15);
+        packets.shuffle(&mut rand::thread_rng());
+        // Erase 10 packets at random
+        let length = packets.len();
+        packets.truncate(length - 10);
+
+        let mut decoder = Decoder::new(encoder.get_config());
+
+        let mut result = None;
+        while !packets.is_empty() {
+            result = decoder.decode(packets.pop().unwrap());
+            if result != None {
+                break;
+            }
+        }
+
+        assert_eq!(result.unwrap(), data);
+    }
+
+    #[test]
     fn round_trip_dense() {
         round_trip(99_999, 100, false);
     }
@@ -377,9 +454,10 @@ mod codec_tests {
                 println!("Completed {} symbols", symbol_count)
             }
 
-            let encoder = SourceBlockEncoder::new(1, symbol_size as u16, &data);
+            let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+            let encoder = SourceBlockEncoder::new2(1, &config, &data);
 
-            let mut decoder = SourceBlockDecoder::new(1, symbol_size as u16, elements as u64);
+            let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
             decoder.set_sparse_threshold(sparse_threshold);
 
             let mut result = None;
@@ -456,14 +534,15 @@ mod codec_tests {
             data[i] = rand::thread_rng().gen();
         }
 
+        let config = ObjectTransmissionInformation::new(0, 8, 0, 1, 1);
         let encoder = if pre_plan {
             let plan = SourceBlockEncodingPlan::generate(symbol_count as u16);
-            SourceBlockEncoder::with_encoding_plan(1, 8, &data, &plan)
+            SourceBlockEncoder::with_encoding_plan2(1, &config, &data, &plan)
         } else {
-            SourceBlockEncoder::new(1, 8, &data)
+            SourceBlockEncoder::new2(1, &config, &data)
         };
 
-        let mut decoder = SourceBlockDecoder::new(1, 8, elements as u64);
+        let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
         decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
