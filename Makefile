@@ -28,7 +28,7 @@ release_py: pre
 	RUSTUP_TOOLCHAIN="nightly" maturin build --release --cargo-extra-args="--features python"
 
 publish_py: test_py
-	RUSTUP_TOOLCHAIN="nightly" maturin publish --cargo-extra-args="--features python"
+	docker run -it --rm -v $(shell pwd):/raptorq quay.io/pypa/manylinux2014_x86_64 /raptorq/py_publish.sh
 
 install_py: pre
 	RUSTUP_TOOLCHAIN="nightly" maturin develop --cargo-extra-args="--features python"
