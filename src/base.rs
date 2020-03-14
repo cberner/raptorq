@@ -1,5 +1,7 @@
 use crate::rng::rand;
-use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
+use crate::systematic_constants::{
+    MAX_SOURCE_SYMBOLS_PER_BLOCK, SYSTEMATIC_INDICES_AND_PARAMETERS,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
@@ -112,6 +114,10 @@ impl ObjectTransmissionInformation {
         // See errata (https://www.rfc-editor.org/errata/eid5548)
         assert!(transfer_length <= 942574504275);
         assert_eq!(symbol_size % alignment as u16, 0);
+        // See section 4.4.1.2. "These parameters MUST be set so that ceil(ceil(F/T)/Z) <= K'_max."
+        let symbols_required =
+            ((transfer_length as f64 / symbol_size as f64).ceil() / source_blocks as f64).ceil();
+        assert!((symbols_required as u32) < MAX_SOURCE_SYMBOLS_PER_BLOCK);
         ObjectTransmissionInformation {
             transfer_length,
             symbol_size,
