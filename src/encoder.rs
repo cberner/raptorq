@@ -82,7 +82,7 @@ impl Encoder {
 
         if zs > 0 {
             let ks_plan = SourceBlockEncodingPlan::generate(ks as u16);
-            for i in 0..zs {
+            for i in zl..(zl + zs) {
                 let offset = ks as usize * config.symbol_size() as usize;
                 if data_index + offset <= data.len() {
                     blocks.push(SourceBlockEncoder::with_encoding_plan2(
@@ -417,7 +417,8 @@ mod tests {
     use crate::systematic_constants::{
         calculate_p1, num_ldpc_symbols, systematic_index, MAX_SOURCE_SYMBOLS_PER_BLOCK,
     };
-    use crate::{Encoder, EncoderBuilder, EncodingPacket};
+    use crate::{Encoder, EncoderBuilder, EncodingPacket, ObjectTransmissionInformation};
+    use std::collections::HashSet;
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
@@ -560,5 +561,18 @@ mod tests {
 
         assert_eq!(data_size + padding_size, padded_data.len());
         assert_eq!(data[..], padded_data[..data_size]);
+    }
+
+    #[test]
+    fn unique_blocks() {
+        let data = gen_test_data(120);
+        let config = ObjectTransmissionInformation::new(120, 10, 10, 0, 2);
+        let encoder = Encoder::new(&data, config);
+        assert!(encoder.get_block_encoders().len() > 1);
+        let mut ids = HashSet::new();
+        for block in encoder.get_block_encoders().iter() {
+            ids.insert(block.source_block_id);
+        }
+        assert_eq!(ids.len(), encoder.get_block_encoders().len());
     }
 }
