@@ -53,6 +53,42 @@ impl EncoderBuilder {
     }
 }
 
+// Calculate the splits [start, end) of an object for encoding as blocks.
+// If a block extends past the end of the object, it must be zero padded
+pub fn calculate_block_offsets(
+    data: &[u8],
+    config: &ObjectTransmissionInformation,
+) -> Vec<(usize, usize)> {
+    let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
+    let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
+
+    let mut data_index = 0;
+    let mut blocks = vec![];
+    if zl > 0 {
+        for _ in 0..zl {
+            let offset = kl as usize * config.symbol_size() as usize;
+            blocks.push((data_index, (data_index + offset)));
+            data_index += offset;
+        }
+    }
+
+    if zs > 0 {
+        for _ in zl..(zl + zs) {
+            let offset = ks as usize * config.symbol_size() as usize;
+            if data_index + offset <= data.len() {
+                blocks.push((data_index, (data_index + offset)));
+            } else {
+                // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
+                assert!(kt as usize * config.symbol_size() as usize > data.len());
+                blocks.push((data_index, (data_index + offset)));
+            }
+            data_index += offset;
+        }
+    }
+
+    blocks
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Encoder {
     config: ObjectTransmissionInformation,
@@ -61,52 +97,38 @@ pub struct Encoder {
 
 impl Encoder {
     fn new(data: &[u8], config: ObjectTransmissionInformation) -> Encoder {
-        let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
-        let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
+        let mut block_encoders = vec![];
+        let mut cached_plan: Option<SourceBlockEncodingPlan> = None;
+        for (i, (start, end)) in calculate_block_offsets(data, &config).drain(..).enumerate() {
+            // Zero pad if necessary
+            let mut padded;
+            let block: &[u8] = if end > data.len() {
+                padded = Vec::from(&data[start..]);
+                padded.extend(vec![0; end - data.len()]);
+                &padded
+            } else {
+                &data[start..end]
+            };
 
-        let mut data_index = 0;
-        let mut blocks = vec![];
-        if zl > 0 {
-            let kl_plan = SourceBlockEncodingPlan::generate(kl as u16);
-            for i in 0..zl {
-                let offset = kl as usize * config.symbol_size() as usize;
-                blocks.push(SourceBlockEncoder::with_encoding_plan2(
-                    i as u8,
-                    &config,
-                    &data[data_index..(data_index + offset)],
-                    &kl_plan,
-                ));
-                data_index += offset;
+            let symbol_count = block.len() / config.symbol_size() as usize;
+            if cached_plan.is_none()
+                || cached_plan.as_ref().unwrap().source_symbol_count != symbol_count as u16
+            {
+                let plan = SourceBlockEncodingPlan::generate(symbol_count as u16);
+                cached_plan = Some(plan);
             }
+            block_encoders.push(SourceBlockEncoder::with_encoding_plan2(
+                i as u8,
+                &config,
+                &block,
+                cached_plan.as_ref().unwrap(),
+            ));
         }
 
-        if zs > 0 {
-            let ks_plan = SourceBlockEncodingPlan::generate(ks as u16);
-            for i in zl..(zl + zs) {
-                let offset = ks as usize * config.symbol_size() as usize;
-                if data_index + offset <= data.len() {
-                    blocks.push(SourceBlockEncoder::with_encoding_plan2(
-                        i as u8,
-                        &config,
-                        &data[data_index..(data_index + offset)],
-                        &ks_plan,
-                    ));
-                } else {
-                    // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
-                    assert!(kt as usize * config.symbol_size() as usize > data.len());
-                    // Zero pad the last symbol
-                    let mut padded = Vec::from(&data[data_index..]);
-                    padded.extend(vec![
-                        0;
-                        kt as usize * config.symbol_size() as usize - data.len()
-                    ]);
-                    blocks.push(SourceBlockEncoder::new2(i as u8, &config, &padded));
-                }
-                data_index += offset;
-            }
+        Encoder {
+            config,
+            blocks: block_encoders,
         }
-
-        Encoder { config, blocks }
     }
 
     pub fn with_defaults(data: &[u8], maximum_transmission_unit: u16) -> Encoder {

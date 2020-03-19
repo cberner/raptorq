@@ -28,6 +28,7 @@ pub use crate::base::PayloadId;
 #[cfg(not(feature = "python"))]
 pub use crate::decoder::Decoder;
 pub use crate::decoder::SourceBlockDecoder;
+pub use crate::encoder::calculate_block_offsets;
 #[cfg(not(feature = "python"))]
 pub use crate::encoder::Encoder;
 pub use crate::encoder::EncoderBuilder;
