@@ -84,7 +84,7 @@ impl DenseBinaryMatrix {
     fn select_all_right_of_mask(bit: usize) -> u64 {
         let mask = DenseBinaryMatrix::select_mask(bit);
         // Subtract one to convert e.g. 0100 -> 0011
-        (mask - 1)
+        mask - 1
     }
 
     fn clear_bit(word: &mut u64, bit: usize) {
