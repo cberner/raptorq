@@ -39,7 +39,7 @@ impl Decoder {
             ));
         }
 
-        for i in 0..zs {
+        for i in zl..(zl + zs) {
             decoders.push(SourceBlockDecoder::new2(
                 i as u8,
                 &config,
