@@ -215,7 +215,7 @@ impl U32VecMap {
     pub fn with_capacity(start_key: usize, end_key: usize) -> U32VecMap {
         U32VecMap {
             offset: start_key,
-            elements: vec![0; end_key],
+            elements: vec![0; end_key - start_key],
         }
     }
 
