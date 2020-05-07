@@ -231,11 +231,6 @@ impl U32VecMap {
     }
 
     #[allow(dead_code)]
-    pub fn swap(&mut self, key: usize, other_key: usize) {
-        self.elements.swap(key, other_key);
-    }
-
-    #[allow(dead_code)]
     pub fn insert(&mut self, key: usize, value: u32) {
         self.grow_if_necessary(key - self.offset);
         self.elements[key - self.offset] = value;
