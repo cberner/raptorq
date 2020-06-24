@@ -117,7 +117,7 @@ impl ObjectTransmissionInformation {
         // See section 4.4.1.2. "These parameters MUST be set so that ceil(ceil(F/T)/Z) <= K'_max."
         let symbols_required =
             ((transfer_length as f64 / symbol_size as f64).ceil() / source_blocks as f64).ceil();
-        assert!((symbols_required as u32) < MAX_SOURCE_SYMBOLS_PER_BLOCK);
+        assert!((symbols_required as u32) <= MAX_SOURCE_SYMBOLS_PER_BLOCK);
         ObjectTransmissionInformation {
             transfer_length,
             symbol_size,
@@ -305,6 +305,11 @@ pub fn intermediate_tuple(
 mod tests {
     use crate::{EncodingPacket, ObjectTransmissionInformation, PayloadId};
     use rand::Rng;
+
+    #[test]
+    fn max_transfer_size() {
+        ObjectTransmissionInformation::new(942574504275, 65535, 255, 1, 1);
+    }
 
     #[test]
     fn payload_id_serialization() {
