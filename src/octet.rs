@@ -1260,14 +1260,14 @@ impl<'a, 'b> Add<&'b Octet> for &'a Octet {
 }
 
 impl AddAssign for Octet {
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::suspicious_op_assign_impl)]
     fn add_assign(&mut self, other: Octet) {
         self.value ^= other.value;
     }
 }
 
 impl<'a> AddAssign<&'a Octet> for Octet {
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::suspicious_op_assign_impl)]
     fn add_assign(&mut self, other: &'a Octet) {
         self.value ^= other.value;
     }
