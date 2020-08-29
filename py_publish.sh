@@ -3,7 +3,7 @@
 cd /raptorq
 yum install -y python3-pip
 pip3 install maturin
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=nightly-2020-03-12
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=nightly-2020-08-26
 source $HOME/.cargo/env
 
 # xargs is just to merge the lines together into a single line
