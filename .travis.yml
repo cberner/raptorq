@@ -15,7 +15,7 @@ matrix:
 
     - name: Run CPython wrapper tests
       language: rust
-      rust: nightly-2020-08-26
+      rust: stable
       install:
         []
       before_script:
