@@ -75,11 +75,6 @@ so that internal classes can be used in this crate's benchmarks.
 ## Python bindings
 
 The Python bindings are generated using [pyo3](https://github.com/PyO3/pyo3). 
-Rust 1.37.0-nightly or higher is required for building [pyo3](https://github.com/PyO3/pyo3) projects.
-```
-$ rustup install nightly
-$ rustup override set nightly
-```
 
 Some operating systems require additional packages to be installed.
 ```

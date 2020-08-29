@@ -22,16 +22,16 @@ profile:
 	RUSTFLAGS='-Cforce-frame-pointers' cargo bench --no-run --features benchmarking
 
 build_py: pre
-	RUSTUP_TOOLCHAIN="nightly-2020-08-26" maturin build --cargo-extra-args="--features python"
+	maturin build --cargo-extra-args="--features python"
 
 release_py: pre
-	RUSTUP_TOOLCHAIN="nightly-2020-08-26" maturin build --release --cargo-extra-args="--features python"
+	maturin build --release --cargo-extra-args="--features python"
 
 publish_py: test_py
 	docker run -it --rm -v $(shell pwd):/raptorq quay.io/pypa/manylinux2014_x86_64 /raptorq/py_publish.sh
 
 install_py: pre
-	RUSTUP_TOOLCHAIN="nightly-2020-08-26" maturin develop --cargo-extra-args="--features python"
+	maturin develop --cargo-extra-args="--features python"
 
 test_py: install_py
 	python3 -m unittest discover
