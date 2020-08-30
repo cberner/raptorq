@@ -13,7 +13,7 @@ authors = ["Christopher Berner <christopherberner@gmail.com>"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-serde = {version = "1.0.102", features=["std", "derive"]}
+serde = {version = "1.0.102", features=["std", "derive"], optional = true}
 pyo3 = {version = "0.11.1", features=["extension-module"], optional = true }
 
 [dev-dependencies]
@@ -44,6 +44,7 @@ debug = true
 [features]
 benchmarking = []
 python = ["pyo3"]
+serde_support = ["serde"]
 
 [package.metadata.maturin]
 requires-python = ">= 3.5"

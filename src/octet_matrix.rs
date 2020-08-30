@@ -2,11 +2,10 @@ use crate::octet::Octet;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::{add_assign, mulassign_scalar};
 use crate::util::get_both_indices;
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "benchmarking")]
 use std::mem::size_of;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct DenseOctetMatrix {
     height: usize,
     width: usize,

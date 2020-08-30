@@ -10,10 +10,9 @@ use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::util::get_both_indices;
-use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct FirstPhaseRowSelectionStats {
     original_degree: U16ArrayMap,
     ones_per_row: U16ArrayMap,
@@ -319,7 +318,7 @@ impl FirstPhaseRowSelectionStats {
 
 // See section 5.4.2.1
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct IntermediateSymbolDecoder<T: BinaryMatrix> {
     A: T,
     // If present, these are treated as replacing the last rows of A

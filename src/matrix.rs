@@ -2,7 +2,6 @@ use crate::gf2::add_assign_binary;
 use crate::iterators::OctetIter;
 use crate::octet::Octet;
 use crate::util::get_both_indices;
-use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
 // TODO: change this struct to not use the Octet class, since it's binary not GF(256)
@@ -55,7 +54,7 @@ pub trait BinaryMatrix: Clone {
 
 const WORD_WIDTH: usize = 64;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct DenseBinaryMatrix {
     height: usize,
     width: usize,

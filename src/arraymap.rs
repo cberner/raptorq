@@ -1,7 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 // Map<u16, Vec<u32>>
 pub struct ImmutableListMap {
     // offset of std::u32::MAX indicates that the key is not present
@@ -77,7 +76,7 @@ impl ImmutableListMapBuilder {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct UndirectedGraph {
     edges: Vec<(u16, u16)>,
     // Mapping from node id to starting index in edges array
@@ -158,7 +157,7 @@ impl<'a, T: Iterator<Item = &'a (u16, u16)>> Iterator for AdjacentIterator<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct U16ArrayMap {
     offset: usize,
     elements: Vec<u16>,
@@ -198,7 +197,7 @@ impl U16ArrayMap {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct U32VecMap {
     offset: usize,
     elements: Vec<u32>,
@@ -254,7 +253,7 @@ impl U32VecMap {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct BoolArrayMap {
     offset: usize,
     elements: Vec<bool>,

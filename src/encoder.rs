@@ -16,11 +16,13 @@ use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::ObjectTransmissionInformation;
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
 pub const SPARSE_MATRIX_THRESHOLD: u32 = 250;
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct EncoderBuilder {
     decoder_memory_requirement: u64,
     max_packet_size: u16,
@@ -89,7 +91,8 @@ pub fn calculate_block_offsets(
     blocks
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct Encoder {
     config: ObjectTransmissionInformation,
     blocks: Vec<SourceBlockEncoder>,
@@ -158,7 +161,8 @@ impl Encoder {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncodingPlan {
     operations: Vec<SymbolOps>,
     source_symbol_count: u16,
@@ -178,7 +182,8 @@ impl SourceBlockEncodingPlan {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncoder {
     source_block_id: u8,
     source_symbols: Vec<Symbol>,

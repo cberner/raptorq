@@ -1,9 +1,8 @@
 use crate::matrix::DenseBinaryMatrix;
 use crate::octet::Octet;
 use crate::sparse_vec::SparseBinaryVec;
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ClonedOctetIter {
     sparse: bool,
     end_col: usize,

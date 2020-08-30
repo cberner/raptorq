@@ -10,6 +10,7 @@ release: pre
 	cargo build --release
 
 test: pre
+	cargo build --all-features
 	cargo test --features benchmarking
 
 test_extended: pre
