@@ -15,10 +15,12 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::{
     calculate_p1, extended_source_block_symbols, num_lt_symbols, num_pi_symbols, systematic_index,
 };
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct Decoder {
     config: ObjectTransmissionInformation,
     block_decoders: Vec<SourceBlockDecoder>,
@@ -103,7 +105,8 @@ impl Decoder {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockDecoder {
     source_block_id: u8,
     symbol_size: u16,

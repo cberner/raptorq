@@ -4,7 +4,6 @@ use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::sparse_vec::SparseBinaryVec;
 use crate::util::get_both_indices;
-use serde::{Deserialize, Serialize};
 use std::mem::size_of;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
@@ -14,7 +13,7 @@ use std::mem::size_of;
 // |      sparse rows         | dense      |
 // |                          | columns    |
 // |---------------------------------------|
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct SparseBinaryMatrix {
     height: usize,
     width: usize,

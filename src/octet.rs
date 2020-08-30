@@ -1,3 +1,4 @@
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::ops::AddAssign;
@@ -121,7 +122,8 @@ const fn calculate_octet_mul_table() -> [[u8; 256]; 256] {
     return result;
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct Octet {
     value: u8,
 }

@@ -1,9 +1,11 @@
 use crate::octet::Octet;
 use crate::symbol::Symbol;
 use crate::util::get_both_indices;
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum SymbolOps {
     AddAssign {
         dest: usize,
