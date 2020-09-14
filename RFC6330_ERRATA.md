@@ -9,11 +9,12 @@ at each step.
 "HDPC rows should never be chosen". This follows from the fact that at the end of the first phase, u rows, will
 not have been chosen. Therefore if P >= H, HDPC rows will never be chosen, since the first phase will end before
 they can be chosen.
-Proof that P >= H:
-P >= H
-L - W >= H (substitute P)
-K' + S + H - W >= H (substitute L)
-K' + S >= W (subtract H and add W to both sides)
+Proof that P >= H:  
+P >= H  
+L - W >= H (substitute P)  
+K' + S + H - W >= H (substitute L)  
+K' + S >= W (subtract H and add W to both sides)  
+K' + S >= W, can be verified empirically from the systematic constants in Table 2
 3) Optimization: HDPC rows do not need to be copied into X. At the beginning of the second phase, X is truncated to be
 i by i. It follows from errata 2 that none of these can be HDPC rows, since the same row and column swaps are performed
 on X as on A.
