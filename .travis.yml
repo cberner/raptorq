@@ -7,7 +7,7 @@ matrix:
       install:
         []
       before_script:
-        - cargo install cargo-deny
+        - cargo install cargo-deny --version 0.6.8
         - rustup component add rustfmt
         - rustup component add clippy
       script:
