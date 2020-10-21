@@ -99,7 +99,7 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    fn new(data: &[u8], config: ObjectTransmissionInformation) -> Encoder {
+    pub fn new(data: &[u8], config: ObjectTransmissionInformation) -> Encoder {
         let mut block_encoders = vec![];
         let mut cached_plan: Option<SourceBlockEncodingPlan> = None;
         for (i, (start, end)) in calculate_block_offsets(data, &config).drain(..).enumerate() {
