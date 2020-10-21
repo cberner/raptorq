@@ -22,6 +22,7 @@ mod symbol;
 mod systematic_constants;
 mod util;
 
+pub use crate::base::partition;
 pub use crate::base::EncodingPacket;
 pub use crate::base::ObjectTransmissionInformation;
 pub use crate::base::PayloadId;
