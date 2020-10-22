@@ -97,7 +97,7 @@ impl EncodingPacket {
 }
 
 // As defined in section 3.3.2 and 3.3.3
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ObjectTransmissionInformation {
     transfer_length: u64, // Limited to u40
