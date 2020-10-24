@@ -29,6 +29,7 @@ release_py: pre
 	maturin build --release --cargo-extra-args="--features python"
 
 publish_py: test_py
+	docker pull quay.io/pypa/manylinux2014_x86_64
 	docker run -it --rm -v $(shell pwd):/raptorq quay.io/pypa/manylinux2014_x86_64 /raptorq/py_publish.sh
 
 install_py: pre
