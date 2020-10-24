@@ -144,7 +144,7 @@ impl Encoder {
     }
 
     pub fn get_config(&self) -> ObjectTransmissionInformation {
-        self.config.clone()
+        self.config
     }
 
     pub fn get_encoded_packets(&self, repair_packets_per_block: u32) -> Vec<EncodingPacket> {
