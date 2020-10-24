@@ -14,11 +14,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
-pyo3 = {version = "0.11.1", features=["extension-module"], optional = true }
+pyo3 = {version = "0.12", features=["extension-module"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
-primal = "0.2"
+primal = "0.3"
 rand = "0.7"
 threadpool = "1.7"
 
