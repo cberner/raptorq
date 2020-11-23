@@ -797,7 +797,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         //  | |           |        |
         //    +-----------+--------+
         // Same assertion about X being equal to the upper left of A
-        #[cfg(debug_assertions)]
         self.third_phase_verify_end();
         assert!(self.all_zeroes(0, self.i, self.A.width() - self.u, self.A.width()));
         assert!(self.all_zeroes(self.A.height() - self.u, self.A.height(), 0, self.i));
