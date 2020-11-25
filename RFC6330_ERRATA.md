@@ -52,3 +52,19 @@ j, then add to this row, row j of I_u". This follows from the fact that all nonz
     ```
 8) Section 5.4.2.2 says "If r = 2 and there is no row with exactly 2 ones in V, then choose any row with exactly 2
 nonzeros in V." It follows from Errata 2 & 4 that this can be ignored as it will never happen.
+9) The row operations performed in the fifth phase are the same operations performed in the first phase on the i x i
+submatrix which is converted to the identity. This follows from the fact that this i x i submatrix is equal
+(including row & column swaps) after the third phase:
+`After this operation, the submatrix of A consisting of the intersection of the first i rows and columns equals to X`
+(note that X is equal to the original A matrix), and the fact that the fourth phase does not modify this submatrix
+because it only adds zero. Therefore, the elimination performed in the fifth phase is the same as that performed
+on the i x i submatrix during the first phase.
+10) The row operations performed in the third phase are the reverse of the operations performed on the i x i submatrix
+in the first phase. This can be seen from the fact that this i x i submatrix has been reset to X after the third phase
+`After this operation, the submatrix of A consisting of the intersection of the first i rows and columns equals to X`
+which is accomplished by undoing (reversing) all the row operations performed in the first phase, since the second phase
+does not modify this section of the matrix.
+11) If the row operations from the first phase are recorded, then the first i columns of A may be discarded
+after the end of the first phase. This follows from errata 9 & 10 which guarantee that the third and fifth phases can
+be performed using this record, and the fact that the second and fourth phases only operate on the U section of A
+(the columns after i).
