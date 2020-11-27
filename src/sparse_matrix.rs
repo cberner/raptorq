@@ -290,48 +290,12 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
     }
 
-    // other must be a rows x rows matrix
-    // sets self[0..rows][..] = X * self[0..rows][..]
-    fn mul_assign_submatrix(&mut self, other: &SparseBinaryMatrix, rows: usize) {
-        assert_eq!(rows, other.height());
-        assert_eq!(rows, other.width());
-        assert!(rows <= self.height());
-        assert!(self.column_index_disabled);
-        if other.num_dense_columns != 0 {
-            unimplemented!();
-        }
-        // Note: rows are logically indexed
-        let mut temp_sparse = vec![SparseBinaryVec::with_capacity(10); rows];
-        let mut temp_dense = vec![0; rows * ((self.num_dense_columns - 1) / WORD_WIDTH + 1)];
-        for row in 0..rows {
-            for (i, scalar) in other.get_row_iter(row, 0, rows) {
-                let physical_i = self.logical_row_to_physical[i] as usize;
-                if scalar != Octet::zero() {
-                    temp_sparse[row].add_assign(&self.sparse_elements[physical_i]);
-                    let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
-                    for word in 0..words {
-                        let (src_word, _) = self.bit_position(physical_i, word * WORD_WIDTH);
-                        temp_dense[word * rows + row] ^= self.dense_elements[src_word];
-                    }
-                }
-            }
-        }
-        for row in (0..rows).rev() {
-            let physical_row = self.logical_row_to_physical[row] as usize;
-            self.sparse_elements[physical_row] = temp_sparse.pop().unwrap();
-            let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
-            for word in 0..words {
-                let (dest_word, _) = self.bit_position(physical_row, word * WORD_WIDTH);
-                self.dense_elements[dest_word] = temp_dense[word * rows + row];
-            }
-        }
-
-        #[cfg(debug_assertions)]
-        self.verify();
-    }
-
-    fn add_assign_rows(&mut self, dest: usize, src: usize) {
+    fn add_assign_rows(&mut self, dest: usize, src: usize, start_col: usize) {
         assert_ne!(dest, src);
+        assert!(
+            start_col == 0 || start_col == self.width - self.num_dense_columns,
+            "start_col must be zero or at the beginning of the U matrix"
+        );
         let physical_dest = self.logical_row_to_physical[dest] as usize;
         let physical_src = self.logical_row_to_physical[src] as usize;
         // First handle the dense columns
@@ -344,23 +308,25 @@ impl BinaryMatrix for SparseBinaryMatrix {
             }
         }
 
-        // Then the sparse columns
-        let (dest_row, temp_row) =
-            get_both_indices(&mut self.sparse_elements, physical_dest, physical_src);
-        // This shouldn't be needed, because while column indexing is enabled in first phase,
-        // columns are only eliminated one at a time in sparse section of matrix.
-        assert!(self.column_index_disabled || temp_row.len() == 1);
+        if start_col == 0 {
+            // Then the sparse columns
+            let (dest_row, temp_row) =
+                get_both_indices(&mut self.sparse_elements, physical_dest, physical_src);
+            // This shouldn't be needed, because while column indexing is enabled in first phase,
+            // columns are only eliminated one at a time in sparse section of matrix.
+            assert!(self.column_index_disabled || temp_row.len() == 1);
 
-        let column_added = dest_row.add_assign(temp_row);
-        // This shouldn't be needed, because while column indexing is enabled in first phase,
-        // columns are only removed.
-        assert!(self.column_index_disabled || !column_added);
+            let column_added = dest_row.add_assign(temp_row);
+            // This shouldn't be needed, because while column indexing is enabled in first phase,
+            // columns are only removed.
+            assert!(self.column_index_disabled || !column_added);
 
-        #[cfg(debug_assertions)]
-        {
-            if !self.column_index_disabled {
-                let col = self.physical_col_to_logical[temp_row.get_by_raw_index(0).0];
-                self.debug_indexed_column_valid[col as usize] = false;
+            #[cfg(debug_assertions)]
+            {
+                if !self.column_index_disabled {
+                    let col = self.physical_col_to_logical[temp_row.get_by_raw_index(0).0];
+                    self.debug_indexed_column_valid[col as usize] = false;
+                }
             }
         }
 

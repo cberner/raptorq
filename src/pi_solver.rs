@@ -13,6 +13,12 @@ use crate::util::get_both_indices;
 use std::mem::size_of;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+enum RowOp {
+    AddAssign { src: usize, dest: usize },
+    Swap { row1: usize, row2: usize },
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct FirstPhaseRowSelectionStats {
     original_degree: U16ArrayMap,
     ones_per_row: U16ArrayMap,
@@ -509,9 +515,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     }
 
     // First phase (section 5.4.2.2)
+    //
+    // Returns the row operations required to convert the X matrix into the identity
     #[allow(non_snake_case)]
     #[inline(never)]
-    fn first_phase(&mut self) -> bool {
+    fn first_phase(&mut self) -> Option<Vec<RowOp>> {
         // First phase (section 5.4.2.2)
 
         //    ----------> i                 u <--------
@@ -533,6 +541,9 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         let mut selection_helper =
             FirstPhaseRowSelectionStats::new(&self.A, self.A.width() - self.u);
 
+        // Record of first phase row operations performed on non-HDPC rows
+        let mut row_ops = vec![];
+
         while self.i + self.u < self.L {
             // Calculate r
             // "Let r be the minimum integer such that at least one row of A has
@@ -545,7 +556,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             );
 
             if r == None {
-                return false;
+                return None;
             }
             let r = r.unwrap();
             let chosen_row = chosen_row.unwrap();
@@ -556,6 +567,10 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             let temp = self.i;
             self.swap_rows(temp, chosen_row);
             self.X.swap_rows(temp, chosen_row);
+            row_ops.push(RowOp::Swap {
+                row1: temp,
+                row2: chosen_row,
+            });
             selection_helper.swap_rows(temp, chosen_row);
             // Reorder columns
             self.first_phase_swap_columns_substep(r);
@@ -586,7 +601,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 let row = row as usize;
                 assert_eq!(&temp_value, &Octet::one());
                 // Addition is equivalent to subtraction.
-                self.fma_rows(temp, row, Octet::one());
+                self.fma_rows(temp, row, Octet::one(), 0);
+                row_ops.push(RowOp::AddAssign {
+                    src: temp,
+                    dest: row,
+                });
                 if r == 1 {
                     // Hot path for r == 1, since it's very common due to maximum connected
                     // component selection, and recompute_row() is expensive
@@ -613,6 +632,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                         // since all the rest were column swapped into the PI submatrix.
                         Some(temp),
                         Some(&pi_octets),
+                        0,
                     );
                     // It's safe to skip updating the selection helper, since it will never
                     // select an HDPC row
@@ -626,7 +646,34 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         }
 
         self.record_symbol_ops(0);
-        return true;
+
+        let mut mapping: Vec<usize> = (0..self.A.height()).collect();
+        let mut row_ops: Vec<RowOp> = row_ops
+            .iter()
+            .rev()
+            .map(|x| match x {
+                RowOp::AddAssign { src, dest } => {
+                    assert!(mapping[*src] < self.i);
+                    RowOp::AddAssign {
+                        src: mapping[*src],
+                        dest: mapping[*dest],
+                    }
+                }
+                RowOp::Swap { row1, row2 } => {
+                    mapping.swap(*row1, *row2);
+                    RowOp::Swap {
+                        row1: *row1,
+                        row2: *row2,
+                    }
+                }
+            })
+            .filter(|x| match x {
+                RowOp::AddAssign { src, dest } => *src < self.i && *dest < self.i,
+                RowOp::Swap { .. } => false,
+            })
+            .collect();
+        row_ops.reverse();
+        return Some(row_ops);
     }
 
     // See section 5.4.2.2. Verifies the two all-zeros submatrices and the identity submatrix
@@ -649,9 +696,9 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     // Second phase (section 5.4.2.3)
     #[allow(non_snake_case)]
     #[inline(never)]
-    fn second_phase(&mut self) -> bool {
+    fn second_phase(&mut self, #[allow(unused_variables)] x_elimination_ops: &[RowOp]) -> bool {
         #[cfg(debug_assertions)]
-        self.second_phase_verify();
+        self.second_phase_verify(x_elimination_ops);
 
         self.X.resize(self.i, self.i);
 
@@ -676,10 +723,30 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     // Verifies that X is lower triangular. See section 5.4.2.3
     #[inline(never)]
     #[cfg(debug_assertions)]
-    fn second_phase_verify(&self) {
+    fn second_phase_verify(&self, x_elimination_ops: &[RowOp]) {
         for row in 0..self.i {
             for col in (row + 1)..self.i {
                 assert_eq!(Octet::zero(), self.X.get(row, col));
+            }
+        }
+
+        // Also verify Errata 9
+        let mut tempX = self.X.clone();
+        for op in x_elimination_ops {
+            match op {
+                RowOp::AddAssign { src, dest } => {
+                    tempX.add_assign_rows(*dest, *src, 0);
+                }
+                RowOp::Swap { .. } => unreachable!(),
+            }
+        }
+        for row in 0..self.i {
+            for col in 0..self.i {
+                if row == col {
+                    assert_eq!(Octet::one(), tempX.get(row, col));
+                } else {
+                    assert_eq!(Octet::zero(), tempX.get(row, col));
+                }
             }
         }
     }
@@ -687,43 +754,21 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     // Third phase (section 5.4.2.4)
     #[allow(non_snake_case)]
     #[inline(never)]
-    fn third_phase(&mut self) {
+    fn third_phase(&mut self, x_elimination_ops: &[RowOp]) {
         #[cfg(debug_assertions)]
         self.third_phase_verify();
 
-        // A[0..i][..] = X * A[0..i][..]
-        self.A.mul_assign_submatrix(&self.X, self.i);
-
-        // Now apply the same operations to D.
-        // Note that X is lower triangular, so the row must be processed last to first
-        for row in (0..self.i).rev() {
-            if self.X.get(row, row) != Octet::one() {
-                self.debug_symbol_mul_ops += 1;
-                self.deferred_D_ops.push(SymbolOps::MulAssign {
-                    dest: self.d[row],
-                    scalar: self.X.get(row, row),
-                });
-            }
-
-            for (col, value) in self.X.get_row_iter(row, 0, row) {
-                if value == Octet::zero() {
-                    continue;
+        // Perform A[0..i][..] = X * A[0..i][..] by applying Errata 10
+        for op in x_elimination_ops.iter().rev() {
+            match op {
+                RowOp::AddAssign { src, dest } => {
+                    #[cfg(debug_assertions)]
+                    self.fma_rows(*src, *dest, Octet::one(), 0);
+                    #[cfg(not(debug_assertions))]
+                    // Skip applying to cols before i due to Errata 11
+                    self.fma_rows(*src, *dest, Octet::one(), self.i);
                 }
-                if value == Octet::one() {
-                    self.debug_symbol_add_ops += 1;
-                    self.deferred_D_ops.push(SymbolOps::AddAssign {
-                        dest: self.d[row],
-                        src: self.d[col],
-                    });
-                } else {
-                    self.debug_symbol_mul_ops += 1;
-                    self.debug_symbol_add_ops += 1;
-                    self.deferred_D_ops.push(SymbolOps::FMA {
-                        dest: self.d[row],
-                        src: self.d[col],
-                        scalar: self.X.get(row, col),
-                    });
-                }
+                RowOp::Swap { .. } => unreachable!(),
             }
         }
 
@@ -771,7 +816,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 let b = self.A.get(i, j + self.i);
                 if b != Octet::zero() {
                     let temp = self.i;
-                    self.fma_rows(temp + j, i, b);
+                    #[cfg(debug_assertions)]
+                    self.fma_rows(temp + j, i, b, 0);
+                    // Skip applying to cols before i due to Errata 11
+                    #[cfg(not(debug_assertions))]
+                    self.fma_rows(temp + j, i, b, self.i);
                 }
             }
         }
@@ -814,20 +863,18 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     // Fifth phase (section 5.4.2.6)
     #[allow(non_snake_case)]
     #[inline(never)]
-    fn fifth_phase(&mut self) {
-        // "For j from 1 to i". Note that A is 1-indexed in the spec, and ranges are inclusive,
-        // this is means [1, i], which is equal to [0, i)
-        for j in 0..self.i as usize {
-            // Skip normalizing the diagonal, since there can't be non-binary values due to
-            // Errata 7
-
-            // "For l from 1 to j-1". This means the lower triangular columns, not including the
-            // diagonal, which is [0, j)
-            for (l, _) in self.A.get_row_iter(j, 0, j).clone() {
-                let temp = self.A.get(j, l);
-                if temp != Octet::zero() {
-                    self.fma_rows(l, j, temp);
+    fn fifth_phase(&mut self, x_elimination_ops: &[RowOp]) {
+        // Use the saved operations from first phase: Errata 9
+        for op in x_elimination_ops {
+            match op {
+                RowOp::AddAssign { src, dest } => {
+                    #[cfg(debug_assertions)]
+                    self.fma_rows(*src, *dest, Octet::one(), 0);
+                    // In release builds skip updating the A matrix, since it will never be read
+                    #[cfg(not(debug_assertions))]
+                    self.record_fma_rows(*src, *dest, Octet::one());
                 }
+                RowOp::Swap { .. } => unreachable!(),
             }
         }
 
@@ -1011,8 +1058,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         assert!(self.A_hdpc_rows.is_none());
     }
 
-    fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
-        self.fma_rows_with_pi(i, iprime, beta, None, None);
+    fn fma_rows(&mut self, i: usize, iprime: usize, beta: Octet, start_col: usize) {
+        self.fma_rows_with_pi(i, iprime, beta, None, None, start_col);
     }
 
     fn record_fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
@@ -1040,6 +1087,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         beta: Octet,
         only_non_pi_nonzero_column: Option<usize>,
         pi_octets: Option<&Vec<u8>>,
+        start_col: usize,
     ) {
         self.record_fma_rows(i, iprime, beta.clone());
 
@@ -1064,11 +1112,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 );
             } else {
                 assert_eq!(&beta, &Octet::one());
-                self.A.add_assign_rows(iprime, i);
+                self.A.add_assign_rows(iprime, i, start_col);
             }
         } else {
             assert_eq!(&beta, &Octet::one());
-            self.A.add_assign_rows(iprime, i);
+            self.A.add_assign_rows(iprime, i, start_col);
         }
     }
 
@@ -1095,19 +1143,19 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     pub fn execute(&mut self) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
         self.X.disable_column_acccess_acceleration();
 
-        if !self.first_phase() {
+        if let Some(x_elimination_ops) = self.first_phase() {
+            self.A.disable_column_acccess_acceleration();
+
+            if !self.second_phase(&x_elimination_ops) {
+                return (None, None);
+            }
+
+            self.third_phase(&x_elimination_ops);
+            self.fourth_phase();
+            self.fifth_phase(&x_elimination_ops);
+        } else {
             return (None, None);
         }
-
-        self.A.disable_column_acccess_acceleration();
-
-        if !self.second_phase() {
-            return (None, None);
-        }
-
-        self.third_phase();
-        self.fourth_phase();
-        self.fifth_phase();
 
         self.apply_deferred_symbol_ops();
 
