@@ -160,12 +160,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
         let first_dense_column = self.width - self.num_dense_columns;
         assert!(start_col >= first_dense_column);
-        let mut result = Vec::with_capacity(self.width - start_col);
-        for col in start_col..self.width {
-            result.push(self.get(row, col).byte());
-        }
-
-        result
+        (start_col..self.width)
+            .map(|col| self.get(row, col).byte())
+            .collect()
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
