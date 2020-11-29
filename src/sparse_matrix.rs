@@ -262,7 +262,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         );
         assert_eq!(self.column_index_disabled, false);
         self.num_dense_columns += 1;
-        let (last_word, last_bit) = self.bit_position(self.height, self.num_dense_columns - 1);
+        let (last_word, last_bit) = self.bit_position(self.height - 1, self.num_dense_columns - 1);
         // If this is in a new word
         if last_bit == 0 && last_word >= self.dense_elements.len() {
             // Append a new set of words
