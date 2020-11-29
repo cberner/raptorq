@@ -27,6 +27,9 @@ pub trait BinaryMatrix: Clone {
     // Get a slice of columns from a row as Octets
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8>;
 
+    // Returns a list of columns with non-zero values in the given row, starting with start_col
+    fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize>;
+
     fn get(&self, i: usize, j: usize) -> Octet;
 
     fn swap_rows(&mut self, i: usize, j: usize);
@@ -175,6 +178,12 @@ impl BinaryMatrix for DenseBinaryMatrix {
         }
 
         result
+    }
+
+    fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {
+        (start_col..self.width)
+            .filter(|col| self.get(row, *col) != Octet::zero())
+            .collect()
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -335,6 +344,29 @@ mod tests {
         sparse.enable_column_access_acceleration();
         sparse.hint_column_dense_and_frozen(6);
         sparse.hint_column_dense_and_frozen(5);
+        assert_matrices_eq(&dense, &sparse);
+    }
+
+    #[test]
+    fn dense_storage_math() {
+        let size = 128;
+        let (mut dense, mut sparse) = rand_dense_and_sparse(size);
+        sparse.enable_column_access_acceleration();
+        for i in (0..(size - 1)).rev() {
+            sparse.hint_column_dense_and_frozen(i);
+            assert_matrices_eq(&dense, &sparse);
+        }
+        assert_matrices_eq(&dense, &sparse);
+        sparse.disable_column_access_acceleration();
+        for _ in 0..1000 {
+            let i = rand::thread_rng().gen_range(0, size);
+            let mut j = rand::thread_rng().gen_range(0, size);
+            while j == i {
+                j = rand::thread_rng().gen_range(0, size);
+            }
+            dense.add_assign_rows(i, j, 0);
+            sparse.add_assign_rows(i, j, 0);
+        }
         assert_matrices_eq(&dense, &sparse);
     }
 }
