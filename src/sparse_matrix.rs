@@ -18,11 +18,8 @@ pub struct SparseBinaryMatrix {
     height: usize,
     width: usize,
     sparse_elements: Vec<SparseBinaryVec>,
-    // Note these are stored such that the right-most 64 elements of a row are in
-    // dense_elements[row], the second 64 elements are stored in dense_elements[height + row], then
-    // the next in dense_elements[height * 2 + row]. Elements are numbered right to left,
-    // so the right-most element is in dense_elements[row] & 0b1. The second right most is in
-    // dense_elements[row] & 0b2.
+    // Note these are stored right aligned, so that the right most element is always at
+    // dense_elements[x] & (1 << 63)
     dense_elements: Vec<u64>,
     // Columnar storage of values. Only stores rows that have a 1-valued entry in the given column
     sparse_columnar_values: Option<ImmutableListMap>,
@@ -56,14 +53,33 @@ impl SparseBinaryMatrix {
         }
     }
 
-    // Returns (word in elements vec, and bit in word) for the given col
-    fn bit_position(&self, row: usize, col: usize) -> (usize, usize) {
-        return (self.height * (col / WORD_WIDTH) + row, col % WORD_WIDTH);
+    // Convert a logical col index to the bit index in the dense columns
+    fn logical_col_to_dense_col(&self, col: usize) -> usize {
+        assert!(col >= self.width - self.num_dense_columns);
+        col - (self.width - self.num_dense_columns)
     }
 
-    // Return the word in which bit lives
-    fn word_offset(bit: usize) -> usize {
-        bit / WORD_WIDTH
+    // Returns (word in elements vec, and bit in word) for the given col
+    fn bit_position(&self, row: usize, col: usize) -> (usize, usize) {
+        return (
+            row * self.row_word_width() + self.word_offset(col),
+            (self.left_padding_bits() + col) % WORD_WIDTH,
+        );
+    }
+
+    // Number of words required per row
+    fn row_word_width(&self) -> usize {
+        (self.num_dense_columns + WORD_WIDTH - 1) / WORD_WIDTH
+    }
+
+    // Returns the number of unused bits on the left of each row
+    fn left_padding_bits(&self) -> usize {
+        (WORD_WIDTH - (self.num_dense_columns % WORD_WIDTH)) % WORD_WIDTH
+    }
+
+    // Return the word in which bit lives, offset from the first for a row
+    fn word_offset(&self, bit: usize) -> usize {
+        (self.left_padding_bits() + bit) / WORD_WIDTH
     }
 
     // Returns mask to select the given bit in a word
@@ -122,7 +138,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let physical_i = self.logical_row_to_physical[i] as usize;
         let physical_j = self.logical_col_to_physical[j] as usize;
         if self.width - j <= self.num_dense_columns {
-            let (word, bit) = self.bit_position(physical_i, self.width - j - 1);
+            let (word, bit) = self.bit_position(physical_i, self.logical_col_to_dense_col(j));
             if value == Octet::zero() {
                 SparseBinaryMatrix::clear_bit(&mut self.dense_elements[word], bit);
             } else {
@@ -160,8 +176,46 @@ impl BinaryMatrix for SparseBinaryMatrix {
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
         let first_dense_column = self.width - self.num_dense_columns;
         assert!(start_col >= first_dense_column);
+        // The following implementation is equivalent to .map(|x| self.get(row, x))
+        // but this implementation optimizes for sequential access and avoids all the
+        // extra bit index math
+        let physical_row = self.logical_row_to_physical[row] as usize;
+        let (mut word, mut bit) =
+            self.bit_position(physical_row, self.logical_col_to_dense_col(start_col));
         (start_col..self.width)
-            .map(|col| self.get(row, col).byte())
+            .map(|_| {
+                let x = if self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) == 0 {
+                    Octet::zero()
+                } else {
+                    Octet::one()
+                };
+                bit += 1;
+                if bit == WORD_WIDTH {
+                    word += 1;
+                    bit = 0;
+                }
+                x.byte()
+            })
+            .collect()
+    }
+
+    fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {
+        // The following implementation is equivalent to .filter(|x| self.get(row, x) != Octet::zero())
+        // but this implementation optimizes for sequential access and avoids all the
+        // extra bit index math
+        let physical_row = self.logical_row_to_physical[row] as usize;
+        let (mut word, mut bit) =
+            self.bit_position(physical_row, self.logical_col_to_dense_col(start_col));
+        (start_col..self.width)
+            .filter(|_| {
+                let result = self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) != 0;
+                bit += 1;
+                if bit == WORD_WIDTH {
+                    word += 1;
+                    bit = 0;
+                }
+                result
+            })
             .collect()
     }
 
@@ -169,7 +223,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let physical_i = self.logical_row_to_physical[i] as usize;
         let physical_j = self.logical_col_to_physical[j] as usize;
         if self.width - j <= self.num_dense_columns {
-            let (word, bit) = self.bit_position(physical_i, self.width - j - 1);
+            let (word, bit) = self.bit_position(physical_i, self.logical_col_to_dense_col(j));
             if self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) == 0 {
                 return Octet::zero();
             } else {
@@ -262,11 +316,25 @@ impl BinaryMatrix for SparseBinaryMatrix {
         );
         assert_eq!(self.column_index_disabled, false);
         self.num_dense_columns += 1;
-        let (last_word, last_bit) = self.bit_position(self.height - 1, self.num_dense_columns - 1);
+        let (last_word, _) = self.bit_position(self.height - 1, self.num_dense_columns - 1);
         // If this is in a new word
-        if last_bit == 0 && last_word >= self.dense_elements.len() {
+        if last_word >= self.dense_elements.len() {
             // Append a new set of words
+            let mut src = self.dense_elements.len();
             self.dense_elements.extend(vec![0; self.height]);
+            let mut dest = self.dense_elements.len();
+            // Re-space the elements, so that each row has an empty word
+            while src > 0 {
+                src -= 1;
+                dest -= 1;
+                self.dense_elements[dest] = self.dense_elements[src];
+                if dest % self.row_word_width() == 1 {
+                    dest -= 1;
+                    self.dense_elements[dest] = 0;
+                }
+            }
+            assert_eq!(src, 0);
+            assert_eq!(dest, 0);
         }
         let physical_i = self.logical_col_to_physical[i] as usize;
         for maybe_present_in_row in self
@@ -277,7 +345,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         {
             let physical_row = *maybe_present_in_row as usize;
             if let Some(value) = self.sparse_elements[physical_row].remove(physical_i) {
-                let (word, bit) = self.bit_position(physical_row, self.num_dense_columns - 1);
+                let (word, bit) = self.bit_position(physical_row, 0);
                 if value == Octet::zero() {
                     SparseBinaryMatrix::clear_bit(&mut self.dense_elements[word], bit);
                 } else {
@@ -297,11 +365,10 @@ impl BinaryMatrix for SparseBinaryMatrix {
         let physical_src = self.logical_row_to_physical[src] as usize;
         // First handle the dense columns
         if self.num_dense_columns > 0 {
-            let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
-            for word in 0..words {
-                let (dest_word, _) = self.bit_position(physical_dest, word * WORD_WIDTH);
-                let (src_word, _) = self.bit_position(physical_src, word * WORD_WIDTH);
-                self.dense_elements[dest_word] ^= self.dense_elements[src_word];
+            let (dest_word, _) = self.bit_position(physical_dest, 0);
+            let (src_word, _) = self.bit_position(physical_src, 0);
+            for word in 0..self.row_word_width() {
+                self.dense_elements[dest_word + word] ^= self.dense_elements[src_word + word];
             }
         }
 
@@ -352,14 +419,12 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
         if columns_to_remove == 0 && self.num_dense_columns > 0 {
             // TODO: optimize to not allocate this extra vec
-            let mut new_dense =
-                vec![0; new_height * ((self.num_dense_columns - 1) / WORD_WIDTH + 1)];
-            let words = SparseBinaryMatrix::word_offset(self.num_dense_columns - 1) + 1;
-            for word in 0..words {
-                for logical_row in 0..new_height {
-                    let physical_row = self.logical_row_to_physical[logical_row] as usize;
-                    new_dense[word * new_height + logical_row] =
-                        self.dense_elements[word * self.height + physical_row];
+            let mut new_dense = vec![0; new_height * self.row_word_width()];
+            for logical_row in 0..new_height {
+                let physical_row = self.logical_row_to_physical[logical_row] as usize;
+                for word in 0..self.row_word_width() {
+                    new_dense[logical_row * self.row_word_width() + word] =
+                        self.dense_elements[physical_row * self.row_word_width() + word];
                 }
             }
             self.dense_elements = new_dense;

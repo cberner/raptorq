@@ -812,16 +812,12 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     #[inline(never)]
     fn fourth_phase(&mut self) {
         for i in 0..self.i {
-            for j in 0..self.u {
-                let b = self.A.get(i, j + self.i);
-                if b != Octet::zero() {
-                    let temp = self.i;
-                    #[cfg(debug_assertions)]
-                    self.fma_rows(temp + j, i, b, 0);
-                    // Skip applying to cols before i due to Errata 11
-                    #[cfg(not(debug_assertions))]
-                    self.fma_rows(temp + j, i, b, self.i);
-                }
+            for j in self.A.query_non_zero_columns(i, self.i) {
+                #[cfg(debug_assertions)]
+                self.fma_rows(j, i, Octet::one(), 0);
+                // Skip applying to cols before i due to Errata 11
+                #[cfg(not(debug_assertions))]
+                self.fma_rows(j, i, Octet::one(), self.i);
             }
         }
 
