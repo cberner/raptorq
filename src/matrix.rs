@@ -35,10 +35,10 @@ pub trait BinaryMatrix: Clone {
     // identical values
     fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize);
 
-    fn enable_column_acccess_acceleration(&mut self);
+    fn enable_column_access_acceleration(&mut self);
 
     // After calling this method swap_columns() and other column oriented methods, may be much slower
-    fn disable_column_acccess_acceleration(&mut self);
+    fn disable_column_access_acceleration(&mut self);
 
     // Hints that column i will not be swapped again, and is likely to become dense'ish
     fn hint_column_dense_and_frozen(&mut self, i: usize);
@@ -199,11 +199,11 @@ impl BinaryMatrix for DenseBinaryMatrix {
         }
     }
 
-    fn enable_column_acccess_acceleration(&mut self) {
+    fn enable_column_access_acceleration(&mut self) {
         // No-op
     }
 
-    fn disable_column_acccess_acceleration(&mut self) {
+    fn disable_column_access_acceleration(&mut self) {
         // No-op
     }
 
@@ -321,8 +321,8 @@ mod tests {
     fn resize() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (mut dense, mut sparse) = rand_dense_and_sparse(8);
-        dense.disable_column_acccess_acceleration();
-        sparse.disable_column_acccess_acceleration();
+        dense.disable_column_access_acceleration();
+        sparse.disable_column_access_acceleration();
         dense.resize(5, 5);
         sparse.resize(5, 5);
         assert_matrices_eq(&dense, &sparse);
@@ -332,7 +332,7 @@ mod tests {
     fn hint_column_dense_and_frozen() {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (dense, mut sparse) = rand_dense_and_sparse(8);
-        sparse.enable_column_acccess_acceleration();
+        sparse.enable_column_access_acceleration();
         sparse.hint_column_dense_and_frozen(6);
         sparse.hint_column_dense_and_frozen(5);
         assert_matrices_eq(&dense, &sparse);

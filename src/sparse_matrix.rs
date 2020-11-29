@@ -238,7 +238,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.physical_col_to_logical.swap(physical_i, physical_j);
     }
 
-    fn enable_column_acccess_acceleration(&mut self) {
+    fn enable_column_access_acceleration(&mut self) {
         self.column_index_disabled = false;
         let mut builder = ImmutableListMapBuilder::new(self.height);
         for (physical_row, elements) in self.sparse_elements.iter().enumerate() {
@@ -249,7 +249,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         self.sparse_columnar_values = Some(builder.build());
     }
 
-    fn disable_column_acccess_acceleration(&mut self) {
+    fn disable_column_access_acceleration(&mut self) {
         self.column_index_disabled = true;
         self.sparse_columnar_values = None;
     }
