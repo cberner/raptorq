@@ -203,20 +203,35 @@ impl BinaryMatrix for SparseBinaryMatrix {
         // The following implementation is equivalent to .filter(|x| self.get(row, x) != Octet::zero())
         // but this implementation optimizes for sequential access and avoids all the
         // extra bit index math
+        assert_eq!(start_col, self.width - self.num_dense_columns);
+        let mut result = vec![];
         let physical_row = self.logical_row_to_physical[row] as usize;
-        let (mut word, mut bit) =
+        let (mut word, bit) =
             self.bit_position(physical_row, self.logical_col_to_dense_col(start_col));
-        (start_col..self.width)
-            .filter(|_| {
-                let result = self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) != 0;
-                bit += 1;
-                if bit == WORD_WIDTH {
-                    word += 1;
-                    bit = 0;
-                }
-                result
-            })
-            .collect()
+        let mut col = start_col;
+        // Process the first word, which may not be entirely filled, due to left zero padding
+        // Because of the assert that start_col is always the first dense column, the first one
+        // must be the column we're looking for, so they're no need to zero out columns left of it.
+        let mut block = self.dense_elements[word];
+        while block.trailing_zeros() < WORD_WIDTH as u32 {
+            result.push(col + block.trailing_zeros() as usize - bit);
+            block &= !(SparseBinaryMatrix::select_mask(block.trailing_zeros() as usize));
+        }
+        col += WORD_WIDTH - bit;
+        word += 1;
+
+        while col < self.width() {
+            let mut block = self.dense_elements[word];
+            // process the whole word in one shot to improve efficiency
+            while block.trailing_zeros() < WORD_WIDTH as u32 {
+                result.push(col + block.trailing_zeros() as usize);
+                block &= !(SparseBinaryMatrix::select_mask(block.trailing_zeros() as usize));
+            }
+            col += WORD_WIDTH;
+            word += 1;
+        }
+
+        result
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
