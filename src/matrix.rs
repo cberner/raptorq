@@ -215,11 +215,24 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn swap_columns(&mut self, i: usize, j: usize, start_row_hint: usize) {
+        let (word_i, bit_i) = DenseBinaryMatrix::bit_position(i);
+        let (word_j, bit_j) = DenseBinaryMatrix::bit_position(j);
+        let unset_i = !DenseBinaryMatrix::select_mask(bit_i);
+        let unset_j = !DenseBinaryMatrix::select_mask(bit_j);
+        let bit_i = DenseBinaryMatrix::select_mask(bit_i);
+        let bit_j = DenseBinaryMatrix::select_mask(bit_j);
         for row in start_row_hint..self.elements.len() {
-            let value_i = self.get(row, i);
-            let value_j = self.get(row, j);
-            self.set(row, i, value_j);
-            self.set(row, j, value_i);
+            let i_set = self.elements[row][word_i] & bit_i != 0;
+            if self.elements[row][word_j] & bit_j == 0 {
+                self.elements[row][word_i] &= unset_i;
+            } else {
+                self.elements[row][word_i] |= bit_i;
+            }
+            if i_set {
+                self.elements[row][word_j] |= bit_j;
+            } else {
+                self.elements[row][word_j] &= unset_j;
+            }
         }
     }
 
