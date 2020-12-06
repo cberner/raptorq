@@ -23,16 +23,16 @@ The following were run on an Intel Core i5-6600K @ 3.50GHz
 
 ```
 Symbol size: 1280 bytes (without pre-built plan)
-symbol count = 10, encoded 127 MB in 0.514secs, throughput: 1992.1Mbit/s
-symbol count = 100, encoded 127 MB in 0.560secs, throughput: 1827.6Mbit/s
-symbol count = 250, encoded 127 MB in 0.505secs, throughput: 2025.6Mbit/s
-symbol count = 500, encoded 127 MB in 0.461secs, throughput: 2213.7Mbit/s
-symbol count = 1000, encoded 126 MB in 0.512secs, throughput: 1983.6Mbit/s
+symbol count = 10, encoded 127 MB in 0.484secs, throughput: 2115.5Mbit/s
+symbol count = 100, encoded 127 MB in 0.509secs, throughput: 2010.7Mbit/s
+symbol count = 250, encoded 127 MB in 0.482secs, throughput: 2122.3Mbit/s
+symbol count = 500, encoded 127 MB in 0.463secs, throughput: 2204.1Mbit/s
+symbol count = 1000, encoded 126 MB in 0.492secs, throughput: 2064.3Mbit/s
 symbol count = 2000, encoded 126 MB in 0.565secs, throughput: 1797.6Mbit/s
-symbol count = 5000, encoded 122 MB in 0.604secs, throughput: 1616.8Mbit/s
-symbol count = 10000, encoded 122 MB in 0.732secs, throughput: 1334.1Mbit/s
-symbol count = 20000, encoded 122 MB in 1.047secs, throughput: 932.7Mbit/s
-symbol count = 50000, encoded 122 MB in 1.470secs, throughput: 664.3Mbit/s
+symbol count = 5000, encoded 122 MB in 0.594secs, throughput: 1644.0Mbit/s
+symbol count = 10000, encoded 122 MB in 0.716secs, throughput: 1363.9Mbit/s
+symbol count = 20000, encoded 122 MB in 1.059secs, throughput: 922.2Mbit/s
+symbol count = 50000, encoded 122 MB in 1.508secs, throughput: 647.6Mbit/s
 
 Symbol size: 1280 bytes (with pre-built plan)
 symbol count = 10, encoded 127 MB in 0.220secs, throughput: 4654.2Mbit/s
@@ -47,27 +47,27 @@ symbol count = 20000, encoded 122 MB in 0.427secs, throughput: 2287.0Mbit/s
 symbol count = 50000, encoded 122 MB in 0.540secs, throughput: 1808.4Mbit/s
 
 Symbol size: 1280 bytes
-symbol count = 10, decoded 127 MB in 0.740secs using 0.0% overhead, throughput: 1383.7Mbit/s
-symbol count = 100, decoded 127 MB in 0.677secs using 0.0% overhead, throughput: 1511.7Mbit/s
-symbol count = 250, decoded 127 MB in 0.566secs using 0.0% overhead, throughput: 1807.3Mbit/s
-symbol count = 500, decoded 127 MB in 0.563secs using 0.0% overhead, throughput: 1812.6Mbit/s
-symbol count = 1000, decoded 126 MB in 0.585secs using 0.0% overhead, throughput: 1736.1Mbit/s
-symbol count = 2000, decoded 126 MB in 0.642secs using 0.0% overhead, throughput: 1582.0Mbit/s
-symbol count = 5000, decoded 122 MB in 0.734secs using 0.0% overhead, throughput: 1330.5Mbit/s
-symbol count = 10000, decoded 122 MB in 0.919secs using 0.0% overhead, throughput: 1062.6Mbit/s
-symbol count = 20000, decoded 122 MB in 1.182secs using 0.0% overhead, throughput: 826.2Mbit/s
-symbol count = 50000, decoded 122 MB in 1.991secs using 0.0% overhead, throughput: 490.5Mbit/s
+symbol count = 10, decoded 127 MB in 0.706secs using 0.0% overhead, throughput: 1450.3Mbit/s
+symbol count = 100, decoded 127 MB in 0.619secs using 0.0% overhead, throughput: 1653.4Mbit/s
+symbol count = 250, decoded 127 MB in 0.568secs using 0.0% overhead, throughput: 1801.0Mbit/s
+symbol count = 500, decoded 127 MB in 0.560secs using 0.0% overhead, throughput: 1822.3Mbit/s
+symbol count = 1000, decoded 126 MB in 0.601secs using 0.0% overhead, throughput: 1689.9Mbit/s
+symbol count = 2000, decoded 126 MB in 0.670secs using 0.0% overhead, throughput: 1515.9Mbit/s
+symbol count = 5000, decoded 122 MB in 0.767secs using 0.0% overhead, throughput: 1273.2Mbit/s
+symbol count = 10000, decoded 122 MB in 0.970secs using 0.0% overhead, throughput: 1006.8Mbit/s
+symbol count = 20000, decoded 122 MB in 1.222secs using 0.0% overhead, throughput: 799.2Mbit/s
+symbol count = 50000, decoded 122 MB in 2.046secs using 0.0% overhead, throughput: 477.3Mbit/s
 
-symbol count = 10, decoded 127 MB in 0.742secs using 5.0% overhead, throughput: 1380.0Mbit/s
-symbol count = 100, decoded 127 MB in 0.672secs using 5.0% overhead, throughput: 1523.0Mbit/s
-symbol count = 250, decoded 127 MB in 0.567secs using 5.0% overhead, throughput: 1804.1Mbit/s
-symbol count = 500, decoded 127 MB in 0.547secs using 5.0% overhead, throughput: 1865.6Mbit/s
+symbol count = 10, decoded 127 MB in 0.698secs using 5.0% overhead, throughput: 1466.9Mbit/s
+symbol count = 100, decoded 127 MB in 0.617secs using 5.0% overhead, throughput: 1658.7Mbit/s
+symbol count = 250, decoded 127 MB in 0.565secs using 5.0% overhead, throughput: 1810.5Mbit/s
+symbol count = 500, decoded 127 MB in 0.545secs using 5.0% overhead, throughput: 1872.5Mbit/s
 symbol count = 1000, decoded 126 MB in 0.563secs using 5.0% overhead, throughput: 1804.0Mbit/s
-symbol count = 2000, decoded 126 MB in 0.595secs using 5.0% overhead, throughput: 1706.9Mbit/s
-symbol count = 5000, decoded 122 MB in 0.675secs using 5.0% overhead, throughput: 1446.8Mbit/s
-symbol count = 10000, decoded 122 MB in 0.852secs using 5.0% overhead, throughput: 1146.2Mbit/s
-symbol count = 20000, decoded 122 MB in 1.098secs using 5.0% overhead, throughput: 889.4Mbit/s
-symbol count = 50000, decoded 122 MB in 1.839secs using 5.0% overhead, throughput: 531.0Mbit/s
+symbol count = 2000, decoded 126 MB in 0.599secs using 5.0% overhead, throughput: 1695.5Mbit/s
+symbol count = 5000, decoded 122 MB in 0.689secs using 5.0% overhead, throughput: 1417.4Mbit/s
+symbol count = 10000, decoded 122 MB in 0.881secs using 5.0% overhead, throughput: 1108.5Mbit/s
+symbol count = 20000, decoded 122 MB in 1.117secs using 5.0% overhead, throughput: 874.3Mbit/s
+symbol count = 50000, decoded 122 MB in 1.848secs using 5.0% overhead, throughput: 528.4Mbit/s
 ```
 
 ### Public API
