@@ -331,6 +331,9 @@ pub struct IntermediateSymbolDecoder<T: BinaryMatrix> {
     // If present, these are treated as replacing the last rows of A
     // Errata 3 guarantees that these do not need to be included in X
     A_hdpc_rows: Option<DenseOctetMatrix>,
+    // Due to Errata 9 & 10 we only store the X matrix for debug builds to verify the results,
+    // since it's not actually needed
+    #[cfg(debug_assertions)]
     X: T,
     D: Vec<Symbol>,
     c: Vec<usize>,
@@ -371,16 +374,20 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         let num_rows = matrix.height();
 
         let pi_symbols = num_pi_symbols(num_source_symbols) as usize;
-        let mut A = matrix.clone();
-        A.enable_column_access_acceleration();
-        let mut X = matrix;
+        #[cfg(debug_assertions)]
+        let mut X = matrix.clone();
         // Drop the PI symbols, since they will never be accessed in X. X will be resized to
         // i-by-i in the second phase.
+        #[cfg(debug_assertions)]
         X.resize(X.height(), X.width() - pi_symbols);
+
+        let mut A = matrix;
+        A.enable_column_access_acceleration();
 
         let mut temp = IntermediateSymbolDecoder {
             A,
             A_hdpc_rows: None,
+            #[cfg(debug_assertions)]
             X,
             D: symbols,
             c,
@@ -402,6 +409,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         // See section 5.3.3.4.2, Figure 5.
         for i in 0..H {
             temp.swap_rows(S + i, num_rows - H + i);
+            #[cfg(debug_assertions)]
             temp.X.swap_rows(S + i, num_rows - H + i);
         }
 
@@ -477,6 +485,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(self.i, col, self.i);
                     // Also apply to X
+                    #[cfg(debug_assertions)]
                     self.X.swap_columns(self.i, col, 0);
                     swapped_columns += 1;
                     break;
@@ -504,6 +513,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(dest, col, self.i);
                     // Also apply to X
+                    #[cfg(debug_assertions)]
                     self.X.swap_columns(dest, col, 0);
                     swapped_columns += 1;
                     if swapped_columns == r {
@@ -567,6 +577,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // Reorder rows
             let temp = self.i;
             self.swap_rows(temp, chosen_row);
+            #[cfg(debug_assertions)]
             self.X.swap_rows(temp, chosen_row);
             row_ops.push(RowOp::Swap {
                 row1: temp,
@@ -701,6 +712,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         #[cfg(debug_assertions)]
         self.second_phase_verify(x_elimination_ops);
 
+        #[cfg(debug_assertions)]
         self.X.resize(self.i, self.i);
 
         // Convert U_lower to row echelon form
@@ -1037,7 +1049,10 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         if let Some(ref hdpc) = self.A_hdpc_rows {
             bytes += hdpc.size_in_bytes();
         }
-        bytes += self.X.size_in_bytes();
+        #[cfg(debug_assertions)]
+        {
+            bytes += self.X.size_in_bytes();
+        }
         // Skip self.D, since we're calculating non-Symbol bytes
         bytes += size_of::<usize>() * self.c.len();
         bytes += size_of::<usize>() * self.d.len();
@@ -1138,6 +1153,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     #[inline(never)]
     pub fn execute(&mut self) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+        #[cfg(debug_assertions)]
         self.X.disable_column_access_acceleration();
 
         if let Some(x_elimination_ops) = self.first_phase() {
