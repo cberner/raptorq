@@ -40,6 +40,7 @@ harness = false
 
 [profile.release]
 debug = true
+lto = false
 
 [features]
 benchmarking = []
