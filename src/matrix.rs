@@ -1,6 +1,7 @@
 use crate::gf2::add_assign_binary;
 use crate::iterators::OctetIter;
 use crate::octet::Octet;
+use crate::octets::BinaryOctetVec;
 use crate::util::get_both_indices;
 use std::mem::size_of;
 
@@ -25,7 +26,7 @@ pub trait BinaryMatrix: Clone {
     fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32>;
 
     // Get a slice of columns from a row as Octets
-    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8>;
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec;
 
     // Returns a list of columns with non-zero values in the given row, starting with start_col
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize>;
@@ -171,13 +172,27 @@ impl BinaryMatrix for DenseBinaryMatrix {
         rows
     }
 
-    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
-        let mut result = Vec::with_capacity(self.width - start_col);
-        for col in start_col..self.width {
-            result.push(self.get(row, col).byte());
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec {
+        let mut result = vec![
+            0;
+            (self.width - start_col + BinaryOctetVec::WORD_WIDTH - 1)
+                / BinaryOctetVec::WORD_WIDTH
+        ];
+        let mut word = result.len();
+        let mut bit = 0;
+        for col in (start_col..self.width).rev() {
+            if bit == 0 {
+                bit = BinaryOctetVec::WORD_WIDTH - 1;
+                word -= 1;
+            } else {
+                bit -= 1;
+            }
+            if self.get(row, col) == Octet::one() {
+                result[word] |= BinaryOctetVec::select_mask(bit);
+            }
         }
 
-        result
+        BinaryOctetVec::new(result, self.width - start_col)
     }
 
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {

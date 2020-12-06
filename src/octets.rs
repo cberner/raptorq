@@ -5,6 +5,158 @@ use crate::octet::OCTET_MUL_HI_BITS;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::octet::OCTET_MUL_LOW_BITS;
 
+// An octet vec containing only binary values, which are bit-packed for efficiency
+pub struct BinaryOctetVec {
+    // Values are stored packed into the highest bits, with the last value at the highest bit of the
+    // last byte. Therefore, there may be trailing bits (least significant) which are unused
+    elements: Vec<u64>,
+    length: usize,
+}
+
+impl BinaryOctetVec {
+    pub(crate) const WORD_WIDTH: usize = 64;
+
+    pub fn new(elements: Vec<u64>, length: usize) -> Self {
+        assert_eq!(
+            elements.len(),
+            (length + Self::WORD_WIDTH - 1) / Self::WORD_WIDTH
+        );
+        BinaryOctetVec { elements, length }
+    }
+
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
+    fn to_octet_vec(&self) -> Vec<u8> {
+        let mut word = 0;
+        let mut bit = self.padding_bits();
+
+        let result = (0..self.length)
+            .map(|_| {
+                let value = if self.elements[word] & BinaryOctetVec::select_mask(bit) == 0 {
+                    0
+                } else {
+                    1
+                };
+
+                bit += 1;
+                if bit == 64 {
+                    word += 1;
+                    bit = 0;
+                }
+
+                value
+            })
+            .collect();
+        assert_eq!(word, self.elements.len());
+        assert_eq!(bit, 0);
+        result
+    }
+
+    pub fn padding_bits(&self) -> usize {
+        (BinaryOctetVec::WORD_WIDTH - (self.length % BinaryOctetVec::WORD_WIDTH))
+            % BinaryOctetVec::WORD_WIDTH
+    }
+
+    pub fn select_mask(bit: usize) -> u64 {
+        1u64 << (bit as u64)
+    }
+}
+
+pub fn fused_addassign_mul_scalar_binary(
+    octets: &mut [u8],
+    other: &BinaryOctetVec,
+    scalar: &Octet,
+) {
+    debug_assert_ne!(
+        *scalar,
+        Octet::zero(),
+        "Don't call with zero. It's very inefficient"
+    );
+
+    assert_eq!(octets.len(), other.len());
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                return fused_addassign_mul_scalar_binary_avx2(octets, other, scalar);
+            }
+        }
+    }
+
+    // TODO: write an optimized fallback that does call .to_octet_vec()
+    return fused_addassign_mul_scalar(octets, &other.to_octet_vec(), scalar);
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn fused_addassign_mul_scalar_binary_avx2(
+    octets: &mut [u8],
+    other: &BinaryOctetVec,
+    scalar: &Octet,
+) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let first_bit = other.padding_bits();
+    let other_u32 = std::slice::from_raw_parts(
+        other.elements.as_ptr() as *const u32,
+        other.elements.len() * 2,
+    );
+    let mut other_batch_start_index = first_bit / 32;
+    let first_bits = other_u32[other_batch_start_index];
+    let bit_in_first_bits = first_bit % 32;
+    let mut remaining = octets.len();
+    let mut self_avx_ptr = octets.as_mut_ptr();
+    // Handle first bits to make remainder 32bit aligned
+    if bit_in_first_bits > 0 {
+        for (i, val) in octets.iter_mut().enumerate().take(32 - bit_in_first_bits) {
+            let other_byte = _bextr2_u32(first_bits, (bit_in_first_bits + i) as u32 | 0x100) as u8;
+            // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
+            *val ^= scalar.byte() * other_byte;
+        }
+        remaining -= 32 - bit_in_first_bits;
+        other_batch_start_index += 1;
+        self_avx_ptr = self_avx_ptr.add(32 - bit_in_first_bits);
+    }
+
+    assert_eq!(remaining % 32, 0);
+
+    // See: https://stackoverflow.com/questions/24225786/fastest-way-to-unpack-32-bits-to-a-32-byte-simd-vector
+    let shuffle_mask = _mm256_set_epi64x(
+        0x03030303_03030303,
+        0x02020202_02020202,
+        0x01010101_01010101,
+        0,
+    );
+    let bit_select_mask = _mm256_set1_epi64x(0x80402010_08040201u64 as i64);
+    let scalar_avx = _mm256_set1_epi8(scalar.byte() as i8);
+    // Process the rest in 256bit chunks
+    for i in 0..(remaining / 32) {
+        // Convert from bit packed u32 to 32xu8
+        let other_vec = _mm256_set1_epi32(other_u32[other_batch_start_index + i] as i32);
+        let other_vec = _mm256_shuffle_epi8(other_vec, shuffle_mask);
+        let other_vec = _mm256_andnot_si256(other_vec, bit_select_mask);
+        // The bits are now unpacked, but aren't in a defined position (may be in 0-7 bit of each byte),
+        // and are inverted (due to AND NOT)
+
+        // Test against zero to get non-inverted selection
+        let other_vec = _mm256_cmpeq_epi8(other_vec, _mm256_setzero_si256());
+        // Multiply by scalar. other_vec is binary (0xFF or 0x00), so just mask with the scalar
+        let product = _mm256_and_si256(other_vec, scalar_avx);
+
+        // Add to self
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = _mm256_loadu_si256((self_avx_ptr as *const __m256i).add(i));
+        let result = _mm256_xor_si256(self_vec, product);
+        #[allow(clippy::cast_ptr_alignment)]
+        _mm256_storeu_si256((self_avx_ptr as *mut __m256i).add(i), result);
+    }
+}
+
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = usize::from(scalar.byte());
     for item in octets {
