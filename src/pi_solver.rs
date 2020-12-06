@@ -3,6 +3,7 @@ use crate::arraymap::{U16ArrayMap, U32VecMap};
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::octet_matrix::DenseOctetMatrix;
+use crate::octets::BinaryOctetVec;
 use crate::operation_vector::SymbolOps;
 use crate::symbol::Symbol;
 use crate::systematic_constants::num_hdpc_symbols;
@@ -1082,7 +1083,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         iprime: usize,
         beta: Octet,
         only_non_pi_nonzero_column: Option<usize>,
-        pi_octets: Option<&Vec<u8>>,
+        pi_octets: Option<&BinaryOctetVec>,
         start_col: usize,
     ) {
         self.record_fma_rows(i, iprime, beta.clone());

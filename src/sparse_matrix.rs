@@ -2,6 +2,7 @@ use crate::arraymap::{ImmutableListMap, ImmutableListMapBuilder};
 use crate::iterators::OctetIter;
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
+use crate::octets::BinaryOctetVec;
 use crate::sparse_vec::SparseBinaryVec;
 use crate::util::get_both_indices;
 use std::mem::size_of;
@@ -173,30 +174,21 @@ impl BinaryMatrix for SparseBinaryMatrix {
         return ones;
     }
 
-    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> Vec<u8> {
+    fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec {
         let first_dense_column = self.width - self.num_dense_columns;
-        assert!(start_col >= first_dense_column);
+        assert_eq!(start_col, first_dense_column);
         // The following implementation is equivalent to .map(|x| self.get(row, x))
         // but this implementation optimizes for sequential access and avoids all the
         // extra bit index math
         let physical_row = self.logical_row_to_physical[row] as usize;
-        let (mut word, mut bit) =
+        let (first_word, _) =
             self.bit_position(physical_row, self.logical_col_to_dense_col(start_col));
-        (start_col..self.width)
-            .map(|_| {
-                let x = if self.dense_elements[word] & SparseBinaryMatrix::select_mask(bit) == 0 {
-                    Octet::zero()
-                } else {
-                    Octet::one()
-                };
-                bit += 1;
-                if bit == WORD_WIDTH {
-                    word += 1;
-                    bit = 0;
-                }
-                x.byte()
-            })
-            .collect()
+        let last_word = first_word + self.row_word_width();
+
+        BinaryOctetVec::new(
+            self.dense_elements[first_word..last_word].to_vec(),
+            self.num_dense_columns,
+        )
     }
 
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {
