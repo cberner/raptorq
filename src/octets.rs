@@ -78,7 +78,7 @@ pub fn fused_addassign_mul_scalar_binary(
     assert_eq!(octets.len(), other.len());
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
-        if is_x86_feature_detected!("avx2") {
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("bmi1") {
             unsafe {
                 return fused_addassign_mul_scalar_binary_avx2(octets, other, scalar);
             }
@@ -91,6 +91,7 @@ pub fn fused_addassign_mul_scalar_binary(
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
+#[target_feature(enable = "bmi1")]
 unsafe fn fused_addassign_mul_scalar_binary_avx2(
     octets: &mut [u8],
     other: &BinaryOctetVec,
@@ -113,8 +114,9 @@ unsafe fn fused_addassign_mul_scalar_binary_avx2(
     let mut self_avx_ptr = octets.as_mut_ptr();
     // Handle first bits to make remainder 32bit aligned
     if bit_in_first_bits > 0 {
+        let control = bit_in_first_bits as u32 | 0x100;
         for (i, val) in octets.iter_mut().enumerate().take(32 - bit_in_first_bits) {
-            let other_byte = _bextr2_u32(first_bits, (bit_in_first_bits + i) as u32 | 0x100) as u8;
+            let other_byte = _bextr2_u32(first_bits, control + i as u32) as u8;
             // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
             *val ^= scalar.byte() * other_byte;
         }
