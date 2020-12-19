@@ -358,14 +358,14 @@ mod codec_tests {
     }
 
     fn random_erasure(sparse_threshold: u32) {
-        let elements: usize = rand::thread_rng().gen_range(1, 1_000_000);
+        let elements: usize = rand::thread_rng().gen_range(1..1_000_000);
         let mut data: Vec<u8> = vec![0; elements];
         for element in &mut data {
             *element = rand::thread_rng().gen();
         }
 
         // MTU is set to not be too small, otherwise this test may take a very long time
-        let mtu = rand::thread_rng().gen_range((elements / 100) as u16, 10_000);
+        let mtu = rand::thread_rng().gen_range(((elements / 100) as u16)..10_000);
 
         let encoder = Encoder::with_defaults(&data, mtu);
 

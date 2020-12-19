@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn multiplicative_inverse() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1, 255),
+            value: rand::thread_rng().gen_range(1..255),
         };
         let one = Octet::one();
         assert_eq!(one, &octet * &(&one / &octet));
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn division() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1, 255),
+            value: rand::thread_rng().gen_range(1..255),
         };
         assert_eq!(Octet::one(), &octet / &octet);
     }
