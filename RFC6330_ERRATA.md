@@ -19,20 +19,20 @@ K' + S >= W, can be verified empirically from the systematic constants in Table 
 i by i. It follows from errata 2 that none of these can be HDPC rows, since the same row and column swaps are performed
 on X as on A.
 4) Optimization: all non-HDPC rows have only the values zero and one, for the entire coding process. Proof:
-    0) at construction the constraint matrix has only zeros and ones in non-HDPC rows
-    1) during the first phase, only non-HDPC rows are added to other rows (see errata 2), since these contain only
+    1) at construction the constraint matrix has only zeros and ones in non-HDPC rows
+    2) during the first phase, only non-HDPC rows are added to other rows (see errata 2), since these contain only
     ones or zeros, and are used in elimination they will never be multiplied by a beta > 1, and therefore will never
     create a value > 1 in a non-HDPC row.
-    2) at the beginning of the second phase, U_lower is the only part of the matrix which can have values > 1. This
+    3) at the beginning of the second phase, U_lower is the only part of the matrix which can have values > 1. This
     follows from the fact that: a) the submatrix V no longer exists. b) no HDPC rows can exist in the identity submatrix
     I (see errata 2). The second phase ends either in failure, or with U_lower equal to the identity matrix. During
     the second phase, no operations are performed on preceding U_lower. Therefore, at the end of the second
     phase A contains only binary values.
-    3) the third phase does not introduce non-binary values, given that none already exist, because matrix
+    4) the third phase does not introduce non-binary values, given that none already exist, because matrix
     multiplication over GF(256) with binary values cannot produce a non-binary value.
-    4) the fourth phase does not introduce non-binary values unless one already exists. The variable "b"
+    5) the fourth phase does not introduce non-binary values unless one already exists. The variable "b"
     referenced in the specification can only be one, since the matrix is already binary.
-    5) the fifth phase already cannot introduce non-binary values, because the matrix is already binary
+    6) the fifth phase already cannot introduce non-binary values, because the matrix is already binary
 5) Optimization: the matrix A is binary after the second phase. (see proof in errata 4)
 6) Section 5.4.2.5 says "For each of the first i rows of U_upper, do the following: if the row has a nonzero
 entry at position j, and if the value of that nonzero entry is b, then add to this row b times row j of I_u". This
