@@ -11,13 +11,13 @@ use raptorq::Symbol;
 use raptorq::{ObjectTransmissionInformation, Octet};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let octet1 = Octet::new(rand::thread_rng().gen_range(1, 255));
+    let octet1 = Octet::new(rand::thread_rng().gen_range(1..255));
     let symbol_size = 512;
     let mut data1: Vec<u8> = vec![0; symbol_size];
     let mut data2: Vec<u8> = vec![0; symbol_size];
     for i in 0..symbol_size {
-        data1[i] = rand::thread_rng().gen_range(1, 255);
-        data2[i] = rand::thread_rng().gen_range(1, 255);
+        data1[i] = rand::thread_rng().gen_range(1..255);
+        data2[i] = rand::thread_rng().gen_range(1..255);
     }
     let symbol1 = Symbol::new(data1);
     let symbol2 = Symbol::new(data2);
