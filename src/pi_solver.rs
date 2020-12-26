@@ -94,22 +94,7 @@ impl FirstPhaseRowSelectionStats {
         self.ones_per_row.insert(row, ones as u16);
     }
 
-    pub fn eliminate_leading_value(&mut self, row: usize, value: &Octet) {
-        debug_assert_ne!(*value, Octet::zero());
-        debug_assert_eq!(*value, Octet::one());
-        self.ones_per_row.decrement(row);
-        let ones = self.ones_per_row.get(row);
-        if ones == 0 {
-            self.rows_with_single_one.retain(|x| *x != row);
-        } else if ones == 1 {
-            self.rows_with_single_one.push(row);
-        }
-        self.ones_histogram.decrement((ones + 1) as usize);
-        self.ones_histogram.increment(ones as usize);
-    }
-
     // Set the valid columns, and recalculate statistics
-    // All values in column "start_col - 1" in rows start_row..end_row must be zero
     #[inline(never)]
     pub fn resize<T: BinaryMatrix>(
         &mut self,
@@ -124,12 +109,21 @@ impl FirstPhaseRowSelectionStats {
         assert_eq!(self.start_row, start_row - 1);
         assert_eq!(self.start_col, start_col - 1);
 
-        self.ones_histogram
-            .decrement(self.ones_per_row.get(self.start_row) as usize);
-        self.rows_with_single_one.retain(|x| *x != start_row - 1);
+        for row in matrix.get_ones_in_column(self.start_col, self.start_row, end_row) {
+            let row = row as usize;
+            self.ones_per_row.decrement(row);
+            let ones = self.ones_per_row.get(row);
+            if ones == 0 {
+                self.rows_with_single_one.retain(|x| *x != row);
+            } else if ones == 1 {
+                self.rows_with_single_one.push(row);
+            }
+            self.ones_histogram.decrement((ones + 1) as usize);
+            self.ones_histogram.increment(ones as usize);
+        }
 
         for col in end_col..self.end_col {
-            for row in matrix.get_ones_in_column(col, start_row, end_row) {
+            for row in matrix.get_ones_in_column(col, self.start_row, end_row) {
                 let row = row as usize;
                 self.ones_per_row.decrement(row);
                 let ones = self.ones_per_row.get(row);
@@ -592,10 +586,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // because of Errata 2.
             let temp_value = self.A.get(temp, temp);
 
-            for i in 0..(r - 1) {
-                self.A
-                    .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
-            }
             selection_helper.resize(
                 self.i + 1,
                 self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
@@ -603,6 +593,10 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 self.A.width() - self.u - (r - 1),
                 &self.A,
             );
+            for i in 0..(r - 1) {
+                self.A
+                    .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
+            }
 
             // Cloning the iterator is safe here, because we don't re-read any of the rows that
             // we add to
@@ -619,9 +613,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     dest: row,
                 });
                 if r == 1 {
-                    // Hot path for r == 1, since it's very common due to maximum connected
-                    // component selection, and recompute_row() is expensive
-                    selection_helper.eliminate_leading_value(row, &Octet::one());
+                    // No need to update the selection helper, since we already resized it to remove
+                    // the first column
                 } else {
                     selection_helper.recompute_row(row, &self.A);
                 }
