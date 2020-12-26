@@ -68,3 +68,6 @@ does not modify this section of the matrix.
 after the end of the first phase. This follows from errata 9 & 10 which guarantee that the third and fifth phases can
 be performed using this record, and the fact that the second and fourth phases only operate on the U section of A
 (the columns after i).
+12) To improve performance the connected components of the graph for the "r = 2" selection step of the first phase
+should be calculated once, and the connected components stored. The connected components can then be updated
+whenever a new row with 2 ones is created or deleted, during the first phase.

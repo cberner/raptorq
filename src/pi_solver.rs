@@ -1,5 +1,6 @@
-use crate::arraymap::{BoolArrayMap, UndirectedGraph};
+use crate::arraymap::UndirectedGraph;
 use crate::arraymap::{U16ArrayMap, U32VecMap};
+use crate::graph::ConnectedComponentGraph;
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::octet_matrix::DenseOctetMatrix;
@@ -28,12 +29,18 @@ struct FirstPhaseRowSelectionStats {
     end_col: usize,
     start_row: usize,
     rows_with_single_one: Vec<usize>,
+    // Mapping from columns (graph nodes) to their connected component id for the r = 2 substep
+    col_graph: ConnectedComponentGraph,
 }
 
 impl FirstPhaseRowSelectionStats {
     #[inline(never)]
     #[allow(non_snake_case)]
-    pub fn new<T: BinaryMatrix>(matrix: &T, end_col: usize) -> FirstPhaseRowSelectionStats {
+    pub fn new<T: BinaryMatrix>(
+        matrix: &T,
+        end_col: usize,
+        end_row: usize,
+    ) -> FirstPhaseRowSelectionStats {
         let mut result = FirstPhaseRowSelectionStats {
             original_degree: U16ArrayMap::new(0, 0),
             ones_per_row: U16ArrayMap::new(0, matrix.height()),
@@ -42,6 +49,7 @@ impl FirstPhaseRowSelectionStats {
             end_col,
             start_row: 0,
             rows_with_single_one: vec![],
+            col_graph: ConnectedComponentGraph::new(end_col),
         };
 
         for row in 0..matrix.height() {
@@ -54,6 +62,8 @@ impl FirstPhaseRowSelectionStats {
         }
         // Original degree is the degree of each row before processing begins
         result.original_degree = result.ones_per_row.clone();
+
+        result.rebuild_connected_components(0, end_row, matrix);
 
         result
     }
@@ -81,6 +91,40 @@ impl FirstPhaseRowSelectionStats {
         }
     }
 
+    pub fn swap_columns(&mut self, i: usize, j: usize) {
+        self.col_graph.swap(i, j);
+    }
+
+    // Update the connected component graph, by adding an edge (specified by row)
+    fn add_graph_edge<T: BinaryMatrix>(
+        &mut self,
+        row: usize,
+        matrix: &T,
+        start_col: usize,
+        end_col: usize,
+    ) {
+        let mut ones = [0; 2];
+        let mut found = 0;
+        for (col, value) in matrix.get_row_iter(row, start_col, end_col) {
+            if value == Octet::one() {
+                ones[found] = col;
+                found += 1;
+            }
+            if found == 2 {
+                break;
+            }
+        }
+        assert_eq!(found, 2);
+
+        self.col_graph.add_edge(ones[0], ones[1]);
+    }
+
+    fn remove_graph_edge<T: BinaryMatrix>(&mut self, _row: usize, _matrix: &T) {
+        // No-op. Graph edges are only removed when eliminating an entire connected component.
+        // The effected nodes (cols) will be swapped to the beginning or end of V.
+        // Therefore there is no need to update the connected component graph
+    }
+
     // Recompute all stored statistics for the given row
     pub fn recompute_row<T: BinaryMatrix>(&mut self, row: usize, matrix: &T) {
         let ones = matrix.count_ones(row, self.start_col, self.end_col);
@@ -91,7 +135,13 @@ impl FirstPhaseRowSelectionStats {
         self.ones_histogram
             .decrement(self.ones_per_row.get(row) as usize);
         self.ones_histogram.increment(ones);
+        if self.ones_per_row.get(row) == 2 {
+            self.remove_graph_edge(row, matrix);
+        }
         self.ones_per_row.insert(row, ones as u16);
+        if ones == 2 {
+            self.add_graph_edge(row, matrix, self.start_col, self.end_col);
+        }
     }
 
     // Set the valid columns, and recalculate statistics
@@ -109,6 +159,7 @@ impl FirstPhaseRowSelectionStats {
         assert_eq!(self.start_row, start_row - 1);
         assert_eq!(self.start_col, start_col - 1);
 
+        let mut possible_new_graph_edges = vec![];
         for row in matrix.get_ones_in_column(self.start_col, self.start_row, end_row) {
             let row = row as usize;
             self.ones_per_row.decrement(row);
@@ -117,10 +168,16 @@ impl FirstPhaseRowSelectionStats {
                 self.rows_with_single_one.retain(|x| *x != row);
             } else if ones == 1 {
                 self.rows_with_single_one.push(row);
+                self.remove_graph_edge(row, matrix);
+            }
+            if ones == 2 {
+                possible_new_graph_edges.push(row);
             }
             self.ones_histogram.decrement((ones + 1) as usize);
             self.ones_histogram.increment(ones as usize);
         }
+
+        self.col_graph.remove_node(start_col - 1);
 
         for col in end_col..self.end_col {
             for row in matrix.get_ones_in_column(col, self.start_row, end_row) {
@@ -131,9 +188,20 @@ impl FirstPhaseRowSelectionStats {
                     self.rows_with_single_one.retain(|x| *x != row);
                 } else if ones == 1 {
                     self.rows_with_single_one.push(row);
+                    self.remove_graph_edge(row, matrix);
+                }
+                if ones == 2 {
+                    possible_new_graph_edges.push(row);
                 }
                 self.ones_histogram.decrement((ones + 1) as usize);
                 self.ones_histogram.increment(ones as usize);
+            }
+            self.col_graph.remove_node(col);
+        }
+
+        for row in possible_new_graph_edges {
+            if self.ones_per_row.get(row) == 2 {
+                self.add_graph_edge(row, matrix, start_col, end_col);
             }
         }
 
@@ -184,46 +252,50 @@ impl FirstPhaseRowSelectionStats {
     }
 
     #[inline(never)]
+    fn rebuild_connected_components<T: BinaryMatrix>(
+        &mut self,
+        start_row: usize,
+        end_row: usize,
+        matrix: &T,
+    ) {
+        // Reset connected component structures
+        self.col_graph.reset();
+
+        let graph = self.first_phase_graph_substep_build_adjacency(start_row, end_row, matrix);
+
+        let mut node_queue = Vec::with_capacity(10);
+        for key in graph.nodes() {
+            let connected_component_id = self.col_graph.create_connected_component();
+            // Pick arbitrary node (column) to start
+            node_queue.clear();
+            node_queue.push(key);
+            while !node_queue.is_empty() {
+                let node = node_queue.pop().unwrap();
+                if self.col_graph.contains(node as usize) {
+                    continue;
+                }
+                self.col_graph
+                    .add_node(node as usize, connected_component_id);
+                for next_node in graph.get_adjacent_nodes(node) {
+                    node_queue.push(next_node);
+                }
+            }
+        }
+    }
+
+    #[inline(never)]
     fn first_phase_graph_substep<T: BinaryMatrix>(
         &self,
         start_row: usize,
         end_row: usize,
         matrix: &T,
     ) -> usize {
-        let graph = self.first_phase_graph_substep_build_adjacency(start_row, end_row, matrix);
-        let mut visited = BoolArrayMap::new(start_row, end_row);
+        // Find a node (col) in the largest connected component
+        let node = self
+            .col_graph
+            .get_node_in_largest_connected_component(self.start_col, self.end_col);
 
-        let mut examplar_largest_component_node = None;
-        let mut largest_component_size = 0;
-
-        let mut node_queue = Vec::with_capacity(10);
-        for key in graph.nodes() {
-            let mut component_size = 0;
-            // We can choose any edge (row) that connects this col to another in the graph
-            let mut examplar_node = None;
-            // Pick arbitrary node (column) to start
-            node_queue.clear();
-            node_queue.push(key);
-            while !node_queue.is_empty() {
-                let node = node_queue.pop().unwrap();
-                if visited.get(node as usize) {
-                    continue;
-                }
-                visited.insert(node as usize, true);
-                component_size += 1;
-                for next_node in graph.get_adjacent_nodes(node) {
-                    node_queue.push(next_node);
-                    examplar_node = Some(node);
-                }
-            }
-
-            if component_size > largest_component_size {
-                examplar_largest_component_node = examplar_node;
-                largest_component_size = component_size;
-            }
-        }
-
-        let node = examplar_largest_component_node.unwrap();
+        // Find a row with two ones in the given column
         for row in matrix.get_ones_in_column(node as usize, start_row, end_row) {
             let row = row as usize;
             if self.ones_per_row.get(row) == 2 {
@@ -464,7 +536,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     // Performs the column swapping substep of first phase, after the row has been chosen
     #[inline(never)]
-    fn first_phase_swap_columns_substep(&mut self, r: usize) {
+    fn first_phase_swap_columns_substep(
+        &mut self,
+        r: usize,
+        selection_helper: &mut FirstPhaseRowSelectionStats,
+    ) {
         let mut swapped_columns = 0;
         // Fast path when r == 1, since this is very common
         if r == 1 {
@@ -478,6 +554,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 if value != Octet::zero() {
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(self.i, col, self.i);
+                    selection_helper.swap_columns(self.i, col);
                     // Also apply to X
                     #[cfg(debug_assertions)]
                     self.X.swap_columns(self.i, col, 0);
@@ -506,6 +583,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     }
                     // No need to swap the first i rows, as they are all zero (see submatrix above V)
                     self.swap_columns(dest, col, self.i);
+                    selection_helper.swap_columns(dest, col);
                     // Also apply to X
                     #[cfg(debug_assertions)]
                     self.X.swap_columns(dest, col, 0);
@@ -543,8 +621,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
         let num_hdpc_rows = self.A_hdpc_rows.as_ref().unwrap().height();
 
-        let mut selection_helper =
-            FirstPhaseRowSelectionStats::new(&self.A, self.A.width() - self.u);
+        let mut selection_helper = FirstPhaseRowSelectionStats::new(
+            &self.A,
+            self.A.width() - self.u,
+            self.A.height() - num_hdpc_rows,
+        );
 
         // Record of first phase row operations performed on non-HDPC rows
         let mut row_ops = vec![];
@@ -579,7 +660,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             });
             selection_helper.swap_rows(temp, chosen_row);
             // Reorder columns
-            self.first_phase_swap_columns_substep(r);
+            self.first_phase_swap_columns_substep(r, &mut selection_helper);
             // Zero out leading value in following rows
             let temp = self.i;
             // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
