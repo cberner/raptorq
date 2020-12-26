@@ -1,4 +1,5 @@
 use std::mem::size_of;
+use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 // Map<u16, Vec<u32>>
@@ -179,6 +180,10 @@ impl U16ArrayMap {
         self.elements.swap(key, other_key);
     }
 
+    pub fn keys(&self) -> Range<usize> {
+        self.offset..(self.offset + self.elements.len())
+    }
+
     pub fn insert(&mut self, key: usize, value: u16) {
         self.elements[key - self.offset] = value;
     }
@@ -191,7 +196,6 @@ impl U16ArrayMap {
         self.elements[key - self.offset] -= 1;
     }
 
-    #[allow(dead_code)]
     pub fn increment(&mut self, key: usize) {
         self.elements[key - self.offset] += 1;
     }
@@ -250,29 +254,6 @@ impl U32VecMap {
     pub fn increment(&mut self, key: usize) {
         self.grow_if_necessary(key - self.offset);
         self.elements[key - self.offset] += 1;
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct BoolArrayMap {
-    offset: usize,
-    elements: Vec<bool>,
-}
-
-impl BoolArrayMap {
-    pub fn new(start_key: usize, end_key: usize) -> BoolArrayMap {
-        BoolArrayMap {
-            offset: start_key,
-            elements: vec![false; end_key - start_key],
-        }
-    }
-
-    pub fn insert(&mut self, key: usize, value: bool) {
-        self.elements[key - self.offset] = value;
-    }
-
-    pub fn get(&self, key: usize) -> bool {
-        self.elements[key - self.offset]
     }
 }
 
