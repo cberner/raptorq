@@ -152,6 +152,8 @@ impl FirstPhaseRowSelectionStats {
         end_row: usize,
         start_col: usize,
         end_col: usize,
+        // Ones from start_row to end_row, i.e. matrix.get_ones_in_column(self.start_col, start_row, end_row)
+        ones_in_start_col: &[u32],
         matrix: &T,
     ) {
         // Only shrinking is supported
@@ -159,8 +161,22 @@ impl FirstPhaseRowSelectionStats {
         assert_eq!(self.start_row, start_row - 1);
         assert_eq!(self.start_col, start_col - 1);
 
+        // Remove this separately, since it's not part of ones_in_start_col
+        if matrix.get(self.start_row, self.start_col) == Octet::one() {
+            let row = self.start_row;
+            self.ones_per_row.decrement(row);
+            let ones = self.ones_per_row.get(row);
+            if ones == 0 {
+                self.rows_with_single_one.retain(|x| *x != row);
+            } else if ones == 1 {
+                self.remove_graph_edge(row, matrix);
+            }
+            self.ones_histogram.decrement((ones + 1) as usize);
+            self.ones_histogram.increment(ones as usize);
+        }
+
         let mut possible_new_graph_edges = vec![];
-        for row in matrix.get_ones_in_column(self.start_col, self.start_row, end_row) {
+        for &row in ones_in_start_col {
             let row = row as usize;
             self.ones_per_row.decrement(row);
             let ones = self.ones_per_row.get(row);
@@ -667,11 +683,15 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // because of Errata 2.
             let temp_value = self.A.get(temp, temp);
 
+            let ones_in_column =
+                self.A
+                    .get_ones_in_column(temp, self.i + 1, self.A.height() - num_hdpc_rows);
             selection_helper.resize(
                 self.i + 1,
                 self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
                 self.i + 1,
                 self.A.width() - self.u - (r - 1),
+                &ones_in_column,
                 &self.A,
             );
             for i in 0..(r - 1) {
@@ -679,12 +699,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     .hint_column_dense_and_frozen(self.A.width() - self.u - 1 - i);
             }
 
-            // Cloning the iterator is safe here, because we don't re-read any of the rows that
-            // we add to
-            for row in self
-                .A
-                .get_ones_in_column(temp, self.i + 1, self.A.height() - num_hdpc_rows)
-            {
+            // Skip the first element since that's the i'th row
+            for row in ones_in_column {
                 let row = row as usize;
                 assert_eq!(&temp_value, &Octet::one());
                 // Addition is equivalent to subtraction.
