@@ -1,4 +1,5 @@
 use crate::arraymap::U16ArrayMap;
+use std::cmp::{max, min};
 
 const NO_CONNECTED_COMPONENT: u16 = 0;
 
@@ -125,9 +126,9 @@ impl ConnectedComponentGraph {
             self.node_connected_component
                 .insert(node2, connected_component1 as u16);
         } else if connected_component1 != connected_component2 {
-            // Arbitrarily merge into the first one
-            let merge_to = connected_component1;
-            let merge_from = connected_component2;
+            // Merge into the lowest to keep chains short
+            let merge_to = min(connected_component1, connected_component2);
+            let merge_from = max(connected_component1, connected_component2);
             let to_size = self.connected_component_size.get(merge_to as usize);
             let from_size = self.connected_component_size.get(merge_from as usize);
             self.connected_component_size.insert(merge_from as usize, 0);
