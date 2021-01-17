@@ -66,15 +66,16 @@ fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
     let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
     #[allow(clippy::needless_range_loop)]
     for i in 0..H {
-        #[allow(clippy::needless_range_loop)]
-        for j in 0..=(Kprime + S - 2) {
-            let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
-            let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
-            if i == rand6 || i == (rand6 + rand7 + 1) % H {
-                mt[i][j] = 1;
-            }
-        }
         mt[i][Kprime + S - 1] = Octet::alpha(i).byte();
+    }
+    #[allow(clippy::needless_range_loop)]
+    for j in 0..=(Kprime + S - 2) {
+        let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
+        let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
+        let i1 = rand6;
+        let i2 = (rand6 + rand7 + 1) % H;
+        mt[i1][j] = 1;
+        mt[i2][j] = 1;
     }
     // Multiply by the GAMMA matrix
     // See section 5.3.3.3
