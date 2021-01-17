@@ -704,7 +704,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 let row = row as usize;
                 assert_eq!(&temp_value, &Octet::one());
                 // Addition is equivalent to subtraction.
+                #[cfg(debug_assertions)]
                 self.fma_rows(temp, row, Octet::one(), 0);
+                // Only apply to U section of matrix due to Errata 11
+                #[cfg(not(debug_assertions))]
+                self.fma_rows(temp, row, Octet::one(), self.A.width() - (self.u + (r - 1)));
                 row_ops.push(RowOp::AddAssign {
                     src: temp,
                     dest: row,
