@@ -2,7 +2,6 @@ use crate::base::intermediate_tuple;
 use crate::matrix::BinaryMatrix;
 use crate::octet::Octet;
 use crate::octet_matrix::DenseOctetMatrix;
-use crate::octets::{add_assign, fused_addassign_mul_scalar};
 use crate::rng::rand;
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
@@ -59,61 +58,41 @@ pub fn enc_indices(
 #[allow(non_snake_case)]
 fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
     let mut matrix = DenseOctetMatrix::new(H, Kprime + S + H, 0);
-    // G_HDPC
+    // Compute G_HDPC using recursive formulation, since this is much faster than a
+    // naive matrix multiplication approach
 
-    // Generates the MT matrix
-    // See section 5.3.3.3
-    let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
+    let mut result: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
+    // Initialize the last column to alpha^i, which comes from multiplying the last column of MT
+    // with the lower right 1 in GAMMA
     #[allow(clippy::needless_range_loop)]
     for i in 0..H {
-        mt[i][Kprime + S - 1] = Octet::alpha(i).byte();
+        result[i][Kprime + S - 1] = Octet::alpha(i).byte();
     }
-    #[allow(clippy::needless_range_loop)]
-    for j in 0..=(Kprime + S - 2) {
+
+    // Now compute the rest of G_HDPC.
+    // Note that for each row in GAMMA, i'th col = alpha * (i + 1)'th col
+    // Therefore we can compute this right to left, by multiplying by alpha each time, and adding
+    // the Rand() entries which will be associatively handled
+    for j in (0..=(Kprime + S - 2)).rev() {
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..H {
+            result[i][j] = (Octet::alpha(1) * Octet::new(result[i][j + 1])).byte();
+        }
         let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
         let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
         let i1 = rand6;
         let i2 = (rand6 + rand7 + 1) % H;
-        mt[i1][j] = 1;
-        mt[i2][j] = 1;
+        result[i1][j] ^= Octet::one().byte();
+        result[i2][j] ^= Octet::one().byte();
     }
-    // Multiply by the GAMMA matrix
-    // See section 5.3.3.3
-    let mut gamma_row = vec![0; Kprime + S];
-    // We only create the last row of the GAMMA matrix, as all preceding rows are just a shift left
-    #[allow(clippy::needless_range_loop)]
-    for j in 0..(Kprime + S) {
-        // The spec says "alpha ^^ (i-j)". However, this clearly can overflow since alpha() is
-        // only defined up to input < 256. Since alpha() only has 255 unique values, we must
-        // take the input mod 255. Without this the constraint matrix ends up being singular
-        // for 1698 and 8837 source symbols.
-        gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) % 255).byte();
-    }
+
+    // Copy G_HDPC into matrix
     #[allow(clippy::needless_range_loop)]
     for i in 0..H {
-        let mut result_row = vec![0; Kprime + S];
-        for j in 0..(Kprime + S) {
-            let scalar = Octet::new(mt[i][j]);
-            if scalar == Octet::zero() {
-                continue;
-            }
-            if scalar == Octet::one() {
-                add_assign(
-                    &mut result_row[0..=j],
-                    &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
-                );
-            } else {
-                fused_addassign_mul_scalar(
-                    &mut result_row[0..=j],
-                    &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
-                    &scalar,
-                );
-            }
-        }
         #[allow(clippy::needless_range_loop)]
         for j in 0..(Kprime + S) {
-            if result_row[j] != 0 {
-                matrix.set(i, j, Octet::new(result_row[j]));
+            if result[i][j] != 0 {
+                matrix.set(i, j, Octet::new(result[i][j]));
             }
         }
     }
@@ -187,4 +166,112 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
     }
 
     (matrix, generate_hdpc_rows(Kprime, S, H))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::constraint_matrix::generate_hdpc_rows;
+    use crate::octet_matrix::DenseOctetMatrix;
+    use crate::octets::{add_assign, fused_addassign_mul_scalar};
+    use crate::rng::rand;
+    use crate::systematic_constants::{num_hdpc_symbols, num_ldpc_symbols};
+    use crate::{extended_source_block_symbols, Octet};
+    use rand::Rng;
+
+    #[allow(non_snake_case)]
+    fn reference_generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
+        let mut matrix = DenseOctetMatrix::new(H, Kprime + S + H, 0);
+        // G_HDPC
+
+        // Generates the MT matrix
+        // See section 5.3.3.3
+        let mut mt: Vec<Vec<u8>> = vec![vec![0; Kprime + S]; H];
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..H {
+            #[allow(clippy::needless_range_loop)]
+            for j in 0..=(Kprime + S - 2) {
+                let rand6 = rand((j + 1) as u32, 6u32, H as u32) as usize;
+                let rand7 = rand((j + 1) as u32, 7u32, (H - 1) as u32) as usize;
+                if i == rand6 || i == (rand6 + rand7 + 1) % H {
+                    mt[i][j] = 1;
+                }
+            }
+            mt[i][Kprime + S - 1] = Octet::alpha(i).byte();
+        }
+        // Multiply by the GAMMA matrix
+        // See section 5.3.3.3
+        let mut gamma_row = vec![0; Kprime + S];
+        // We only create the last row of the GAMMA matrix, as all preceding rows are just a shift left
+        #[allow(clippy::needless_range_loop)]
+        for j in 0..(Kprime + S) {
+            // The spec says "alpha ^^ (i-j)". However, this clearly can overflow since alpha() is
+            // only defined up to input < 256. Since alpha() only has 255 unique values, we must
+            // take the input mod 255. Without this the constraint matrix ends up being singular
+            // for 1698 and 8837 source symbols.
+            gamma_row[j] = Octet::alpha((Kprime + S - 1 - j) % 255).byte();
+        }
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..H {
+            let mut result_row = vec![0; Kprime + S];
+            for j in 0..(Kprime + S) {
+                let scalar = Octet::new(mt[i][j]);
+                if scalar == Octet::zero() {
+                    continue;
+                }
+                if scalar == Octet::one() {
+                    add_assign(
+                        &mut result_row[0..=j],
+                        &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
+                    );
+                } else {
+                    fused_addassign_mul_scalar(
+                        &mut result_row[0..=j],
+                        &gamma_row[(Kprime + S - j - 1)..(Kprime + S)],
+                        &scalar,
+                    );
+                }
+            }
+            #[allow(clippy::needless_range_loop)]
+            for j in 0..(Kprime + S) {
+                if result_row[j] != 0 {
+                    matrix.set(i, j, Octet::new(result_row[j]));
+                }
+            }
+        }
+
+        // I_H
+        for i in 0..H {
+            matrix.set(i, i + (Kprime + S) as usize, Octet::one());
+        }
+
+        matrix
+    }
+
+    fn assert_matrices_eq(matrix1: &DenseOctetMatrix, matrix2: &DenseOctetMatrix) {
+        assert_eq!(matrix1.height(), matrix2.height());
+        assert_eq!(matrix1.width(), matrix2.width());
+        for i in 0..matrix1.height() {
+            for j in 0..matrix1.width() {
+                assert_eq!(
+                    matrix1.get(i, j),
+                    matrix2.get(i, j),
+                    "Matrices are not equal at row={} col={}",
+                    i,
+                    j
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn fast_hdpc() {
+        let source_block_symbols = rand::thread_rng().gen_range(1..50000);
+        let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
+        let S = num_ldpc_symbols(source_block_symbols) as usize;
+        let H = num_hdpc_symbols(source_block_symbols) as usize;
+        let expected = reference_generate_hdpc_rows(Kprime, S, H);
+        let generated = generate_hdpc_rows(Kprime, S, H);
+        assert_matrices_eq(&expected, &generated);
+    }
 }
