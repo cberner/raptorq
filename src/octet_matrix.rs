@@ -47,6 +47,11 @@ impl DenseOctetMatrix {
         self.height
     }
 
+    #[cfg(test)]
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
     #[cfg(feature = "benchmarking")]
     pub fn size_in_bytes(&self) -> usize {
         let mut bytes = size_of::<Self>();
