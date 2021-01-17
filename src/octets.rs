@@ -129,12 +129,12 @@ unsafe fn fused_addassign_mul_scalar_binary_avx2(
 
     // See: https://stackoverflow.com/questions/24225786/fastest-way-to-unpack-32-bits-to-a-32-byte-simd-vector
     let shuffle_mask = _mm256_set_epi64x(
-        0x03030303_03030303,
-        0x02020202_02020202,
-        0x01010101_01010101,
+        0x0303_0303_0303_0303,
+        0x0202_0202_0202_0202,
+        0x0101_0101_0101_0101,
         0,
     );
-    let bit_select_mask = _mm256_set1_epi64x(0x80402010_08040201u64 as i64);
+    let bit_select_mask = _mm256_set1_epi64x(0x8040_2010_0804_0201u64 as i64);
     let scalar_avx = _mm256_set1_epi8(scalar.byte() as i8);
     // Process the rest in 256bit chunks
     for i in 0..(remaining / 32) {
@@ -181,7 +181,7 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     use std::arch::x86_64::*;
 
     let low_mask = _mm256_set1_epi8(0x0F);
-    let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
+    let hi_mask = _mm256_set1_epi8(0xF0u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr();
     // Safe because _mm256_loadu_si256 loads from unaligned memory
     #[allow(clippy::cast_ptr_alignment)]
@@ -223,7 +223,7 @@ unsafe fn mulassign_scalar_ssse3(octets: &mut [u8], scalar: &Octet) {
     use std::arch::x86_64::*;
 
     let low_mask = _mm_set1_epi8(0x0F);
-    let hi_mask = _mm_set1_epi8(0xF0 as u8 as i8);
+    let hi_mask = _mm_set1_epi8(0xF0u8 as i8);
     let self_ssse_ptr = octets.as_mut_ptr();
     #[allow(clippy::cast_ptr_alignment)]
     let low_table =
@@ -292,7 +292,7 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
     use std::arch::x86_64::*;
 
     let low_mask = _mm256_set1_epi8(0x0F);
-    let hi_mask = _mm256_set1_epi8(0xF0 as u8 as i8);
+    let hi_mask = _mm256_set1_epi8(0xF0u8 as i8);
     let self_avx_ptr = octets.as_mut_ptr();
     let other_avx_ptr = other.as_ptr();
     // Safe because _mm256_loadu_si256 loads from unaligned memory
@@ -341,7 +341,7 @@ unsafe fn fused_addassign_mul_scalar_ssse3(octets: &mut [u8], other: &[u8], scal
     use std::arch::x86_64::*;
 
     let low_mask = _mm_set1_epi8(0x0F);
-    let hi_mask = _mm_set1_epi8(0xF0 as u8 as i8);
+    let hi_mask = _mm_set1_epi8(0xF0u8 as i8);
     let self_ssse_ptr = octets.as_mut_ptr();
     let other_ssse_ptr = other.as_ptr();
     #[allow(clippy::cast_ptr_alignment)]
