@@ -336,9 +336,8 @@ impl FirstPhaseRowSelectionStats {
         if r == 1 {
             assert_ne!(0, self.rows_with_single_one.len());
             for &row in self.rows_with_single_one.iter() {
-                let ones = self.ones_per_row.get(row);
                 let row_original_degree = self.original_degree.get(row);
-                if ones as usize == r && row_original_degree < chosen_original_degree {
+                if row_original_degree < chosen_original_degree {
                     chosen = Some(row);
                     chosen_original_degree = row_original_degree;
                 }
