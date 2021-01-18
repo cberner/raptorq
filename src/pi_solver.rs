@@ -1190,7 +1190,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         i: usize,
         iprime: usize,
         beta: Octet,
-        only_non_pi_nonzero_column: Option<usize>,
+        #[allow(unused_variables)] only_non_pi_nonzero_column: Option<usize>,
         pi_octets: Option<&BinaryOctetVec>,
         start_col: usize,
     ) {
@@ -1201,11 +1201,15 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // Adding HDPC rows to other rows isn't supported, since it should never happen
             assert!(i < first_hdpc_row);
             if iprime >= first_hdpc_row {
-                let col = only_non_pi_nonzero_column.unwrap();
-                let multiplicand = self.A.get(i, col);
-                let mut value = hdpc.get(iprime - first_hdpc_row, col);
-                value.fma(&multiplicand, &beta);
-                hdpc.set(iprime - first_hdpc_row, col, value);
+                // Only update the V section of HDPC rows, for debugging. (they will never be read)
+                #[cfg(debug_assertions)]
+                {
+                    let col = only_non_pi_nonzero_column.unwrap();
+                    let multiplicand = self.A.get(i, col);
+                    let mut value = hdpc.get(iprime - first_hdpc_row, col);
+                    value.fma(&multiplicand, &beta);
+                    hdpc.set(iprime - first_hdpc_row, col, value);
+                }
 
                 // Handle this part separately, since it's in the dense U part of the matrix
                 let octets = pi_octets.unwrap();
