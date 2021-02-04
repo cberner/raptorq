@@ -569,22 +569,24 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         if r == 1 {
             // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
             // because of Errata 2.
-            for (col, value) in self
+            let col = self
                 .A
                 .get_row_iter(self.i, self.i, self.A.width() - self.u)
-                .clone()
-            {
-                if value != Octet::zero() {
-                    // No need to swap the first i rows, as they are all zero (see submatrix above V)
-                    self.swap_columns(self.i, col, self.i);
-                    selection_helper.swap_columns(self.i, col);
-                    // Also apply to X
-                    #[cfg(debug_assertions)]
-                    self.X.swap_columns(self.i, col, 0);
-                    swapped_columns += 1;
-                    break;
-                }
-            }
+                .find_map(|(col, value)| {
+                    if value != Octet::zero() {
+                        Some(col)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap();
+            // No need to swap the first i rows, as they are all zero (see submatrix above V)
+            self.swap_columns(self.i, col, self.i);
+            selection_helper.swap_columns(self.i, col);
+            // Also apply to X
+            #[cfg(debug_assertions)]
+            self.X.swap_columns(self.i, col, 0);
+            swapped_columns += 1;
         } else {
             for col in self.i..(self.A.width() - self.u) {
                 // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
@@ -773,7 +775,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                             dest: mapping[*dest],
                         })
                     } else {
-                       None
+                        None
                     }
                 }
                 RowOp::Swap { row1, row2 } => {
