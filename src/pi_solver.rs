@@ -756,25 +756,22 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         let mut row_ops: Vec<RowOp> = row_ops
             .iter()
             .rev()
-            .map(|x| match x {
+            .filter_map(|x| match x {
                 RowOp::AddAssign { src, dest } => {
                     assert!(mapping[*src] < self.i);
-                    RowOp::AddAssign {
-                        src: mapping[*src],
-                        dest: mapping[*dest],
+                    if mapping[*src] < self.i && mapping[*dest] < self.i {
+                        Some(RowOp::AddAssign {
+                            src: mapping[*src],
+                            dest: mapping[*dest],
+                        })
+                    } else {
+                       None
                     }
                 }
                 RowOp::Swap { row1, row2 } => {
                     mapping.swap(*row1, *row2);
-                    RowOp::Swap {
-                        row1: *row1,
-                        row2: *row2,
-                    }
+                    None
                 }
-            })
-            .filter(|x| match x {
-                RowOp::AddAssign { src, dest } => *src < self.i && *dest < self.i,
-                RowOp::Swap { .. } => false,
             })
             .collect();
         row_ops.reverse();
