@@ -128,7 +128,9 @@ impl FirstPhaseRowSelectionStats {
     // Recompute all stored statistics for the given row
     pub fn recompute_row<T: BinaryMatrix>(&mut self, row: usize, matrix: &T) {
         let ones = matrix.count_ones(row, self.start_col, self.end_col);
-        self.rows_with_single_one.retain(|x| *x != row);
+        if let Some(index) = self.rows_with_single_one.iter().position(|x| *x == row) {
+            self.rows_with_single_one.swap_remove(index);
+        }
         if ones == 1 {
             self.rows_with_single_one.push(row);
         }
@@ -167,7 +169,9 @@ impl FirstPhaseRowSelectionStats {
             self.ones_per_row.decrement(row);
             let ones = self.ones_per_row.get(row);
             if ones == 0 {
-                self.rows_with_single_one.retain(|x| *x != row);
+                if let Some(index) = self.rows_with_single_one.iter().position(|x| *x == row) {
+                    self.rows_with_single_one.swap_remove(index);
+                }
             } else if ones == 1 {
                 self.remove_graph_edge(row, matrix);
             }
@@ -181,7 +185,9 @@ impl FirstPhaseRowSelectionStats {
             self.ones_per_row.decrement(row);
             let ones = self.ones_per_row.get(row);
             if ones == 0 {
-                self.rows_with_single_one.retain(|x| *x != row);
+                if let Some(index) = self.rows_with_single_one.iter().position(|x| *x == row) {
+                    self.rows_with_single_one.swap_remove(index);
+                }
             } else if ones == 1 {
                 self.rows_with_single_one.push(row);
                 self.remove_graph_edge(row, matrix);
@@ -201,7 +207,9 @@ impl FirstPhaseRowSelectionStats {
                 self.ones_per_row.decrement(row);
                 let ones = self.ones_per_row.get(row);
                 if ones == 0 {
-                    self.rows_with_single_one.retain(|x| *x != row);
+                    if let Some(index) = self.rows_with_single_one.iter().position(|x| *x == row) {
+                        self.rows_with_single_one.swap_remove(index);
+                    }
                 } else if ones == 1 {
                     self.rows_with_single_one.push(row);
                     self.remove_graph_edge(row, matrix);
