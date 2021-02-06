@@ -564,7 +564,6 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         r: usize,
         selection_helper: &mut FirstPhaseRowSelectionStats,
     ) {
-        let mut swapped_columns = 0;
         // Fast path when r == 1, since this is very common
         if r == 1 {
             // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
@@ -586,40 +585,55 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // Also apply to X
             #[cfg(debug_assertions)]
             self.X.swap_columns(self.i, col, 0);
-            swapped_columns += 1;
-        } else {
-            for col in self.i..(self.A.width() - self.u) {
-                // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
-                // because of Errata 2.
-                if self.A.get(self.i, col) != Octet::zero() {
-                    let mut dest;
-                    if swapped_columns == 0 {
-                        dest = self.i;
-                    } else {
-                        dest = self.A.width() - self.u - swapped_columns;
-                        // Some of the right most columns may already contain non-zeros
-                        while self.A.get(self.i, dest) != Octet::zero() {
-                            dest -= 1;
-                            swapped_columns += 1;
-                        }
-                    }
-                    if swapped_columns == r {
-                        break;
-                    }
-                    // No need to swap the first i rows, as they are all zero (see submatrix above V)
-                    self.swap_columns(dest, col, self.i);
-                    selection_helper.swap_columns(dest, col);
-                    // Also apply to X
-                    #[cfg(debug_assertions)]
-                    self.X.swap_columns(dest, col, 0);
-                    swapped_columns += 1;
-                    if swapped_columns == r {
-                        break;
-                    }
+            return;
+        }
+
+        let mut remaining_swaps = r;
+        let mut found_first = self.A.get(self.i, self.i) == Octet::one();
+        // self.i will never reference an HDPC row, so can ignore self.A_hdpc_rows
+        // because of Errata 2.
+        for (col, value) in self
+            .A
+            .get_row_iter(self.i, self.i, self.A.width() - self.u)
+            .clone()
+        {
+            if value == Octet::zero() {
+                continue;
+            }
+            if col >= self.A.width() - self.u - (r - 1) {
+                // Skip the column, if it's one of the trailing columns that shouldn't move
+                remaining_swaps -= 1;
+                continue;
+            }
+            if col == self.i {
+                // Skip the column, if it's already in the first position
+                remaining_swaps -= 1;
+                found_first = true;
+                continue;
+            }
+            let mut dest;
+            if !found_first {
+                dest = self.i;
+                found_first = true;
+            } else {
+                dest = self.A.width() - self.u - 1;
+                // Some of the right most columns may already contain non-zeros
+                while self.A.get(self.i, dest) != Octet::zero() {
+                    dest -= 1;
                 }
             }
+            // No need to swap the first i rows, as they are all zero (see submatrix above V)
+            self.swap_columns(dest, col, self.i);
+            selection_helper.swap_columns(dest, col);
+            // Also apply to X
+            #[cfg(debug_assertions)]
+            self.X.swap_columns(dest, col, 0);
+            remaining_swaps -= 1;
+            if remaining_swaps == 0 {
+                break;
+            }
         }
-        assert_eq!(r, swapped_columns);
+        assert_eq!(0, remaining_swaps);
     }
 
     // First phase (section 5.4.2.2)
