@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn fma() {
         let size = 41;
-        let scalar = Octet::new(rand::thread_rng().gen_range(1..255));
+        let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut data2: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
