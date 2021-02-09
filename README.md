@@ -70,6 +70,57 @@ symbol count = 20000, decoded 122 MB in 0.830secs using 5.0% overhead, throughpu
 symbol count = 50000, decoded 122 MB in 1.328secs using 5.0% overhead, throughput: 735.4Mbit/s
 ```
 
+The following were run on a Raspberry Pi 3 B+ (Cortex-A53 @ 1.4GHz)
+
+```
+Symbol size: 1280 bytes (without pre-built plan)
+symbol count = 10, encoded 127 MB in 29.579secs, throughput: 34.6Mbit/s
+symbol count = 100, encoded 127 MB in 19.524secs, throughput: 52.4Mbit/s
+symbol count = 250, encoded 127 MB in 16.283secs, throughput: 62.8Mbit/s
+symbol count = 500, encoded 127 MB in 14.094secs, throughput: 72.4Mbit/s
+symbol count = 1000, encoded 126 MB in 17.296secs, throughput: 58.7Mbit/s
+symbol count = 2000, encoded 126 MB in 15.915secs, throughput: 63.8Mbit/s
+symbol count = 5000, encoded 122 MB in 16.614secs, throughput: 58.8Mbit/s
+symbol count = 10000, encoded 122 MB in 21.570secs, throughput: 45.3Mbit/s
+symbol count = 20000, encoded 122 MB in 22.630secs, throughput: 43.2Mbit/s
+symbol count = 50000, encoded 122 MB in 31.688secs, throughput: 30.8Mbit/s
+
+Symbol size: 1280 bytes (with pre-built plan)
+symbol count = 10, encoded 127 MB in 21.806secs, throughput: 47.0Mbit/s
+symbol count = 100, encoded 127 MB in 12.074secs, throughput: 84.8Mbit/s
+symbol count = 250, encoded 127 MB in 10.360secs, throughput: 98.7Mbit/s
+symbol count = 500, encoded 127 MB in 14.323secs, throughput: 71.2Mbit/s
+symbol count = 1000, encoded 126 MB in 13.773secs, throughput: 73.7Mbit/s
+symbol count = 2000, encoded 126 MB in 12.506secs, throughput: 81.2Mbit/s
+symbol count = 5000, encoded 122 MB in 10.762secs, throughput: 90.7Mbit/s
+symbol count = 10000, encoded 122 MB in 14.438secs, throughput: 67.6Mbit/s
+symbol count = 20000, encoded 122 MB in 17.267secs, throughput: 56.6Mbit/s
+symbol count = 50000, encoded 122 MB in 19.008secs, throughput: 51.4Mbit/s
+
+Symbol size: 1280 bytes
+symbol count = 10, decoded 127 MB in 36.226secs using 0.0% overhead, throughput: 28.3Mbit/s
+symbol count = 100, decoded 127 MB in 20.325secs using 0.0% overhead, throughput: 50.4Mbit/s
+symbol count = 250, decoded 127 MB in 17.845secs using 0.0% overhead, throughput: 57.3Mbit/s
+symbol count = 500, decoded 127 MB in 17.711secs using 0.0% overhead, throughput: 57.6Mbit/s
+symbol count = 1000, decoded 126 MB in 14.858secs using 0.0% overhead, throughput: 68.4Mbit/s
+symbol count = 2000, decoded 126 MB in 20.109secs using 0.0% overhead, throughput: 50.5Mbit/s
+symbol count = 5000, decoded 122 MB in 19.526secs using 0.0% overhead, throughput: 50.0Mbit/s
+symbol count = 10000, decoded 122 MB in 18.602secs using 0.0% overhead, throughput: 52.5Mbit/s
+symbol count = 20000, decoded 122 MB in 30.212secs using 0.0% overhead, throughput: 32.3Mbit/s
+symbol count = 50000, decoded 122 MB in 44.993secs using 0.0% overhead, throughput: 21.7Mbit/s
+
+symbol count = 10, decoded 127 MB in 30.031secs using 5.0% overhead, throughput: 34.1Mbit/s
+symbol count = 100, decoded 127 MB in 14.511secs using 5.0% overhead, throughput: 70.5Mbit/s
+symbol count = 250, decoded 127 MB in 14.992secs using 5.0% overhead, throughput: 68.2Mbit/s
+symbol count = 500, decoded 127 MB in 20.358secs using 5.0% overhead, throughput: 50.1Mbit/s
+symbol count = 1000, decoded 126 MB in 15.109secs using 5.0% overhead, throughput: 67.2Mbit/s
+symbol count = 2000, decoded 126 MB in 18.539secs using 5.0% overhead, throughput: 54.8Mbit/s
+symbol count = 5000, decoded 122 MB in 16.017secs using 5.0% overhead, throughput: 61.0Mbit/s
+symbol count = 10000, decoded 122 MB in 17.969secs using 5.0% overhead, throughput: 54.3Mbit/s
+symbol count = 20000, decoded 122 MB in 25.134secs using 5.0% overhead, throughput: 38.9Mbit/s
+symbol count = 50000, decoded 122 MB in 41.441secs using 5.0% overhead, throughput: 23.6Mbit/s
+```
+
 ### Public API
 Note that the additional classes exported by the `benchmarking` feature flag are not considered part of this
 crate's public API. Breaking changes to those classes may occur without warning. The flag is only provided
