@@ -86,7 +86,11 @@ pub fn fused_addassign_mul_scalar_binary(
     }
 
     // TODO: write an optimized fallback that does call .to_octet_vec()
-    return fused_addassign_mul_scalar(octets, &other.to_octet_vec(), scalar);
+    if *scalar == Octet::one() {
+        return add_assign(octets, &other.to_octet_vec());
+    } else {
+        return fused_addassign_mul_scalar(octets, &other.to_octet_vec(), scalar);
+    }
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
