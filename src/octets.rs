@@ -436,6 +436,72 @@ fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     }
 }
 
+#[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+use std::arch::aarch64::uint8x16_t;
+#[cfg(all(target_arch = "arm", feature = "use_neon"))]
+use std::arch::arm::uint8x16_t;
+
+#[cfg(all(
+    any(target_arch = "arm", target_arch = "aarch64"),
+    feature = "use_neon"
+))]
+#[target_feature(enable = "neon")]
+unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
+    #[cfg(target_arch = "aarch64")]
+    use std::arch::aarch64::*;
+    #[cfg(target_arch = "arm")]
+    use std::arch::arm::*;
+
+    // TODO: replace with vst1q_u8 when it's supported
+    let reinterp = vreinterpretq_u64_u8(value);
+    *(ptr as *mut u64) = vgetq_lane_u64(reinterp, 0);
+    *(ptr as *mut u64).add(1) = vgetq_lane_u64(reinterp, 1);
+}
+
+#[cfg(all(
+    any(target_arch = "arm", target_arch = "aarch64"),
+    feature = "use_neon"
+))]
+#[target_feature(enable = "neon")]
+unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
+    #[cfg(target_arch = "aarch64")]
+    use std::arch::aarch64::*;
+    #[cfg(target_arch = "arm")]
+    use std::arch::arm::*;
+    use std::mem;
+
+    assert_eq!(octets.len(), other.len());
+    let self_neon_ptr = octets.as_mut_ptr();
+    let other_neon_ptr = other.as_ptr();
+    for i in 0..(octets.len() / 16) {
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+        #[allow(clippy::cast_ptr_alignment)]
+        let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+        let result = veorq_u8(self_vec, other_vec);
+        #[allow(clippy::cast_ptr_alignment)]
+        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+    }
+
+    let remainder = octets.len() % 16;
+    let self_ptr = octets.as_mut_ptr();
+    let other_ptr = other.as_ptr();
+    for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_value = (self_ptr as *mut u64).add(i).read_unaligned();
+        #[allow(clippy::cast_ptr_alignment)]
+        let other_value = (other_ptr as *mut u64).add(i).read_unaligned();
+        let result = self_value ^ other_value;
+        #[allow(clippy::cast_ptr_alignment)]
+        (self_ptr as *mut u64).add(i).write_unaligned(result);
+    }
+
+    let remainder = octets.len() % 8;
+    for i in (octets.len() - remainder)..octets.len() {
+        *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
+    }
+}
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
@@ -530,7 +596,22 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
             }
         }
     }
-
+    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    {
+        if is_aarch64_feature_detected!("neon") {
+            unsafe {
+                return add_assign_neon(octets, other);
+            }
+        }
+    }
+    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    {
+        if is_arm_feature_detected!("neon") {
+            unsafe {
+                return add_assign_neon(octets, other);
+            }
+        }
+    }
     return add_assign_fallback(octets, other);
 }
 

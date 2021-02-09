@@ -1,4 +1,7 @@
 #![allow(clippy::needless_return, clippy::unreadable_literal)]
+#![cfg_attr(feature = "use_neon", feature(stdsimd))]
+#![cfg_attr(feature = "use_neon", feature(aarch64_target_feature))]
+#![cfg_attr(feature = "use_neon", feature(arm_target_feature))]
 
 mod arraymap;
 mod base;

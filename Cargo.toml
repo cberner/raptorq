@@ -44,6 +44,7 @@ lto = false
 
 [features]
 benchmarking = []
+use_neon = []
 python = ["pyo3"]
 serde_support = ["serde"]
 

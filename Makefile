@@ -10,7 +10,7 @@ release: pre
 	cargo build --release
 
 test: pre
-	cargo build --all-features
+	cargo build --features benchmarking,python,serde_support
 	cargo test --features benchmarking
 
 test_extended: pre
