@@ -176,6 +176,47 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
+#[cfg(all(
+    any(target_arch = "arm", target_arch = "aarch64"),
+    feature = "use_neon"
+))]
+#[target_feature(enable = "neon")]
+unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
+    #[cfg(target_arch = "aarch64")]
+    use std::arch::aarch64::*;
+    #[cfg(target_arch = "arm")]
+    use std::arch::arm::*;
+    use std::mem;
+
+    let mask = vdupq_n_u8(0x0F);
+    let self_neon_ptr = octets.as_mut_ptr();
+    #[allow(clippy::cast_ptr_alignment)]
+    let low_table = vld1q_u8(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr());
+    #[allow(clippy::cast_ptr_alignment)]
+    let hi_table = vld1q_u8(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr());
+
+    for i in 0..(octets.len() / mem::size_of::<uint8x16_t>()) {
+        // Multiply by scalar
+        #[allow(clippy::cast_ptr_alignment)]
+        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+        let low = vandq_u8(self_vec, mask);
+        let low_result = vqtbl1q_u8(low_table, low);
+        let hi = vshrq_n_u8(self_vec, 4);
+        let hi = vandq_u8(hi, mask);
+        let hi_result = vqtbl1q_u8(hi_table, hi);
+        let result = veorq_u8(hi_result, low_result);
+        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+    }
+
+    let remainder = octets.len() % mem::size_of::<uint8x16_t>();
+    let scalar_index = scalar.byte() as usize;
+    for i in (octets.len() - remainder)..octets.len() {
+        *octets.get_unchecked_mut(i) = *OCTET_MUL
+            .get_unchecked(scalar_index)
+            .get_unchecked(*octets.get_unchecked(i) as usize);
+    }
+}
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
@@ -269,6 +310,22 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
         if is_x86_feature_detected!("ssse3") {
             unsafe {
                 return mulassign_scalar_ssse3(octets, scalar);
+            }
+        }
+    }
+    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    {
+        if is_aarch64_feature_detected!("neon") {
+            unsafe {
+                return mulassign_scalar_neon(octets, scalar);
+            }
+        }
+    }
+    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    {
+        if is_arm_feature_detected!("neon") {
+            unsafe {
+                return mulassign_scalar_neon(octets, scalar);
             }
         }
     }
