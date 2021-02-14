@@ -84,12 +84,101 @@ pub fn fused_addassign_mul_scalar_binary(
             }
         }
     }
+    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    {
+        if is_aarch64_feature_detected!("neon") {
+            unsafe {
+                return fused_addassign_mul_scalar_binary_neon(octets, other, scalar);
+            }
+        }
+    }
+    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    {
+        if is_arm_feature_detected!("neon") {
+            unsafe {
+                return fused_addassign_mul_scalar_binary_neon(octets, other, scalar);
+            }
+        }
+    }
 
     // TODO: write an optimized fallback that does call .to_octet_vec()
     if *scalar == Octet::one() {
         return add_assign(octets, &other.to_octet_vec());
     } else {
         return fused_addassign_mul_scalar(octets, &other.to_octet_vec(), scalar);
+    }
+}
+
+#[cfg(all(
+    any(target_arch = "arm", target_arch = "aarch64"),
+    feature = "use_neon"
+))]
+#[target_feature(enable = "neon")]
+unsafe fn fused_addassign_mul_scalar_binary_neon(
+    octets: &mut [u8],
+    other: &BinaryOctetVec,
+    scalar: &Octet,
+) {
+    #[cfg(target_arch = "aarch64")]
+    use std::arch::aarch64::*;
+    #[cfg(target_arch = "arm")]
+    use std::arch::arm::*;
+    use std::mem;
+
+    let first_bit = other.padding_bits();
+    let other_u16 = std::slice::from_raw_parts(
+        other.elements.as_ptr() as *const u16,
+        other.elements.len() * 4,
+    );
+    let mut other_batch_start_index = first_bit / 16;
+    let first_bits = other_u16[other_batch_start_index];
+    let bit_in_first_bits = first_bit % 16;
+    let mut remaining = octets.len();
+    let mut self_neon_ptr = octets.as_mut_ptr();
+    // Handle first bits to make remainder 16bit aligned
+    if bit_in_first_bits > 0 {
+        for (i, val) in octets.iter_mut().enumerate().take(16 - bit_in_first_bits) {
+            // TODO: replace with UBFX instruction, once it's support in arm intrinsics
+            let selected_bit = first_bits & (0x1 << (bit_in_first_bits + i));
+            let other_byte = if selected_bit == 0 { 0 } else { 1 };
+
+            // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
+            *val ^= scalar.byte() * other_byte;
+        }
+        remaining -= 16 - bit_in_first_bits;
+        other_batch_start_index += 1;
+        self_neon_ptr = self_neon_ptr.add(16 - bit_in_first_bits);
+    }
+
+    assert_eq!(remaining % 16, 0);
+
+    let shuffle_mask = vld1q_u8([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1].as_ptr());
+    let bit_select_mask = vld1q_u8(
+        [
+            1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80,
+        ]
+        .as_ptr(),
+    );
+    let scalar_neon = vdupq_n_u8(scalar.byte());
+    let other_neon = other_u16.as_ptr();
+    // Process the rest in 128bit chunks
+    for i in 0..(remaining / mem::size_of::<uint8x16_t>()) {
+        // Convert from bit packed u16 to 16xu8
+        let other_vec = vld1q_dup_u16(other_neon.add(other_batch_start_index + i));
+        let other_vec: uint8x16_t = mem::transmute(other_vec);
+        let other_vec = vqtbl1q_u8(other_vec, shuffle_mask);
+        let other_vec = vandq_u8(other_vec, bit_select_mask);
+        // The bits are now unpacked, but aren't in a defined position (may be in 0-7 bit of each byte)
+
+        // Test non-zero to get one or zero in the correct byte position
+        let other_vec = vcgeq_u8(other_vec, vdupq_n_u8(1));
+        // Multiply by scalar. other_vec is binary (0xFF or 0x00), so just mask with the scalar
+        let product = vandq_u8(other_vec, scalar_neon);
+
+        // Add to self
+        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+        let result = veorq_u8(self_vec, product);
+        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
     }
 }
 
@@ -749,8 +838,10 @@ mod tests {
     use rand::Rng;
 
     use crate::octet::Octet;
-    use crate::octets::fused_addassign_mul_scalar;
     use crate::octets::mulassign_scalar;
+    use crate::octets::{
+        fused_addassign_mul_scalar, fused_addassign_mul_scalar_binary, BinaryOctetVec,
+    };
 
     #[test]
     fn mul_assign() {
@@ -782,6 +873,28 @@ mod tests {
         }
 
         fused_addassign_mul_scalar(&mut data1, &data2, &scalar);
+
+        assert_eq!(expected, data1);
+    }
+
+    #[test]
+    fn fma_binary() {
+        let size = 41;
+        let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
+        let mut binary_vec: Vec<u64> = vec![0; (size + 63) / 64];
+        for i in 0..binary_vec.len() {
+            binary_vec[i] = rand::thread_rng().gen();
+        }
+        let binary_octet_vec = BinaryOctetVec::new(binary_vec, size);
+        let mut data1: Vec<u8> = vec![0; size];
+        let data2: Vec<u8> = binary_octet_vec.to_octet_vec();
+        let mut expected: Vec<u8> = vec![0; size];
+        for i in 0..size {
+            data1[i] = rand::thread_rng().gen();
+            expected[i] = (Octet::new(data1[i]) + &Octet::new(data2[i]) * &scalar).byte();
+        }
+
+        fused_addassign_mul_scalar_binary(&mut data1, &binary_octet_vec, &scalar);
 
         assert_eq!(expected, data1);
     }
