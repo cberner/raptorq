@@ -171,11 +171,13 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
 #[cfg(test)]
 mod tests {
     use crate::constraint_matrix::generate_hdpc_rows;
+    use crate::octet::Octet;
     use crate::octet_matrix::DenseOctetMatrix;
     use crate::octets::{add_assign, fused_addassign_mul_scalar};
     use crate::rng::rand;
-    use crate::systematic_constants::{num_hdpc_symbols, num_ldpc_symbols};
-    use crate::{extended_source_block_symbols, Octet};
+    use crate::systematic_constants::{
+        extended_source_block_symbols, num_hdpc_symbols, num_ldpc_symbols,
+    };
     use rand::Rng;
 
     #[allow(non_snake_case)]
