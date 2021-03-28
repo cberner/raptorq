@@ -1,5 +1,5 @@
 [target.x86_64-apple-darwin]
-rustc-cdylib-link-arg = [
-  "-undefined",
-  "dynamic_lookup",
+rustflags = [
+  "-C", "link-arg=-undefined",
+  "-C", "link-arg=dynamic_lookup",
 ]
