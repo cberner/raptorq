@@ -29,7 +29,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install cargo-deny
-        run: cargo install --force --version 0.6.8 cargo-deny --locked
+        run: cargo install --force --version 0.9.1 cargo-deny --locked
 
       - name: Run tests
         run: make test
