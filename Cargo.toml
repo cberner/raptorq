@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
-pyo3 = {version = "0.13", features=["extension-module", "abi3-py36"], optional = true }
+pyo3 = {version = "0.14", features=["extension-module", "abi3-py36"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
