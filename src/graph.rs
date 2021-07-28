@@ -16,15 +16,16 @@ pub struct ConnectedComponentGraph {
 
 impl ConnectedComponentGraph {
     pub fn new(max_nodes: usize) -> ConnectedComponentGraph {
+        let first_connected_component = NO_CONNECTED_COMPONENT + 1;
         let mut result = ConnectedComponentGraph {
             node_connected_component: U16ArrayMap::new(0, max_nodes),
             merged_connected_components: U16ArrayMap::new(
-                (NO_CONNECTED_COMPONENT + 1) as usize,
-                max_nodes,
+                first_connected_component as usize,
+                first_connected_component as usize + max_nodes,
             ),
             connected_component_size: U16ArrayMap::new(
-                (NO_CONNECTED_COMPONENT + 1) as usize,
-                max_nodes,
+                first_connected_component as usize,
+                first_connected_component as usize + max_nodes,
             ),
             num_connected_components: 0,
         };
