@@ -515,6 +515,31 @@ mod codec_tests {
         repair(0, 50, false, true);
     }
 
+    #[test]
+    fn issue_120() {
+        let symbol_size = 1280;
+        let overhead = 0.5;
+        let symbol_count = 10;
+        let elements = symbol_count * symbol_size as usize;
+        let mut data: Vec<u8> = vec![0; elements];
+        for i in 0..elements {
+            data[i] = rand::thread_rng().gen();
+        }
+
+        let total_bytes: usize = 1024 * 1024;
+        let iterations = total_bytes / elements;
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new2(1, &config, &data);
+        let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
+        let mut packets =
+            encoder.repair_packets(0, (iterations as u32 * elements_and_overhead) as u32);
+        for _ in 0..iterations {
+            let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
+            let start = packets.len() - elements_and_overhead as usize;
+            decoder.decode(packets.drain(start..));
+        }
+    }
+
     fn repair(sparse_threshold: u32, max_symbols: usize, progress: bool, pre_plan: bool) {
         let pool = threadpool::Builder::new().build();
         let failed = Arc::new(AtomicU32::new(0));
