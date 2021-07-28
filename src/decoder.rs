@@ -76,10 +76,8 @@ impl Decoder {
         }
 
         let mut result = vec![];
-        for block in self.blocks.iter() {
-            if let Some(block) = block {
-                result.extend(block);
-            }
+        for block in self.blocks.iter().flatten() {
+            result.extend(block);
         }
 
         result.truncate(self.config.transfer_length() as usize);
@@ -102,10 +100,8 @@ impl Decoder {
         }
 
         let mut result = vec![];
-        for block in self.blocks.iter() {
-            if let Some(block) = block {
-                result.extend(block);
-            }
+        for block in self.blocks.iter().flatten() {
+            result.extend(block);
         }
         result.truncate(self.config.transfer_length() as usize);
         Some(result)

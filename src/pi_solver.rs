@@ -1189,14 +1189,13 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     }
 
     fn record_fma_rows(&mut self, i: usize, iprime: usize, beta: Octet) {
+        self.debug_symbol_add_ops += 1;
         if beta == Octet::one() {
-            self.debug_symbol_add_ops += 1;
             self.deferred_D_ops.push(SymbolOps::AddAssign {
                 dest: self.d[iprime],
                 src: self.d[i],
             });
         } else {
-            self.debug_symbol_add_ops += 1;
             self.debug_symbol_mul_ops += 1;
             self.deferred_D_ops.push(SymbolOps::FMA {
                 dest: self.d[iprime],
@@ -1312,7 +1311,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             reorder.push(*i);
         }
 
-        let mut operation_vector = std::mem::replace(&mut self.deferred_D_ops, vec![]);
+        let mut operation_vector = std::mem::take(&mut self.deferred_D_ops);
         operation_vector.push(SymbolOps::Reorder { order: reorder });
         return (Some(result), Some(operation_vector));
     }

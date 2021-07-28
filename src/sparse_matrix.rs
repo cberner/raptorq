@@ -258,7 +258,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
     }
 
     fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32> {
-        assert_eq!(self.column_index_disabled, false);
+        assert!(!self.column_index_disabled);
         #[cfg(debug_assertions)]
         debug_assert!(self.debug_indexed_column_valid[col]);
         let physical_col = self.logical_col_to_physical[col];
@@ -321,7 +321,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
             i,
             "Can only freeze the last sparse column"
         );
-        assert_eq!(self.column_index_disabled, false);
+        assert!(!self.column_index_disabled);
         self.num_dense_columns += 1;
         let (last_word, _) = self.bit_position(self.height - 1, self.num_dense_columns - 1);
         // If this is in a new word
