@@ -77,13 +77,11 @@ pub fn calculate_block_offsets(
     if zs > 0 {
         for _ in zl..(zl + zs) {
             let offset = ks as usize * config.symbol_size() as usize;
-            if data_index + offset <= data.len() {
-                blocks.push((data_index, (data_index + offset)));
-            } else {
+            if data_index + offset > data.len() {
                 // Should only be possible when Kt * T > F. See third to last paragraph in section 4.4.1.2
                 assert!(kt as usize * config.symbol_size() as usize > data.len());
-                blocks.push((data_index, (data_index + offset)));
             }
+            blocks.push((data_index, (data_index + offset)));
             data_index += offset;
         }
     }

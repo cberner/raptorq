@@ -141,9 +141,7 @@ impl<'a> Iterator for OctetIter<'a> {
         if self.sparse {
             let elements = self.sparse_elements.unwrap();
             // Need to iterate over the whole array, since they're not sorted by logical col
-            if self.sparse_index >= elements.len() {
-                return None;
-            } else {
+            if self.sparse_index < elements.len() {
                 while self.sparse_index < elements.len() {
                     let entry = elements.get_by_raw_index(self.sparse_index);
                     self.sparse_index += 1;
@@ -152,8 +150,8 @@ impl<'a> Iterator for OctetIter<'a> {
                         return Some((logical_col as usize, entry.1));
                     }
                 }
-                return None;
             }
+            return None;
         } else if self.dense_index == self.end_col {
             return None;
         } else {
