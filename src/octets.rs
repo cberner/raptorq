@@ -290,11 +290,7 @@ unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
         let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
         let low = vandq_u8(self_vec, mask);
         let low_result = vqtbl1q_u8(low_table, low);
-        // TODO: replace with vshrq. Right now it doesn't optimize correctly (it generates 16 ubfx instructions)
-        // let hi = vshrq_n_u8(self_vec, 4);
-        let mut hi: u128 = mem::transmute(self_vec);
-        hi >>= 4;
-        let hi: uint8x16_t = mem::transmute(hi);
+        let hi = vshrq_n_u8(self_vec, 4);
         let hi = vandq_u8(hi, mask);
         let hi_result = vqtbl1q_u8(hi_table, hi);
         let result = veorq_u8(hi_result, low_result);
@@ -463,11 +459,7 @@ unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scala
         let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
         let low = vandq_u8(other_vec, mask);
         let low_result = vqtbl1q_u8(low_table, low);
-        // TODO: replace with vshrq. Right now it doesn't optimize correctly (it generates 16 ubfx instructions)
-        // let hi = vshrq_n_u8(other_vec, 4);
-        let mut hi: u128 = mem::transmute(other_vec);
-        hi >>= 4;
-        let hi: uint8x16_t = mem::transmute(hi);
+        let hi = vshrq_n_u8(other_vec, 4);
         let hi = vandq_u8(hi, mask);
         let hi_result = vqtbl1q_u8(hi_table, hi);
         let other_vec = veorq_u8(hi_result, low_result);
