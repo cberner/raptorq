@@ -121,7 +121,7 @@ impl Encoder {
             block_encoders.push(SourceBlockEncoder::with_encoding_plan2(
                 i as u8,
                 &config,
-                &block,
+                block,
                 cached_plan.as_ref().unwrap(),
             ));
         }
