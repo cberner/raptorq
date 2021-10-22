@@ -63,7 +63,7 @@ impl SparseBinaryVec {
         loop {
             if let Some(self_index) = self_next {
                 if let Some(other_index) = other_next {
-                    match self_index.cmp(&other_index) {
+                    match self_index.cmp(other_index) {
                         Ordering::Less => {
                             result.push(*self_index);
                             self_next = self_iter.next();

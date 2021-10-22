@@ -520,7 +520,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 }
                 SymbolOps::FMA { dest, src, scalar } => {
                     let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
-                    dest.fused_addassign_mul_scalar(&temp, scalar);
+                    dest.fused_addassign_mul_scalar(temp, scalar);
                 }
                 SymbolOps::Reorder { order: _order } => {}
             }

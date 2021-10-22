@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+#[allow(clippy::upper_case_acronyms)]
 pub enum SymbolOps {
     AddAssign {
         dest: usize,

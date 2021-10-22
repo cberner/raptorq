@@ -6,7 +6,8 @@ homepage = "https://github.com/cberner/raptorq"
 repository = "https://github.com/cberner/raptorq"
 readme = "README.md"
 version = "1.6.4"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
