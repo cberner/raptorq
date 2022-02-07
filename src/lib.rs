@@ -45,6 +45,7 @@ pub use crate::python::raptorq;
 pub use crate::python::Decoder;
 #[cfg(feature = "python")]
 pub use crate::python::Encoder;
+pub use crate::systematic_constants::extended_source_block_symbols;
 
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;
@@ -60,5 +61,3 @@ pub use crate::pi_solver::IntermediateSymbolDecoder;
 pub use crate::sparse_matrix::SparseBinaryMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::symbol::Symbol;
-#[cfg(feature = "benchmarking")]
-pub use crate::systematic_constants::extended_source_block_symbols;
