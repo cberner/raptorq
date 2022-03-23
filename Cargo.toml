@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
-pyo3 = {version = "0.15", features=["extension-module", "abi3-py36"], optional = true }
+pyo3 = {version = "0.16", features=["extension-module", "abi3-py37"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -50,7 +50,7 @@ python = ["pyo3"]
 serde_support = ["serde"]
 
 [package.metadata.maturin]
-requires-python = ">= 3.6"
+requires-python = ">= 3.7"
 classifier = ["Development Status :: 4 - Beta",
               "License :: OSI Approved :: Apache Software License",
               "Programming Language :: Python",
