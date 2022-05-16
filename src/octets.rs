@@ -1,9 +1,22 @@
 use crate::octet::Octet;
 use crate::octet::OCTET_MUL;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "use_neon"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "arm",
+    target_arch = "aarch64"
+))]
 use crate::octet::OCTET_MUL_HI_BITS;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "use_neon"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "arm",
+    target_arch = "aarch64"
+))]
 use crate::octet::OCTET_MUL_LOW_BITS;
+
+#[cfg(target_arch = "aarch64")]
+use std::arch::is_aarch64_feature_detected;
 
 // An octet vec containing only binary values, which are bit-packed for efficiency
 pub struct BinaryOctetVec {
@@ -84,7 +97,7 @@ pub fn fused_addassign_mul_scalar_binary(
             }
         }
     }
-    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -92,13 +105,14 @@ pub fn fused_addassign_mul_scalar_binary(
             }
         }
     }
-    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    #[cfg(target_arch = "arm")]
     {
-        if is_arm_feature_detected!("neon") {
-            unsafe {
-                return fused_addassign_mul_scalar_binary_neon(octets, other, scalar);
-            }
-        }
+        // TODO: enable when stable
+        // if is_arm_feature_detected!("neon") {
+        //     unsafe {
+        //         return fused_addassign_mul_scalar_binary_neon(octets, other, scalar);
+        //     }
+        // }
     }
 
     // TODO: write an optimized fallback that does call .to_octet_vec()
@@ -109,11 +123,10 @@ pub fn fused_addassign_mul_scalar_binary(
     }
 }
 
-#[cfg(all(
-    any(target_arch = "arm", target_arch = "aarch64"),
-    feature = "use_neon"
-))]
-#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+// TODO: enable when stable
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_binary_neon(
     octets: &mut [u8],
     other: &BinaryOctetVec,
@@ -265,11 +278,10 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
-#[cfg(all(
-    any(target_arch = "arm", target_arch = "aarch64"),
-    feature = "use_neon"
-))]
-#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+// TODO: enable when stable
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[target_feature(enable = "neon")]
 unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "aarch64")]
     use std::arch::aarch64::*;
@@ -402,7 +414,7 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
             }
         }
     }
-    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -410,13 +422,14 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
             }
         }
     }
-    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    #[cfg(target_arch = "arm")]
     {
-        if is_arm_feature_detected!("neon") {
-            unsafe {
-                return mulassign_scalar_neon(octets, scalar);
-            }
-        }
+        // TODO: enable when stable
+        // if is_arm_feature_detected!("neon") {
+        //     unsafe {
+        //         return mulassign_scalar_neon(octets, scalar);
+        //     }
+        // }
     }
 
     return mulassign_scalar_fallback(octets, scalar);
@@ -433,11 +446,10 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: 
     }
 }
 
-#[cfg(all(
-    any(target_arch = "arm", target_arch = "aarch64"),
-    feature = "use_neon"
-))]
-#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+// TODO: enable when stable
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "aarch64")]
     use std::arch::aarch64::*;
@@ -603,7 +615,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
             }
         }
     }
-    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -611,13 +623,14 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
             }
         }
     }
-    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    #[cfg(target_arch = "arm")]
     {
-        if is_arm_feature_detected!("neon") {
-            unsafe {
-                return fused_addassign_mul_scalar_neon(octets, other, scalar);
-            }
-        }
+        // TODO: enable when stable
+        // if is_arm_feature_detected!("neon") {
+        //     unsafe {
+        //         return fused_addassign_mul_scalar_neon(octets, other, scalar);
+        //     }
+        // }
     }
 
     return fused_addassign_mul_scalar_fallback(octets, other, scalar);
@@ -646,16 +659,16 @@ fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     }
 }
 
-#[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+#[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::uint8x16_t;
-#[cfg(all(target_arch = "arm", feature = "use_neon"))]
-use std::arch::arm::uint8x16_t;
+// TODO: enable when stable
+// #[cfg(target_arch = "arm")]
+// use std::arch::arm::uint8x16_t;
 
-#[cfg(all(
-    any(target_arch = "arm", target_arch = "aarch64"),
-    feature = "use_neon"
-))]
-#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+// TODO: enable when stable
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[target_feature(enable = "neon")]
 unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
     #[cfg(target_arch = "aarch64")]
     use std::arch::aarch64::*;
@@ -668,11 +681,10 @@ unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
     *(ptr as *mut u64).add(1) = vgetq_lane_u64(reinterp, 1);
 }
 
-#[cfg(all(
-    any(target_arch = "arm", target_arch = "aarch64"),
-    feature = "use_neon"
-))]
-#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+// TODO: enable when stable
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[target_feature(enable = "neon")]
 unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "aarch64")]
     use std::arch::aarch64::*;
@@ -806,7 +818,7 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
             }
         }
     }
-    #[cfg(all(target_arch = "aarch64", feature = "use_neon"))]
+    #[cfg(target_arch = "aarch64")]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -814,13 +826,14 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
             }
         }
     }
-    #[cfg(all(target_arch = "arm", feature = "use_neon"))]
+    #[cfg(target_arch = "arm")]
     {
-        if is_arm_feature_detected!("neon") {
-            unsafe {
-                return add_assign_neon(octets, other);
-            }
-        }
+        // TODO: enable when stable
+        // if is_arm_feature_detected!("neon") {
+        //     unsafe {
+        //         return add_assign_neon(octets, other);
+        //     }
+        // }
     }
     return add_assign_fallback(octets, other);
 }

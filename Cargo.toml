@@ -7,7 +7,7 @@ repository = "https://github.com/cberner/raptorq"
 readme = "README.md"
 version = "1.6.5"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.60"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
@@ -45,7 +45,6 @@ lto = false
 
 [features]
 benchmarking = []
-use_neon = []
 python = ["pyo3"]
 serde_support = ["serde"]
 
