@@ -165,7 +165,7 @@ impl SourceBlockDecoder {
         self.sparse_threshold = value;
     }
 
-    fn unpack_sub_blocks(&self, result: &mut Vec<u8>, symbol: &Symbol, symbol_index: usize) {
+    fn unpack_sub_blocks(&self, result: &mut [u8], symbol: &Symbol, symbol_index: usize) {
         let (tl, ts, nl, ns) = partition(
             (self.symbol_size / self.symbol_alignment as u16) as u32,
             self.num_sub_blocks,
