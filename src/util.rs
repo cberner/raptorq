@@ -1,6 +1,6 @@
 // Get two non-overlapping ranges starting at i & j, both with length len
 pub fn get_both_ranges<T>(
-    vector: &mut Vec<T>,
+    vector: &mut [T],
     i: usize,
     j: usize,
     len: usize,
@@ -19,7 +19,7 @@ pub fn get_both_ranges<T>(
     }
 }
 
-pub fn get_both_indices<T>(vector: &mut Vec<T>, i: usize, j: usize) -> (&mut T, &mut T) {
+pub fn get_both_indices<T>(vector: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
     debug_assert_ne!(i, j);
     debug_assert!(i < vector.len());
     debug_assert!(j < vector.len());
