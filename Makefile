@@ -37,3 +37,6 @@ install_py: pre
 
 test_py: install_py
 	python3 -m unittest discover
+
+build_wasm: pre
+	wasm-pack build --target web --features wasm
