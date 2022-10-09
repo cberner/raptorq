@@ -106,6 +106,7 @@ confidence-threshold = 0.8
 exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
+    { allow = ["Unicode-DFS-2016"], name = "unicode-ident", version = "*" },
     #{ allow = ["Zlib"], name = "adler32", version = "*" },
 ]
 
