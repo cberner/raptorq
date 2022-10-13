@@ -129,7 +129,6 @@ impl RaptorqFrame {
 
     #[wasm_bindgen]
     pub fn try_from(i: &[u8]) -> RaptorqFrame {
-        println!("error!!!");
         let (_, (size, payload)) = parse_raptor_frame(i).unwrap();
 
         Self {
