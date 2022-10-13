@@ -1,3 +1,12 @@
+[project]
+name = "raptorq"
+requires-python = ">=3.7"
+dynamic = ["version"]
+
 [build-system]
 requires = ["maturin>=0.11,<0.12"]
 build-backend = "maturin"
+
+[tool.maturin]
+compatibility = "manylinux2014"
+features = ["python"]
