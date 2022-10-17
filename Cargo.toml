@@ -18,7 +18,6 @@ serde = {version = "1.0.102", features=["std", "derive"], optional = true}
 pyo3 = {version = "0.16", features=["extension-module", "abi3-py37"], optional = true }
 wasm-bindgen = {version = "0.2", optional = true}
 js-sys = {version = "0.3.60", optional = true}
-nom = {version = "7.1.1", optional = true}
 
 [dev-dependencies]
 criterion = "0.3"
@@ -50,7 +49,7 @@ lto = false
 benchmarking = []
 python = ["pyo3"]
 serde_support = ["serde"]
-wasm = ["wasm-bindgen", "js-sys", "nom"]
+wasm = ["wasm-bindgen", "js-sys"]
 
 [package.metadata.maturin]
 requires-python = ">= 3.7"
