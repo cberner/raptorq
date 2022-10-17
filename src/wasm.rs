@@ -5,11 +5,6 @@ use crate::encoder::Encoder as EncoderNative;
 
 use crate::PayloadId;
 use js_sys::Uint8Array;
-use nom::bits::complete::take as bit_take;
-use nom::combinator::{rest, verify};
-use nom::complete::tag as bit_tag;
-use nom::sequence::{preceded, tuple};
-use nom::{bits, IResult};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -95,60 +90,4 @@ impl EncodingPacket {
     pub fn data(&self) -> Uint8Array {
         Uint8Array::from(self.data.as_slice())
     }
-}
-
-#[wasm_bindgen]
-pub struct RaptorqFrame {
-    size: u32,
-    payload: Vec<u8>,
-}
-
-#[wasm_bindgen]
-impl RaptorqFrame {
-    pub fn total(&self) -> u32 {
-        // Decoding algorithm is probabilistic, see documentation of the `raptorq` crate
-        // Rephrasing from there, the probability to decode message with h
-        // additional packets is 1 - 1/256^(h+1).
-        //
-        // Thus, if there are no additional packets, probability is ~ 0.99609.
-        // If one additional packet is added, it is ~ 0.99998.
-        // It was decided to add one additional packet in the printed estimate, so that
-        // the user expectations are lower.
-        self.size / (self.payload.len() as u32) + 1
-    }
-
-    #[wasm_bindgen]
-    pub fn size(&self) -> u32 {
-        self.size
-    }
-
-    #[wasm_bindgen]
-    pub fn payload(&self) -> Uint8Array {
-        Uint8Array::from(self.payload.as_slice())
-    }
-
-    #[wasm_bindgen]
-    pub fn try_from(i: &[u8]) -> RaptorqFrame {
-        let (_, (size, payload)) = parse_raptor_frame(i).unwrap();
-
-        Self {
-            size,
-            payload: payload.to_vec(),
-        }
-    }
-}
-
-fn parse_raptor_frame(i: &[u8]) -> IResult<&[u8], (u32, &[u8])> {
-    tuple((
-        bits(preceded(raptorq_tag, raptor_payload_size)),
-        verify(rest, |a: &[u8]| !a.is_empty()),
-    ))(i)
-}
-
-fn raptorq_tag(i: (&[u8], usize)) -> IResult<(&[u8], usize), u8> {
-    bit_tag(0x1, 1usize)(i)
-}
-
-fn raptor_payload_size(i: (&[u8], usize)) -> IResult<(&[u8], usize), u32> {
-    bit_take(31usize)(i)
 }
