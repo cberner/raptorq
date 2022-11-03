@@ -54,6 +54,20 @@ impl Encoder {
             .map(|packet| Uint8Array::from(packet.serialize().as_slice()))
             .collect()
     }
+
+    #[wasm_bindgen]
+    pub fn encode_with_packet_size(&mut self, repair_packets_per_block: u32) -> Vec<Uint8Array> {
+      // checking that data is not too long, set limit for now at 2^31 bit
+      let len = self.encoder.get_config().transfer_length();
+
+      // added at the beginning to each vector before transforming into qr code: contains input length info, also has first bit always 1 indicating it is new fountain qr - possibly need to change this later
+      let data_size_info = (len as u32 + 0x80000000).to_be_bytes();
+      self.encoder
+        .get_encoded_packets(repair_packets_per_block)
+        .iter()
+        .map(|packet| Uint8Array::from([data_size_info.to_vec(), packet.serialize()].concat().as_slice()))
+        .collect()
+    }
 }
 
 #[wasm_bindgen]

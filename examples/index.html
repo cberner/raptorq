@@ -17,6 +17,8 @@
       let shuffledPackets = packets.sort((a, b) => 0.5 - Math.random());
       console.log(`data ${data} encoded packets are ${packets}`);
 
+      let packetsWithSize = encoder.encode_with_packet_size(42);
+      console.log(`data ${data} encoded packets with size are ${packetsWithSize}`);
 
       let decoder = Decoder.with_defaults(BigInt(data.length), 512);
 
