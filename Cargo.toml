@@ -28,10 +28,12 @@ threadpool = "1.7"
 [[bench]]
 name = "codec_benchmark"
 harness = false
+required-features = ["benchmarking"]
 
 [[bench]]
 name = "matrix_sparsity"
 harness = false
+required-features = ["benchmarking"]
 
 [[bench]]
 name = "encode_benchmark"
