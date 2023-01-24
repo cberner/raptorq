@@ -1,3 +1,12 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+#[cfg(feature = "metal")]
+use alloc::vec::Vec;
+
+#[cfg(feature = "metal")]
+use micromath::F32;
+
 use crate::base::intermediate_tuple;
 use crate::base::partition;
 use crate::base::EncodingPacket;
@@ -57,11 +66,18 @@ impl EncoderBuilder {
 
 // Calculate the splits [start, end) of an object for encoding as blocks.
 // If a block extends past the end of the object, it must be zero padded
+#[cfg(any(feature = "std", feature = "metal"))]
 pub fn calculate_block_offsets(
     data: &[u8],
     config: &ObjectTransmissionInformation,
 ) -> Vec<(usize, usize)> {
+    #[cfg(feature = "std")]
     let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
+    #[cfg(feature = "metal")]
+    let kt = (F32(config.transfer_length() as f32) / F32(config.symbol_size() as f32))
+        .ceil()
+        .0 as u32;
+
     let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
     let mut data_index = 0;
@@ -431,7 +447,11 @@ fn enc(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "metal")]
+    use alloc::vec::Vec;
     use rand::Rng;
+    #[cfg(feature = "std")]
+    use std::vec::Vec;
 
     use crate::base::intermediate_tuple;
     use crate::encoder::enc;
@@ -442,8 +462,12 @@ mod tests {
     use crate::systematic_constants::{
         calculate_p1, num_ldpc_symbols, systematic_index, MAX_SOURCE_SYMBOLS_PER_BLOCK,
     };
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     use crate::{Encoder, EncoderBuilder, EncodingPacket, ObjectTransmissionInformation};
-    use std::collections::HashSet;
+    #[cfg(feature = "metal")]
+    use alloc::collections::BTreeSet as Set;
+    #[cfg(all(feature = "std", not(feature = "python"), not(feature = "wasm")))]
+    use std::collections::HashSet as Set;
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
@@ -543,6 +567,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     #[test]
     fn test_builder() {
         let data = vec![0, 1, 2, 3];
@@ -552,6 +577,7 @@ mod tests {
         assert_eq!(builder.build(&data), encoder);
     }
 
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     #[test]
     fn padding_constraint_exact() {
         let packet_size: u16 = 1024;
@@ -560,6 +586,7 @@ mod tests {
         padding_constraint(packet_size, padding_size, data_size);
     }
 
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     #[test]
     fn padding_constraint_42_bytes() {
         let packet_size: u16 = 1024;
@@ -568,6 +595,7 @@ mod tests {
         padding_constraint(packet_size, padding_size, data_size);
     }
 
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     fn padding_constraint(packet_size: u16, padding_size: usize, data_size: usize) {
         let data = gen_test_data(data_size);
         let encoder = Encoder::with_defaults(&data, packet_size);
@@ -588,13 +616,14 @@ mod tests {
         assert_eq!(data[..], padded_data[..data_size]);
     }
 
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
     #[test]
     fn unique_blocks() {
         let data = gen_test_data(120);
         let config = ObjectTransmissionInformation::new(120, 10, 10, 0, 2);
         let encoder = Encoder::new(&data, config);
         assert!(encoder.get_block_encoders().len() > 1);
-        let mut ids = HashSet::new();
+        let mut ids = Set::new();
         for block in encoder.get_block_encoders().iter() {
             ids.insert(block.source_block_id);
         }

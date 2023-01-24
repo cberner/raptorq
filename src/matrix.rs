@@ -1,9 +1,17 @@
+#[cfg(feature = "std")]
+use std::{mem::size_of, vec::Vec};
+
+#[cfg(feature = "metal")]
+use core::mem::size_of;
+
+#[cfg(feature = "metal")]
+use alloc::vec::Vec;
+
 use crate::gf2::add_assign_binary;
 use crate::iterators::OctetIter;
 use crate::octet::Octet;
 use crate::octets::BinaryOctetVec;
 use crate::util::get_both_ranges;
-use std::mem::size_of;
 
 // TODO: change this struct to not use the Octet class, since it's binary not GF(256)
 pub trait BinaryMatrix: Clone {

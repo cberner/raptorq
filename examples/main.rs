@@ -1,7 +1,13 @@
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 use rand::seq::SliceRandom;
+
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 use rand::Rng;
+
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 use raptorq::{Decoder, Encoder, EncodingPacket};
 
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 fn main() {
     // Generate some random data to send
     let mut data: Vec<u8> = vec![0; 10_000];
@@ -42,4 +48,9 @@ fn main() {
 
     // Check that even though some of the data was lost we are able to reconstruct the original message
     assert_eq!(result.unwrap(), data);
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn main() {
+    panic!("This is not indented to compile for `python` and `wasm` features.");
 }

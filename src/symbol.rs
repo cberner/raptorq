@@ -1,10 +1,18 @@
+#[cfg(feature = "std")]
+use std::{ops::AddAssign, vec::Vec};
+
+#[cfg(feature = "metal")]
+use core::ops::AddAssign;
+
+#[cfg(feature = "metal")]
+use alloc::vec::Vec;
+
 use crate::octet::Octet;
 use crate::octets::add_assign;
 use crate::octets::fused_addassign_mul_scalar;
 use crate::octets::mulassign_scalar;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
-use std::ops::AddAssign;
 
 /// Elementary unit of data, for encoding/decoding purposes.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -60,7 +68,11 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "metal")]
+    use alloc::vec::Vec;
     use rand::Rng;
+    #[cfg(feature = "std")]
+    use std::vec::Vec;
 
     use crate::symbol::Symbol;
 

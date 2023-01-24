@@ -1,3 +1,5 @@
+use std::vec::Vec;
+
 use crate::base::{EncodingPacket, ObjectTransmissionInformation};
 use crate::decoder::Decoder as DecoderNative;
 use crate::encoder::Encoder as EncoderNative;

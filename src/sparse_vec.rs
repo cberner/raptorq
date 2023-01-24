@@ -1,6 +1,13 @@
+#[cfg(feature = "std")]
+use std::{cmp::Ordering, mem::size_of, vec::Vec};
+
+#[cfg(feature = "metal")]
+use core::{cmp::Ordering, mem::size_of};
+
+#[cfg(feature = "metal")]
+use alloc::vec::Vec;
+
 use crate::octet::Octet;
-use std::cmp::Ordering;
-use std::mem::size_of;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct SparseBinaryVec {

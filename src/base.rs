@@ -1,10 +1,21 @@
+#[cfg(feature = "std")]
+use std::{cmp::min, vec::Vec};
+
+#[cfg(feature = "metal")]
+use core::cmp::min;
+
+#[cfg(feature = "metal")]
+use alloc::vec::Vec;
+
+#[cfg(feature = "metal")]
+use micromath::F32;
+
 use crate::rng::rand;
 use crate::systematic_constants::{
     MAX_SOURCE_SYMBOLS_PER_BLOCK, SYSTEMATIC_INDICES_AND_PARAMETERS,
 };
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
 
 // As defined in section 3.2
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -108,6 +119,7 @@ pub struct ObjectTransmissionInformation {
 }
 
 impl ObjectTransmissionInformation {
+    #[cfg(any(feature = "std", feature = "metal"))]
     pub fn new(
         transfer_length: u64,
         symbol_size: u16,
@@ -119,8 +131,14 @@ impl ObjectTransmissionInformation {
         assert!(transfer_length <= 942574504275);
         assert_eq!(symbol_size % alignment as u16, 0);
         // See section 4.4.1.2. "These parameters MUST be set so that ceil(ceil(F/T)/Z) <= K'_max."
+        #[cfg(feature = "std")]
         let symbols_required =
             ((transfer_length as f64 / symbol_size as f64).ceil() / source_blocks as f64).ceil();
+        #[cfg(feature = "metal")]
+        let symbols_required = ((F32(transfer_length as f32) / F32(symbol_size as f32)).ceil()
+            / F32(source_blocks as f32))
+        .ceil()
+        .0;
         assert!((symbols_required as u32) <= MAX_SOURCE_SYMBOLS_PER_BLOCK);
         ObjectTransmissionInformation {
             transfer_length,
@@ -182,6 +200,7 @@ impl ObjectTransmissionInformation {
         self.symbol_alignment
     }
 
+    #[cfg(any(feature = "std", feature = "metal"))]
     pub(crate) fn generate_encoding_parameters(
         transfer_length: u64,
         max_packet_size: u16,
@@ -192,12 +211,26 @@ impl ObjectTransmissionInformation {
         let symbol_size = max_packet_size - (max_packet_size % alignment);
         let sub_symbol_size = 8;
 
+        #[cfg(feature = "std")]
         let kt = (transfer_length as f64 / symbol_size as f64).ceil();
+        #[cfg(feature = "metal")]
+        let kt = (F32(transfer_length as f32) / F32(symbol_size as f32)).ceil();
+
+        #[cfg(feature = "std")]
         let n_max = (symbol_size as f64 / (sub_symbol_size * alignment) as f64).floor() as u32;
+        #[cfg(feature = "metal")]
+        let n_max = (F32(symbol_size as f32) / F32((sub_symbol_size * alignment) as f32))
+            .floor()
+            .0 as u32;
 
         let kl = |n: u32| -> u32 {
             for &(kprime, _, _, _, _) in SYSTEMATIC_INDICES_AND_PARAMETERS.iter().rev() {
+                #[cfg(feature = "std")]
                 let x = (symbol_size as f64 / (alignment as u32 * n) as f64).ceil();
+                #[cfg(feature = "metal")]
+                let x = (F32(symbol_size as f32) / F32((alignment as u32 * n) as f32))
+                    .ceil()
+                    .0 as f64;
                 if kprime <= (decoder_memory_requirement as f64 / (alignment as f64 * x)) as u32 {
                     return kprime;
                 }
@@ -205,12 +238,20 @@ impl ObjectTransmissionInformation {
             unreachable!();
         };
 
+        #[cfg(feature = "std")]
         let num_source_blocks = (kt / kl(n_max) as f64).ceil() as u32;
+        #[cfg(feature = "metal")]
+        let num_source_blocks = (kt / F32(kl(n_max) as f32)).ceil().0 as u32;
 
         let mut n = 1;
         for i in 1..=n_max {
             n = i;
+            #[cfg(feature = "std")]
             if (kt / num_source_blocks as f64).ceil() as u32 <= kl(n) {
+                break;
+            }
+            #[cfg(feature = "metal")]
+            if (kt / F32(num_source_blocks as f32)).ceil().0 as u32 <= kl(n) {
                 break;
             }
         }
@@ -224,6 +265,7 @@ impl ObjectTransmissionInformation {
         }
     }
 
+    #[cfg(any(feature = "std", feature = "metal"))]
     pub fn with_defaults(
         transfer_length: u64,
         max_packet_size: u16,
@@ -236,6 +278,7 @@ impl ObjectTransmissionInformation {
     }
 }
 
+#[cfg(any(feature = "std", feature = "metal"))]
 // Partition[I, J] function, as defined in section 4.4.1.2
 pub fn partition<TI, TJ>(i: TI, j: TJ) -> (u32, u32, u32, u32)
 where
@@ -243,8 +286,16 @@ where
     TJ: Into<u32>,
 {
     let (i, j) = (i.into(), j.into());
+    #[cfg(feature = "std")]
     let il = (i as f64 / j as f64).ceil() as u32;
+    #[cfg(feature = "metal")]
+    let il = (F32(i as f32) / F32(j as f32)).ceil().0 as u32;
+
+    #[cfg(feature = "std")]
     let is = (i as f64 / j as f64).floor() as u32;
+    #[cfg(feature = "metal")]
+    let is = (F32(i as f32) / F32(j as f32)).floor().0 as u32;
+
     let jl = i - is * j;
     let js = j - jl;
     (il, is, jl, js)

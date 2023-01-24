@@ -11,13 +11,14 @@ rust-version = "1.60"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
 pyo3 = {version = "0.16", features=["extension-module", "abi3-py37"], optional = true }
 wasm-bindgen = {version = "0.2", optional = true}
 js-sys = {version = "0.3.60", optional = true}
+micromath = {version = "2.0.0", optional = true}
 
 [dev-dependencies]
 criterion = "0.3"
@@ -43,15 +44,28 @@ harness = false
 name = "decode_benchmark"
 harness = false
 
+[[example]]
+name = "main"
+required-features = ["std"]
+
 [profile.release]
 debug = true
 lto = false
 
 [features]
-benchmarking = []
-python = ["pyo3"]
-serde_support = ["serde"]
-wasm = ["wasm-bindgen", "js-sys"]
+default = ["std"]
+
+benchmarking = ["std"]
+python = ["pyo3", "std"]
+serde_support = ["serde", "std"]
+std = []
+wasm = ["wasm-bindgen", "js-sys", "std"]
+
+# Provides `no_std` compatibility in `default-features = false, features = ["metal"]`
+# configuration.
+# Either one of `std`-compatible features or `metal` should be enabled for
+# crate functionality.
+metal = ["micromath"]
 
 [package.metadata.maturin]
 requires-python = ">= 3.7"
