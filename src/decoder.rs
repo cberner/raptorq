@@ -1,14 +1,11 @@
 #[cfg(feature = "std")]
 use std::{collections::HashSet as Set, iter, vec::Vec};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::iter;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::{collections::BTreeSet as Set, vec::Vec};
-
-#[cfg(feature = "metal")]
-use micromath::F32;
 
 use crate::base::intermediate_tuple;
 use crate::base::partition;
@@ -27,6 +24,7 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::{
     calculate_p1, extended_source_block_symbols, num_lt_symbols, num_pi_symbols, systematic_index,
 };
+use crate::util::int_div_ceil;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -39,15 +37,8 @@ pub struct Decoder {
 }
 
 impl Decoder {
-    #[cfg(any(feature = "std", feature = "metal"))]
     pub fn new(config: ObjectTransmissionInformation) -> Decoder {
-        #[cfg(feature = "std")]
-        let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
-
-        #[cfg(feature = "metal")]
-        let kt = (F32(config.transfer_length() as f32) / F32(config.symbol_size() as f32))
-            .ceil()
-            .0 as u32;
+        let kt = int_div_ceil(config.transfer_length(), config.symbol_size() as u64);
 
         let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
@@ -134,7 +125,6 @@ impl Decoder {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-#[cfg(any(feature = "std", feature = "metal"))]
 pub struct SourceBlockDecoder {
     source_block_id: u8,
     symbol_size: u16,
@@ -161,18 +151,12 @@ impl SourceBlockDecoder {
     }
 
     // TODO: rename this to new() in version 2.0
-    #[cfg(any(feature = "std", feature = "metal"))]
     pub fn new2(
         source_block_id: u8,
         config: &ObjectTransmissionInformation,
         block_length: u64,
     ) -> SourceBlockDecoder {
-        #[cfg(feature = "std")]
-        let source_symbols = (block_length as f64 / config.symbol_size() as f64).ceil() as u32;
-        #[cfg(feature = "metal")]
-        let source_symbols = (F32(block_length as f32) / F32(config.symbol_size() as f32))
-            .ceil()
-            .0 as u32;
+        let source_symbols = int_div_ceil(block_length, config.symbol_size() as u64);
 
         let mut received_esi = Set::new();
         for i in source_symbols..extended_source_block_symbols(source_symbols) {
@@ -261,7 +245,6 @@ impl SourceBlockDecoder {
         return Some(result);
     }
 
-    #[cfg(any(feature = "std", feature = "metal"))]
     pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
         &mut self,
         packets: T,
@@ -363,24 +346,19 @@ impl SourceBlockDecoder {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod codec_tests {
     #[cfg(not(any(feature = "python", feature = "wasm")))]
     use crate::Decoder;
     use crate::SourceBlockEncoder;
-    #[cfg(feature = "std")]
     use crate::SourceBlockEncodingPlan;
     #[cfg(not(any(feature = "python", feature = "wasm")))]
     use crate::{Encoder, EncoderBuilder};
     use crate::{ObjectTransmissionInformation, SourceBlockDecoder};
-    #[cfg(feature = "metal")]
-    use alloc::vec::Vec;
-    #[cfg(feature = "metal")]
-    use core::iter;
     #[cfg(not(any(feature = "python", feature = "wasm")))]
     use rand::seq::SliceRandom;
     use rand::Rng;
-    #[cfg(feature = "std")]
     use std::{
         iter,
         sync::{
@@ -511,7 +489,6 @@ mod codec_tests {
             }
 
             if progress && symbol_count % 100 == 0 {
-                #[cfg(feature = "std")]
                 println!("Completed {} symbols", symbol_count)
             }
 
@@ -531,39 +508,33 @@ mod codec_tests {
         }
     }
 
-    #[cfg(feature = "std")]
     #[test]
     #[ignore]
     fn repair_dense_extended() {
         repair(99_999, 5000, true, false);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     #[ignore]
     fn repair_sparse_extended() {
         repair(0, 56403, true, false);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn repair_dense() {
         repair(99_999, 50, false, false);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn repair_sparse() {
         repair(0, 50, false, false);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn repair_dense_pre_planned() {
         repair(99_999, 50, false, true);
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn repair_sparse_pre_planned() {
         repair(0, 50, false, true);
@@ -594,7 +565,6 @@ mod codec_tests {
         }
     }
 
-    #[cfg(feature = "std")]
     fn repair(sparse_threshold: u32, max_symbols: usize, progress: bool, pre_plan: bool) {
         let pool = threadpool::Builder::new().build();
         let failed = Arc::new(AtomicU32::new(0));
@@ -619,7 +589,6 @@ mod codec_tests {
         assert_eq!(0, failed.load(Ordering::SeqCst));
     }
 
-    #[cfg(feature = "std")]
     fn do_repair(symbol_count: usize, sparse_threshold: u32, pre_plan: bool) -> bool {
         let symbol_size = 8;
         let elements = symbol_size * symbol_count;

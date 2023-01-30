@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::ops::{Add, AddAssign, Div, Mul, Sub};
 
 #[cfg(feature = "serde_support")]

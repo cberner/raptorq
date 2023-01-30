@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::matrix::DenseBinaryMatrix;

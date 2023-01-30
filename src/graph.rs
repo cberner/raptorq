@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use std::cmp::{max, min};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::cmp::{max, min};
 
 use crate::arraymap::U16ArrayMap;

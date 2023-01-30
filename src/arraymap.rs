@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use std::{mem::size_of, ops::Range, u32, vec::Vec};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::{mem::size_of, ops::Range, u32};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]

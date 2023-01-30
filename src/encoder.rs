@@ -1,11 +1,8 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-
-#[cfg(feature = "metal")]
-use micromath::F32;
 
 use crate::base::intermediate_tuple;
 use crate::base::partition;
@@ -24,6 +21,7 @@ use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
+use crate::util::int_div_ceil;
 use crate::ObjectTransmissionInformation;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
@@ -66,17 +64,11 @@ impl EncoderBuilder {
 
 // Calculate the splits [start, end) of an object for encoding as blocks.
 // If a block extends past the end of the object, it must be zero padded
-#[cfg(any(feature = "std", feature = "metal"))]
 pub fn calculate_block_offsets(
     data: &[u8],
     config: &ObjectTransmissionInformation,
 ) -> Vec<(usize, usize)> {
-    #[cfg(feature = "std")]
-    let kt = (config.transfer_length() as f64 / config.symbol_size() as f64).ceil() as u32;
-    #[cfg(feature = "metal")]
-    let kt = (F32(config.transfer_length() as f32) / F32(config.symbol_size() as f32))
-        .ceil()
-        .0 as u32;
+    let kt = int_div_ceil(config.transfer_length(), config.symbol_size() as u64);
 
     let (kl, ks, zl, zs) = partition(kt, config.source_blocks());
 
@@ -445,12 +437,10 @@ fn enc(
     result
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "metal")]
-    use alloc::vec::Vec;
     use rand::Rng;
-    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     use crate::base::intermediate_tuple;
@@ -464,10 +454,8 @@ mod tests {
     };
     #[cfg(not(any(feature = "python", feature = "wasm")))]
     use crate::{Encoder, EncoderBuilder, EncodingPacket, ObjectTransmissionInformation};
-    #[cfg(feature = "metal")]
-    use alloc::collections::BTreeSet as Set;
-    #[cfg(all(feature = "std", not(feature = "python"), not(feature = "wasm")))]
-    use std::collections::HashSet as Set;
+    #[cfg(not(any(feature = "python", feature = "wasm")))]
+    use std::collections::HashSet;
 
     const SYMBOL_SIZE: usize = 4;
     const NUM_SYMBOLS: u32 = 100;
@@ -623,7 +611,7 @@ mod tests {
         let config = ObjectTransmissionInformation::new(120, 10, 10, 0, 2);
         let encoder = Encoder::new(&data, config);
         assert!(encoder.get_block_encoders().len() > 1);
-        let mut ids = Set::new();
+        let mut ids = HashSet::new();
         for block in encoder.get_block_encoders().iter() {
             ids.insert(block.source_block_id);
         }

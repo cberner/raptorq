@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use std::{cmp::Ordering, mem::size_of, vec::Vec};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::{cmp::Ordering, mem::size_of};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::octet::Octet;

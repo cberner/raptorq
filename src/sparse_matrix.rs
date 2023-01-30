@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use std::{mem::size_of, vec::Vec};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::mem::size_of;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::arraymap::{ImmutableListMap, ImmutableListMapBuilder};

@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use std::{ops::AddAssign, vec::Vec};
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use core::ops::AddAssign;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::octet::Octet;
@@ -66,12 +66,10 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "metal")]
-    use alloc::vec::Vec;
     use rand::Rng;
-    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     use crate::symbol::Symbol;

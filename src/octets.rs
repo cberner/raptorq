@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::octet::Octet;
@@ -850,12 +850,10 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
     return add_assign_fallback(octets, other);
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "metal")]
-    use alloc::vec::Vec;
     use rand::Rng;
-    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     use crate::octet::Octet;

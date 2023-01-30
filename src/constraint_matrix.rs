@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-#[cfg(feature = "metal")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::base::intermediate_tuple;
@@ -174,6 +174,7 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
     (matrix, generate_hdpc_rows(Kprime, S, H))
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use crate::constraint_matrix::generate_hdpc_rows;
@@ -184,10 +185,7 @@ mod tests {
     use crate::systematic_constants::{
         extended_source_block_symbols, num_hdpc_symbols, num_ldpc_symbols,
     };
-    #[cfg(feature = "metal")]
-    use alloc::vec::Vec;
     use rand::Rng;
-    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     #[allow(non_snake_case)]
