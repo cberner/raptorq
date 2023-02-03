@@ -1,3 +1,9 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::octet::Octet;
 use crate::symbol::Symbol;
 use crate::util::get_both_indices;
@@ -53,9 +59,11 @@ pub fn perform_op(op: &SymbolOps, symbols: &mut Vec<Symbol>) {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use std::vec::Vec;
 
     use crate::octet::Octet;
     use crate::operation_vector::{perform_op, SymbolOps};

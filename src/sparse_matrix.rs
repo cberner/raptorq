@@ -1,3 +1,12 @@
+#[cfg(feature = "std")]
+use std::{mem::size_of, vec::Vec};
+
+#[cfg(not(feature = "std"))]
+use core::mem::size_of;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::arraymap::{ImmutableListMap, ImmutableListMapBuilder};
 use crate::iterators::OctetIter;
 use crate::matrix::BinaryMatrix;
@@ -5,7 +14,6 @@ use crate::octet::Octet;
 use crate::octets::BinaryOctetVec;
 use crate::sparse_vec::SparseBinaryVec;
 use crate::util::get_both_indices;
-use std::mem::size_of;
 
 // Stores a matrix in sparse representation, with an optional dense block for the right most columns
 // The logical storage is as follows:

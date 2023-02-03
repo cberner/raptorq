@@ -1,21 +1,33 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::octet::Octet;
 use crate::octet::OCTET_MUL;
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    target_arch = "arm",
-    target_arch = "aarch64"
+#[cfg(all(
+    any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64",
+    ),
+    feature = "std"
 ))]
 use crate::octet::OCTET_MUL_HI_BITS;
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    target_arch = "arm",
-    target_arch = "aarch64"
+#[cfg(all(
+    any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64",
+    ),
+    feature = "std"
 ))]
 use crate::octet::OCTET_MUL_LOW_BITS;
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 use std::arch::is_aarch64_feature_detected;
 
 // An octet vec containing only binary values, which are bit-packed for efficiency
@@ -89,7 +101,7 @@ pub fn fused_addassign_mul_scalar_binary(
     );
 
     assert_eq!(octets.len(), other.len());
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("bmi1") {
             unsafe {
@@ -97,7 +109,7 @@ pub fn fused_addassign_mul_scalar_binary(
             }
         }
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", feature = "std"))]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -105,7 +117,7 @@ pub fn fused_addassign_mul_scalar_binary(
             }
         }
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "std"))]
     {
         // TODO: enable when stable
         // if is_arm_feature_detected!("neon") {
@@ -195,7 +207,7 @@ unsafe fn fused_addassign_mul_scalar_binary_neon(
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "avx2")]
 #[target_feature(enable = "bmi1")]
 unsafe fn fused_addassign_mul_scalar_binary_avx2(
@@ -318,7 +330,7 @@ unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "avx2")]
 unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
@@ -360,7 +372,7 @@ unsafe fn mulassign_scalar_avx2(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "ssse3")]
 unsafe fn mulassign_scalar_ssse3(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
@@ -401,7 +413,7 @@ unsafe fn mulassign_scalar_ssse3(octets: &mut [u8], scalar: &Octet) {
 }
 
 pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
         if is_x86_feature_detected!("avx2") {
             unsafe {
@@ -414,7 +426,7 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
             }
         }
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", feature = "std"))]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -422,7 +434,7 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
             }
         }
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "std"))]
     {
         // TODO: enable when stable
         // if is_arm_feature_detected!("neon") {
@@ -493,7 +505,7 @@ unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scala
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "avx2")]
 unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
@@ -542,7 +554,7 @@ unsafe fn fused_addassign_mul_scalar_avx2(octets: &mut [u8], other: &[u8], scala
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "ssse3")]
 unsafe fn fused_addassign_mul_scalar_ssse3(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "x86")]
@@ -602,7 +614,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
     );
 
     assert_eq!(octets.len(), other.len());
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
         if is_x86_feature_detected!("avx2") {
             unsafe {
@@ -615,7 +627,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
             }
         }
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", feature = "std"))]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -623,7 +635,7 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
             }
         }
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "std"))]
     {
         // TODO: enable when stable
         // if is_arm_feature_detected!("neon") {
@@ -681,7 +693,7 @@ unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
     *(ptr as *mut u64).add(1) = vgetq_lane_u64(reinterp, 1);
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // TODO: enable when stable
 // #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 // #[target_feature(enable = "neon")]
@@ -724,7 +736,7 @@ unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "avx2")]
 unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "x86")]
@@ -764,7 +776,7 @@ unsafe fn add_assign_avx2(octets: &mut [u8], other: &[u8]) {
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
 #[target_feature(enable = "ssse3")]
 unsafe fn add_assign_ssse3(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "x86")]
@@ -805,7 +817,7 @@ unsafe fn add_assign_ssse3(octets: &mut [u8], other: &[u8]) {
 }
 
 pub fn add_assign(octets: &mut [u8], other: &[u8]) {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
         if is_x86_feature_detected!("avx2") {
             unsafe {
@@ -818,7 +830,7 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
             }
         }
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", feature = "std"))]
     {
         if is_aarch64_feature_detected!("neon") {
             unsafe {
@@ -826,7 +838,7 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
             }
         }
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "std"))]
     {
         // TODO: enable when stable
         // if is_arm_feature_detected!("neon") {
@@ -838,9 +850,11 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
     return add_assign_fallback(octets, other);
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use std::vec::Vec;
 
     use crate::octet::Octet;
     use crate::octets::mulassign_scalar;

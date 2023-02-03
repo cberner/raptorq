@@ -11,7 +11,7 @@ rust-version = "1.60"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["lib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
@@ -43,15 +43,22 @@ harness = false
 name = "decode_benchmark"
 harness = false
 
+[[example]]
+name = "main"
+required-features = ["std"]
+
 [profile.release]
 debug = true
 lto = false
 
 [features]
-benchmarking = []
-python = ["pyo3"]
-serde_support = ["serde"]
-wasm = ["wasm-bindgen", "js-sys"]
+default = ["std"]
+
+benchmarking = ["std"]
+python = ["pyo3", "std"]
+serde_support = ["serde", "std"]
+std = []
+wasm = ["wasm-bindgen", "js-sys", "std"]
 
 [package.metadata.maturin]
 requires-python = ">= 3.7"

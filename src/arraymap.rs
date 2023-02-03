@@ -1,5 +1,11 @@
-use std::mem::size_of;
-use std::ops::Range;
+#[cfg(feature = "std")]
+use std::{mem::size_of, ops::Range, u32, vec::Vec};
+
+#[cfg(not(feature = "std"))]
+use core::{mem::size_of, ops::Range, u32};
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 // Map<u16, Vec<u32>>
@@ -50,9 +56,9 @@ impl ImmutableListMapBuilder {
     pub fn build(self) -> ImmutableListMap {
         let mut entries = self.entries;
         entries.sort_unstable_by_key(|x| x.0);
-        assert!(entries.len() < std::u32::MAX as usize);
+        assert!(entries.len() < u32::MAX as usize);
         assert!(!entries.is_empty());
-        let mut offsets = vec![std::u32::MAX; self.num_keys];
+        let mut offsets = vec![u32::MAX; self.num_keys];
         let mut last_key = entries[0].0;
         offsets[last_key as usize] = 0;
         let mut values = vec![];
@@ -64,7 +70,7 @@ impl ImmutableListMapBuilder {
             values.push(*value);
         }
         for i in (0..offsets.len()).rev() {
-            if offsets[i] == std::u32::MAX {
+            if offsets[i] == u32::MAX {
                 if i == offsets.len() - 1 {
                     offsets[i] = entries.len() as u32;
                 } else {

@@ -1,3 +1,9 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::matrix::DenseBinaryMatrix;
 use crate::octet::Octet;
 use crate::sparse_vec::SparseBinaryVec;

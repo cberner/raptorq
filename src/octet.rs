@@ -1,10 +1,11 @@
+#[cfg(feature = "std")]
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
+
+#[cfg(not(feature = "std"))]
+use core::ops::{Add, AddAssign, Div, Mul, Sub};
+
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
-use std::ops::Add;
-use std::ops::AddAssign;
-use std::ops::Div;
-use std::ops::Mul;
-use std::ops::Sub;
 
 // As defined in section 5.7.3
 #[rustfmt::skip]
@@ -71,13 +72,16 @@ pub const OCTET_MUL: [[u8; 256]; 256] = calculate_octet_mul_table();
 
 // See "Screaming Fast Galois Field Arithmetic Using Intel SIMD Instructions" by Plank et al.
 // Further adapted to AVX2
+#[cfg(any(feature = "std", test))]
 pub const OCTET_MUL_HI_BITS: [[u8; 32]; 256] = calculate_octet_mul_hi_table();
+#[cfg(any(feature = "std", test))]
 pub const OCTET_MUL_LOW_BITS: [[u8; 32]; 256] = calculate_octet_mul_low_table();
 
 const fn const_mul(x: usize, y: usize) -> u8 {
     return OCT_EXP[OCT_LOG[x] as usize + OCT_LOG[y] as usize];
 }
 
+#[cfg(any(feature = "std", test))]
 const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
     let mut result = [[0; 32]; 256];
     let mut i = 1;
@@ -93,6 +97,7 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
     return result;
 }
 
+#[cfg(any(feature = "std", test))]
 const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
     let mut result = [[0; 32]; 256];
     let mut i = 1;

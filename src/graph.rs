@@ -1,5 +1,10 @@
-use crate::arraymap::U16ArrayMap;
+#[cfg(feature = "std")]
 use std::cmp::{max, min};
+
+#[cfg(not(feature = "std"))]
+use core::cmp::{max, min};
+
+use crate::arraymap::U16ArrayMap;
 
 const NO_CONNECTED_COMPONENT: u16 = 0;
 

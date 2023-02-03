@@ -1,4 +1,16 @@
 #![allow(clippy::needless_return, clippy::unreadable_literal)]
+#![no_std]
+
+#[cfg(not(feature = "std"))]
+#[macro_use]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+extern crate core;
+
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
 
 mod arraymap;
 mod base;
@@ -29,13 +41,11 @@ pub use crate::base::partition;
 pub use crate::base::EncodingPacket;
 pub use crate::base::ObjectTransmissionInformation;
 pub use crate::base::PayloadId;
-#[cfg(not(feature = "python"))]
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 pub use crate::decoder::Decoder;
 pub use crate::decoder::SourceBlockDecoder;
 pub use crate::encoder::calculate_block_offsets;
-#[cfg(not(feature = "python"))]
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(any(feature = "python", feature = "wasm")))]
 pub use crate::encoder::Encoder;
 pub use crate::encoder::EncoderBuilder;
 pub use crate::encoder::SourceBlockEncoder;

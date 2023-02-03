@@ -1,10 +1,19 @@
+#[cfg(feature = "std")]
+use std::{cmp::min, vec::Vec};
+
+#[cfg(not(feature = "std"))]
+use core::cmp::min;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::rng::rand;
 use crate::systematic_constants::{
     MAX_SOURCE_SYMBOLS_PER_BLOCK, SYSTEMATIC_INDICES_AND_PARAMETERS,
 };
+use crate::util::int_div_ceil;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
 
 // As defined in section 3.2
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -119,9 +128,15 @@ impl ObjectTransmissionInformation {
         assert!(transfer_length <= 942574504275);
         assert_eq!(symbol_size % alignment as u16, 0);
         // See section 4.4.1.2. "These parameters MUST be set so that ceil(ceil(F/T)/Z) <= K'_max."
-        let symbols_required =
-            ((transfer_length as f64 / symbol_size as f64).ceil() / source_blocks as f64).ceil();
-        assert!((symbols_required as u32) <= MAX_SOURCE_SYMBOLS_PER_BLOCK);
+
+        if (symbol_size != 0) && (source_blocks != 0) {
+            let symbols_required = int_div_ceil(
+                int_div_ceil(transfer_length, symbol_size as u64) as u64,
+                source_blocks as u64,
+            );
+            assert!((symbols_required) <= MAX_SOURCE_SYMBOLS_PER_BLOCK);
+        }
+
         ObjectTransmissionInformation {
             transfer_length,
             symbol_size,
@@ -192,25 +207,26 @@ impl ObjectTransmissionInformation {
         let symbol_size = max_packet_size - (max_packet_size % alignment);
         let sub_symbol_size = 8;
 
-        let kt = (transfer_length as f64 / symbol_size as f64).ceil();
-        let n_max = (symbol_size as f64 / (sub_symbol_size * alignment) as f64).floor() as u32;
+        let kt = int_div_ceil(transfer_length, symbol_size as u64);
+
+        let n_max = symbol_size as u32 / (sub_symbol_size * alignment) as u32;
 
         let kl = |n: u32| -> u32 {
             for &(kprime, _, _, _, _) in SYSTEMATIC_INDICES_AND_PARAMETERS.iter().rev() {
-                let x = (symbol_size as f64 / (alignment as u32 * n) as f64).ceil();
-                if kprime <= (decoder_memory_requirement as f64 / (alignment as f64 * x)) as u32 {
+                let x = int_div_ceil(symbol_size as u64, alignment as u64 * n as u64);
+                if kprime <= (decoder_memory_requirement / (alignment as u64 * x as u64)) as u32 {
                     return kprime;
                 }
             }
             unreachable!();
         };
 
-        let num_source_blocks = (kt / kl(n_max) as f64).ceil() as u32;
+        let num_source_blocks = int_div_ceil(kt as u64, kl(n_max) as u64);
 
         let mut n = 1;
         for i in 1..=n_max {
             n = i;
-            if (kt / num_source_blocks as f64).ceil() as u32 <= kl(n) {
+            if int_div_ceil(kt as u64, num_source_blocks as u64) <= kl(n) {
                 break;
             }
         }
@@ -243,8 +259,10 @@ where
     TJ: Into<u32>,
 {
     let (i, j) = (i.into(), j.into());
-    let il = (i as f64 / j as f64).ceil() as u32;
-    let is = (i as f64 / j as f64).floor() as u32;
+    let il = int_div_ceil(i as u64, j as u64);
+
+    let is = i / j;
+
     let jl = i - is * j;
     let js = j - jl;
     (il, is, jl, js)

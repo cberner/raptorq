@@ -1,3 +1,9 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::octet::Octet;
 use crate::octets::{add_assign, fused_addassign_mul_scalar_binary, mulassign_scalar};
 use crate::octets::{fused_addassign_mul_scalar, BinaryOctetVec};
@@ -47,7 +53,7 @@ impl DenseOctetMatrix {
         self.height
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "std"))]
     pub fn width(&self) -> usize {
         self.width
     }
