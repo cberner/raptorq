@@ -34,6 +34,9 @@ jobs:
       - name: Run tests
         run: make test
 
+      - name: Run tests (no-std)
+        run: cargo test --no-default-features
+
       - name: Run CPython wrapper tests
         run: |
           python3 -m venv venv
