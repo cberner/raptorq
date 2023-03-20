@@ -240,6 +240,19 @@ impl ObjectTransmissionInformation {
         }
     }
 
+    #[cfg(feature = "foot_gun")]
+    pub fn generate_encoding_parameters_exposed(
+        transfer_length: u64,
+        max_packet_size: u16,
+        decoder_memory_requirement: u64,
+    ) -> ObjectTransmissionInformation {
+        ObjectTransmissionInformation::generate_encoding_parameters(
+            transfer_length,
+            max_packet_size,
+            decoder_memory_requirement,
+        )
+    }
+
     pub fn with_defaults(
         transfer_length: u64,
         max_packet_size: u16,

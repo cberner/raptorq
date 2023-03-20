@@ -132,7 +132,10 @@ pub struct SourceBlockDecoder {
     symbol_alignment: u8,
     source_block_symbols: u32,
     source_symbols: Vec<Option<Symbol>>,
+    #[cfg(not(feature = "foot_gun"))]
     repair_packets: Vec<EncodingPacket>,
+    #[cfg(feature = "foot_gun")]
+    pub repair_packets: Vec<EncodingPacket>,
     received_source_symbols: u32,
     received_esi: Set<u32>,
     decoded: bool,

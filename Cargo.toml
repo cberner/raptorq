@@ -59,6 +59,8 @@ python = ["pyo3", "std"]
 serde_support = ["serde", "std"]
 std = []
 wasm = ["wasm-bindgen", "js-sys", "std"]
+foot_gun = []
+
 
 [package.metadata.maturin]
 requires-python = ">= 3.7"
