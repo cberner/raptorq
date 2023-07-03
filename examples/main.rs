@@ -41,7 +41,7 @@ fn main() {
     let mut result = None;
     while !packets.is_empty() {
         result = decoder.decode(EncodingPacket::deserialize(&packets.pop().unwrap()));
-        if result != None {
+        if result.is_some() {
             break;
         }
     }
