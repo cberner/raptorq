@@ -347,9 +347,7 @@ mod tests {
                 assert_eq!(
                     matrix1.get(i, j),
                     matrix2.get(i, j),
-                    "Matrices are not equal at row={} col={}",
-                    i,
-                    j
+                    "Matrices are not equal at row={i} col={j}"
                 );
             }
         }

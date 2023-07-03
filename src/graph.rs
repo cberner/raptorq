@@ -72,8 +72,7 @@ impl ConnectedComponentGraph {
         if connected_component == NO_CONNECTED_COMPONENT as usize {
             return;
         }
-        self.connected_component_size
-            .decrement(connected_component as usize);
+        self.connected_component_size.decrement(connected_component);
         self.node_connected_component
             .insert(node, NO_CONNECTED_COMPONENT);
     }
@@ -86,7 +85,7 @@ impl ConnectedComponentGraph {
         let mut max_size = 0;
         let mut largest_connected_component = NO_CONNECTED_COMPONENT as usize;
         for i in 1..=self.num_connected_components {
-            let size = self.connected_component_size.get(i as usize);
+            let size = self.connected_component_size.get(i);
             if size > max_size {
                 max_size = size;
                 largest_connected_component = i;
@@ -135,11 +134,11 @@ impl ConnectedComponentGraph {
             // Merge into the lowest to keep chains short
             let merge_to = min(connected_component1, connected_component2);
             let merge_from = max(connected_component1, connected_component2);
-            let to_size = self.connected_component_size.get(merge_to as usize);
-            let from_size = self.connected_component_size.get(merge_from as usize);
-            self.connected_component_size.insert(merge_from as usize, 0);
+            let to_size = self.connected_component_size.get(merge_to);
+            let from_size = self.connected_component_size.get(merge_from);
+            self.connected_component_size.insert(merge_from, 0);
             self.connected_component_size
-                .insert(merge_to as usize, to_size + from_size);
+                .insert(merge_to, to_size + from_size);
             self.merged_connected_components
                 .insert(merge_from, merge_to as u16);
         }

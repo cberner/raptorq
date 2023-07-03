@@ -105,7 +105,7 @@ fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
 
     // I_H
     for i in 0..H {
-        matrix.set(i, i + (Kprime + S) as usize, Octet::one());
+        matrix.set(i, i + (Kprime + S), Octet::one());
     }
 
     matrix
@@ -147,7 +147,7 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
 
     // I_S
     for i in 0..S {
-        matrix.set(i as usize, i + B as usize, Octet::one());
+        matrix.set(i, i + B, Octet::one());
     }
 
     // G_LDPC,2
@@ -167,7 +167,7 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
         let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
 
         for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
-            matrix.set(row as usize + S + H, j, Octet::one());
+            matrix.set(row + S + H, j, Octet::one());
         }
     }
 
@@ -251,7 +251,7 @@ mod tests {
 
         // I_H
         for i in 0..H {
-            matrix.set(i, i + (Kprime + S) as usize, Octet::one());
+            matrix.set(i, i + (Kprime + S), Octet::one());
         }
 
         matrix
@@ -265,9 +265,7 @@ mod tests {
                 assert_eq!(
                     matrix1.get(i, j),
                     matrix2.get(i, j),
-                    "Matrices are not equal at row={} col={}",
-                    i,
-                    j
+                    "Matrices are not equal at row={i} col={j}"
                 );
             }
         }

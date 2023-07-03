@@ -7,7 +7,7 @@ const SYMBOL_COUNTS: [usize; 10] = [10, 100, 250, 500, 1000, 2000, 5000, 10000, 
 
 fn black_box(value: u64) {
     if value == rand::thread_rng().gen() {
-        println!("{}", value);
+        println!("{value}");
     }
 }
 
@@ -49,17 +49,14 @@ fn benchmark(symbol_size: u16, pre_plan: bool) -> u64 {
             throughput
         );
     }
-    return black_box_value;
+    black_box_value
 }
 
 fn main() {
     let symbol_size = 1280;
-    println!(
-        "Symbol size: {} bytes (without pre-built plan)",
-        symbol_size
-    );
+    println!("Symbol size: {symbol_size} bytes (without pre-built plan)");
     black_box(benchmark(symbol_size, false));
     println!();
-    println!("Symbol size: {} bytes (with pre-built plan)", symbol_size);
+    println!("Symbol size: {symbol_size} bytes (with pre-built plan)");
     black_box(benchmark(symbol_size, true));
 }

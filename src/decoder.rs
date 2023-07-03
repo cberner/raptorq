@@ -190,7 +190,7 @@ impl SourceBlockDecoder {
 
         let mut symbol_offset = 0;
         let mut sub_block_offset = 0;
-        for sub_block in 0..(nl + ns) as u32 {
+        for sub_block in 0..(nl + ns) {
             let bytes = if sub_block < nl {
                 tl as usize * self.symbol_alignment as usize
             } else {
@@ -405,7 +405,7 @@ mod codec_tests {
         let mut result = None;
         while !packets.is_empty() {
             result = decoder.decode(packets.pop().unwrap());
-            if result != None {
+            if result.is_some() {
                 break;
             }
         }
@@ -449,7 +449,7 @@ mod codec_tests {
         let mut result = None;
         while !packets.is_empty() {
             result = decoder.decode(packets.pop().unwrap());
-            if result != None {
+            if result.is_some() {
                 break;
             }
         }
@@ -489,7 +489,7 @@ mod codec_tests {
             }
 
             if progress && symbol_count % 100 == 0 {
-                println!("Completed {} symbols", symbol_count)
+                println!("Completed {symbol_count} symbols")
             }
 
             let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
@@ -556,8 +556,7 @@ mod codec_tests {
         let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
         let encoder = SourceBlockEncoder::new2(1, &config, &data);
         let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
-        let mut packets =
-            encoder.repair_packets(0, (iterations as u32 * elements_and_overhead) as u32);
+        let mut packets = encoder.repair_packets(0, (iterations as u32 * elements_and_overhead));
         for _ in 0..iterations {
             let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
             let start = packets.len() - elements_and_overhead as usize;
@@ -580,7 +579,7 @@ mod codec_tests {
                 }
 
                 if progress && symbol_count % 100 == 0 {
-                    println!("[repair] Completed {} symbols", symbol_count)
+                    println!("[repair] Completed {symbol_count} symbols")
                 }
             })
         }

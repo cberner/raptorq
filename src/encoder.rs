@@ -217,7 +217,7 @@ impl SourceBlockEncoder {
             // Divide the block into sub-blocks and then concatenate the sub-symbols into symbols
             // See second to last paragraph in section 4.4.1.2.
             let mut offset = 0;
-            for sub_block in 0..(nl + ns) as u32 {
+            for sub_block in 0..(nl + ns) {
                 let bytes = if sub_block < nl {
                     tl as usize * config.symbol_alignment() as usize
                 } else {
@@ -352,7 +352,7 @@ fn create_d(
         D.push(symbol.clone());
     }
     // Extend the source block with padding. See section 5.3.2
-    for _ in 0..(extended_source_symbols as usize - source_block.len()) {
+    for _ in 0..(extended_source_symbols - source_block.len()) {
         D.push(Symbol::zero(symbol_size));
     }
     assert_eq!(D.len(), L as usize);
@@ -589,7 +589,7 @@ mod tests {
         let encoder = Encoder::with_defaults(&data, packet_size);
 
         fn accumulate_data(acc: Vec<u8>, packet: EncodingPacket) -> Vec<u8> {
-            let mut updated_acc = acc.clone();
+            let mut updated_acc = acc;
             updated_acc.extend_from_slice(packet.data());
             updated_acc
         }

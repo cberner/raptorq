@@ -328,7 +328,7 @@ impl FirstPhaseRowSelectionStats {
             .get_node_in_largest_connected_component(self.start_col, self.end_col);
 
         // Find a row with two ones in the given column
-        for row in matrix.get_ones_in_column(node as usize, start_row, end_row) {
+        for row in matrix.get_ones_in_column(node, start_row, end_row) {
             let row = row as usize;
             if self.ones_per_row.get(row) == 2 {
                 return row;
@@ -400,7 +400,7 @@ impl FirstPhaseRowSelectionStats {
             }
         }
 
-        if r == None {
+        if r.is_none() {
             return (None, None);
         }
 
@@ -688,9 +688,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 &self.A,
             );
 
-            if r == None {
-                return None;
-            }
+            r?;
             let r = r.unwrap();
             let chosen_row = chosen_row.unwrap();
             assert!(chosen_row >= self.i);
