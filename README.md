@@ -6,6 +6,10 @@
 [![License](https://img.shields.io/crates/l/raptorq)](https://crates.io/crates/raptorq)
 [![dependency status](https://deps.rs/repo/github/cberner/raptorq/status.svg)](https://deps.rs/repo/github/cberner/raptorq)
 
+### Status: NO LONGER MAINTAINED; HAS KNOWN BUGS.
+
+### Overview
+
 Rust implementation of RaptorQ (RFC6330)
 
 Recovery properties:
