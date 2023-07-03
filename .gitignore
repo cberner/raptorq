@@ -12,3 +12,7 @@ Cargo.lock
 
 .idea/
 /pkg
+
+# IntelliJ
+.idea/
+**/*.iml
