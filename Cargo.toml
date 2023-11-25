@@ -7,7 +7,6 @@ repository = "https://github.com/cberner/raptorq"
 readme = "README.md"
 version = "1.7.0"
 edition = "2021"
-rust-version = "1.60"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
