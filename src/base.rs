@@ -202,10 +202,13 @@ impl ObjectTransmissionInformation {
         max_packet_size: u16,
         decoder_memory_requirement: u64,
     ) -> ObjectTransmissionInformation {
-        let alignment = 8;
+        let (alignment, sub_symbol_size) = if max_packet_size >= 8 * 8 {
+            (8, 8)
+        } else {
+            (1, 1)
+        };
         assert!(max_packet_size >= alignment);
         let symbol_size = max_packet_size - (max_packet_size % alignment);
-        let sub_symbol_size = 8;
 
         let kt = int_div_ceil(transfer_length, symbol_size as u64);
 
