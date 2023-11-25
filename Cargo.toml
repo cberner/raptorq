@@ -15,7 +15,7 @@ crate-type = ["lib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
-pyo3 = {version = "0.16", features=["extension-module", "abi3-py37"], optional = true }
+pyo3 = {version = "0.20", features=["extension-module", "abi3-py37"], optional = true }
 wasm-bindgen = {version = "0.2", optional = true}
 js-sys = {version = "0.3.60", optional = true}
 
