@@ -44,7 +44,7 @@ release_py: pre
 .PHONY: publish_py
 publish_py: test_py
 	docker pull quay.io/pypa/manylinux2014_x86_64
-	docker run -it --rm -v $(shell pwd):/raptorq quay.io/pypa/manylinux2014_x86_64 /raptorq/py_publish.sh
+	docker run -it --rm -v $(shell pwd):/raptorq-ro:ro quay.io/pypa/manylinux2014_x86_64 /raptorq-ro/py_publish.sh
 
 .PHONY: install_py
 install_py: pre
