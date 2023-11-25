@@ -31,7 +31,7 @@ profile:
 
 .PHONY: fuzz
 fuzz:
-	 cargo fuzz run --sanitizer=none fuzz_raptorq
+	 cargo fuzz run --sanitizer=none --release fuzz_raptorq
 
 .PHONY: build_py
 build_py: pre
