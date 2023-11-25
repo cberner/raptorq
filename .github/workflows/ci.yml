@@ -34,7 +34,8 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install cargo-deny
-        run: cargo install --force --version 0.12.2 cargo-deny --locked
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        run: rustup run --install 1.74 cargo install --force --version 0.14.3 cargo-deny --locked
 
       - name: Run tests
         run: make test
