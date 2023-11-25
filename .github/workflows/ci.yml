@@ -22,7 +22,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml', '.github/workflows/*.yml') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml', '.github/workflows/*.yml', 'rust-toolchain') }}
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -31,7 +31,6 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
           components: rustfmt, clippy
 
       - name: Install cargo-deny
