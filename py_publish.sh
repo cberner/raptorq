@@ -15,4 +15,4 @@ source /tmp/venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install 'maturin>=1.0,<2.0'
 
-python3 -m maturin publish
+python3 -m maturin publish --username __token__

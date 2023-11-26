@@ -44,7 +44,7 @@ release_py: pre
 .PHONY: publish_py
 publish_py: test_py
 	docker pull quay.io/pypa/manylinux2014_x86_64
-	docker run -it --rm -v $(shell pwd):/raptorq-ro:ro quay.io/pypa/manylinux2014_x86_64 /raptorq-ro/py_publish.sh
+	@MATURIN_PYPI_TOKEN=$(shell cat ~/.pypi/raptorq_token) docker run -it --rm -e "MATURIN_PYPI_TOKEN" -v $(shell pwd):/raptorq-ro:ro quay.io/pypa/manylinux2014_x86_64 /raptorq-ro/py_publish.sh
 
 .PHONY: install_py
 install_py: pre
