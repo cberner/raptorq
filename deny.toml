@@ -74,7 +74,7 @@ allow = [
 #    "BSD-2-Clause",
 #    "BSD-3-Clause",
     "Apache-2.0",
-    #"Apache-2.0 WITH LLVM-exception",
+    "Apache-2.0 WITH LLVM-exception",
 ]
 # List of explictly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
