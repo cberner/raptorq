@@ -553,7 +553,7 @@ mod codec_tests {
         let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
         let encoder = SourceBlockEncoder::new2(1, &config, &data);
         let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
-        let mut packets = encoder.repair_packets(0, (iterations as u32 * elements_and_overhead));
+        let mut packets = encoder.repair_packets(0, iterations as u32 * elements_and_overhead);
         for _ in 0..iterations {
             let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
             let start = packets.len() - elements_and_overhead as usize;
