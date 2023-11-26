@@ -1,5 +1,5 @@
 #![allow(clippy::needless_return, clippy::unreadable_literal)]
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]
 #[macro_use]
