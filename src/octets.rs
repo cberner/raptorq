@@ -689,8 +689,10 @@ unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
 
     // TODO: replace with vst1q_u8 when it's supported
     let reinterp = vreinterpretq_u64_u8(value);
-    *(ptr as *mut u64) = vgetq_lane_u64(reinterp, 0);
-    *(ptr as *mut u64).add(1) = vgetq_lane_u64(reinterp, 1);
+    (ptr as *mut u64).write_unaligned(vgetq_lane_u64(reinterp, 0));
+    (ptr as *mut u64)
+        .add(1)
+        .write_unaligned(vgetq_lane_u64(reinterp, 1));
 }
 
 #[cfg(all(target_arch = "aarch64", feature = "std"))]
