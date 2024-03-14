@@ -44,7 +44,7 @@ impl Decoder {
 
         let mut decoders = vec![];
         for i in 0..zl {
-            decoders.push(SourceBlockDecoder::new2(
+            decoders.push(SourceBlockDecoder::new(
                 i as u8,
                 &config,
                 u64::from(kl) * u64::from(config.symbol_size()),
@@ -52,7 +52,7 @@ impl Decoder {
         }
 
         for i in zl..(zl + zs) {
-            decoders.push(SourceBlockDecoder::new2(
+            decoders.push(SourceBlockDecoder::new(
                 i as u8,
                 &config,
                 u64::from(ks) * u64::from(config.symbol_size()),
@@ -137,18 +137,7 @@ pub struct SourceBlockDecoder {
 }
 
 impl SourceBlockDecoder {
-    #[deprecated(
-        since = "1.3.0",
-        note = "Use the new2() function instead. In version 2.0, that function will replace this one"
-    )]
-    #[cfg(feature = "std")]
-    pub fn new(source_block_id: u8, symbol_size: u16, block_length: u64) -> SourceBlockDecoder {
-        let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
-        SourceBlockDecoder::new2(source_block_id, &config, block_length)
-    }
-
-    // TODO: rename this to new() in version 2.0
-    pub fn new2(
+    pub fn new(
         source_block_id: u8,
         config: &ObjectTransmissionInformation,
         block_length: u64,
@@ -494,9 +483,9 @@ mod codec_tests {
             }
 
             let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
-            let encoder = SourceBlockEncoder::new2(1, &config, &data);
+            let encoder = SourceBlockEncoder::new(1, &config, &data);
 
-            let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
+            let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
             decoder.set_sparse_threshold(sparse_threshold);
 
             let mut result = None;
@@ -555,11 +544,11 @@ mod codec_tests {
         let total_bytes: usize = 1024 * 1024;
         let iterations = total_bytes / elements;
         let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
-        let encoder = SourceBlockEncoder::new2(1, &config, &data);
+        let encoder = SourceBlockEncoder::new(1, &config, &data);
         let elements_and_overhead = (symbol_count as f64 * (1.0 + overhead)) as u32;
         let mut packets = encoder.repair_packets(0, iterations as u32 * elements_and_overhead);
         for _ in 0..iterations {
-            let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
+            let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
             let start = packets.len() - elements_and_overhead as usize;
             decoder.decode(packets.drain(start..));
         }
@@ -600,12 +589,12 @@ mod codec_tests {
         let config = ObjectTransmissionInformation::new(0, 8, 0, 1, 1);
         let encoder = if pre_plan {
             let plan = SourceBlockEncodingPlan::generate(symbol_count as u16);
-            SourceBlockEncoder::with_encoding_plan2(1, &config, &data, &plan)
+            SourceBlockEncoder::with_encoding_plan(1, &config, &data, &plan)
         } else {
-            SourceBlockEncoder::new2(1, &config, &data)
+            SourceBlockEncoder::new(1, &config, &data)
         };
 
-        let mut decoder = SourceBlockDecoder::new2(1, &config, elements as u64);
+        let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
         decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
