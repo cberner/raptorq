@@ -55,6 +55,7 @@ pub use crate::python::Decoder;
 #[cfg(feature = "python")]
 pub use crate::python::Encoder;
 pub use crate::systematic_constants::extended_source_block_symbols;
+pub use crate::systematic_constants::SYSTEMATIC_INDICES_AND_PARAMETERS;
 
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;
