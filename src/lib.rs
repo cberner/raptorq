@@ -34,6 +34,8 @@ mod sparse_vec;
 mod symbol;
 mod systematic_constants;
 mod util;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 pub use crate::base::partition;
 pub use crate::base::EncodingPacket;
@@ -55,6 +57,10 @@ pub use crate::python::Decoder;
 #[cfg(feature = "python")]
 pub use crate::python::Encoder;
 pub use crate::systematic_constants::extended_source_block_symbols;
+#[cfg(feature = "wasm")]
+pub use crate::wasm::Decoder as WasmDecoder;
+#[cfg(feature = "wasm")]
+pub use crate::wasm::Encoder as WasmEncoder;
 
 #[cfg(feature = "benchmarking")]
 pub use crate::constraint_matrix::generate_constraint_matrix;

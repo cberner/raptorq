@@ -10,11 +10,13 @@ edition = "2021"
 authors = ["Christopher Berner <christopherberner@gmail.com>"]
 
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 serde = {version = "1.0.102", features=["std", "derive"], optional = true}
 pyo3 = {version = "0.20", features=["extension-module", "abi3-py37"], optional = true }
+wasm-bindgen = {version = "0.2", optional = true}
+js-sys = {version = "0.3.68", optional = true}
 
 [dev-dependencies]
 criterion = "0.3"
@@ -55,3 +57,4 @@ benchmarking = ["std"]
 python = ["pyo3", "std"]
 serde_support = ["serde", "std"]
 std = []
+wasm = ["wasm-bindgen", "js-sys", "std"]

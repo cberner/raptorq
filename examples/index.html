@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+</head>
+<body>
+<script type="module">
+    import init, { Decoder, Encoder } from "../pkg/raptorq.js";
+    init().then(() => {
+      let test = Array.from({length: 10000}, () => Math.floor(Math.random() * 100));
+
+      let data = Uint8Array.from(test);
+      let encoder = Encoder.with_defaults(data, 512);
+      let packets = encoder.encode(42);
+      console.log(`data ${data} encoded packets are ${packets}`);
+      let shuffledPackets = packets.sort((a, b) => 0.5 - Math.random());
+      console.log(`data ${data} encoded packets are ${packets}`);
+
+
+      let decoder = Decoder.with_defaults(BigInt(data.length), 512);
+
+      let decodedData;
+      for (let i = 0; i < shuffledPackets.length; i++) {
+        console.log(i);
+        decodedData = decoder.decode(packets[i]);
+        if (decodedData) {
+          break;
+        }
+      }
+      console.log(data);
+      console.log(decodedData);
+      console.log(JSON.stringify(data) === JSON.stringify(decodedData));
+    });
+</script>
+</body>
+</html>
