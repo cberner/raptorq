@@ -189,7 +189,7 @@ $ sudo apt install python3-dev cargo
 [maturin](https://github.com/PyO3/maturin) is recommended for building the Python bindings in this crate.
 ```
 $ pip install maturin
-$ maturin build --cargo-extra-args="--features python"
+$ maturin build --features python
 ```
 
 Alternatively, refer to the [Building and Distribution section](https://pyo3.rs/v0.8.5/building_and_distribution.html) in the [pyo3 user guide](https://pyo3.rs/v0.8.5/).
