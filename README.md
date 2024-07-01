@@ -183,7 +183,7 @@ The Python bindings are generated using [pyo3](https://github.com/PyO3/pyo3).
 
 Some operating systems require additional packages to be installed.
 ```
-$ sudo apt install python3-dev
+$ sudo apt install python3-dev cargo
 ```
 
 [maturin](https://github.com/PyO3/maturin) is recommended for building the Python bindings in this crate.
