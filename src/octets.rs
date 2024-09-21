@@ -135,9 +135,8 @@ pub fn fused_addassign_mul_scalar_binary(
     }
 }
 
-#[cfg(target_arch = "aarch64")]
 // TODO: enable when stable
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_binary_neon(
     octets: &mut [u8],
@@ -290,9 +289,8 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
-#[cfg(target_arch = "aarch64")]
 // TODO: enable when stable
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
     #[cfg(target_arch = "aarch64")]
@@ -458,9 +456,8 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: 
     }
 }
 
-#[cfg(target_arch = "aarch64")]
 // TODO: enable when stable
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     #[cfg(target_arch = "aarch64")]
@@ -671,15 +668,14 @@ fn add_assign_fallback(octets: &mut [u8], other: &[u8]) {
     }
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 use std::arch::aarch64::uint8x16_t;
 // TODO: enable when stable
 // #[cfg(target_arch = "arm")]
 // use std::arch::arm::uint8x16_t;
 
-#[cfg(target_arch = "aarch64")]
 // TODO: enable when stable
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
     #[cfg(target_arch = "aarch64")]
@@ -695,9 +691,8 @@ unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
         .write_unaligned(vgetq_lane_u64(reinterp, 1));
 }
 
-#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // TODO: enable when stable
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
     #[cfg(target_arch = "aarch64")]
