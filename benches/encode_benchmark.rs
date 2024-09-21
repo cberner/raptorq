@@ -31,9 +31,9 @@ fn benchmark(symbol_size: u16, pre_plan: bool) -> u64 {
         let config = ObjectTransmissionInformation::new(0, symbol_size, 0, 1, 1);
         for _ in 0..iterations {
             let encoder = if let Some(ref plan) = plan {
-                SourceBlockEncoder::with_encoding_plan2(1, &config, &data, plan)
+                SourceBlockEncoder::with_encoding_plan(1, &config, &data, plan)
             } else {
-                SourceBlockEncoder::new2(1, &config, &data)
+                SourceBlockEncoder::new(1, &config, &data)
             };
             let packets = encoder.repair_packets(0, 1);
             black_box_value += packets[0].data()[0] as u64;
