@@ -43,6 +43,9 @@ jobs:
       - name: Run tests
         run: make test
 
+      - name: Compile benchmarks
+        run: cargo bench --features benchmarking --no-run
+
       - name: Run tests (no-std)
         run: cargo test --no-default-features
 
