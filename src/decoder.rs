@@ -599,7 +599,11 @@ mod codec_tests {
 
         let mut result = None;
         // This test can theoretically fail with ~1/256^5 probability
-        for (parsed_packets, packet) in encoder.repair_packets(0, (elements / symbol_size + 4) as u32).into_iter().enumerate() {
+        for (parsed_packets, packet) in encoder
+            .repair_packets(0, (elements / symbol_size + 4) as u32)
+            .into_iter()
+            .enumerate()
+        {
             if parsed_packets < elements / symbol_size && result.is_some() {
                 return false;
             }
