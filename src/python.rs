@@ -14,21 +14,24 @@ pub struct Encoder {
 #[pymethods]
 impl Encoder {
     #[staticmethod]
-    pub fn with_defaults(data: &PyBytes, maximum_transmission_unit: u16) -> PyResult<Encoder> {
+    pub fn with_defaults(
+        data: Bound<'_, PyBytes>,
+        maximum_transmission_unit: u16,
+    ) -> PyResult<Encoder> {
         let encoder = EncoderNative::with_defaults(data.as_bytes(), maximum_transmission_unit);
         Ok(Encoder { encoder })
     }
 
-    pub fn get_encoded_packets<'p>(
+    pub fn get_encoded_packets(
         &self,
-        py: Python<'p>,
+        py: Python<'_>,
         repair_packets_per_block: u32,
-    ) -> PyResult<Vec<&'p PyBytes>> {
-        let packets: Vec<&PyBytes> = self
+    ) -> PyResult<Vec<Py<PyBytes>>> {
+        let packets: Vec<Py<PyBytes>> = self
             .encoder
             .get_encoded_packets(repair_packets_per_block)
             .iter()
-            .map(|packet| PyBytes::new(py, &packet.serialize()))
+            .map(|packet| PyBytes::new(py, &packet.serialize()).into())
             .collect();
 
         Ok(packets)
@@ -55,20 +58,20 @@ impl Decoder {
         Ok(Decoder { decoder })
     }
 
-    pub fn decode<'p>(
+    pub fn decode(
         &mut self,
-        py: Python<'p>,
-        packet: &PyBytes,
-    ) -> PyResult<Option<&'p PyBytes>> {
+        py: Python<'_>,
+        packet: Bound<'_, PyBytes>,
+    ) -> PyResult<Option<Py<PyBytes>>> {
         let result = self
             .decoder
             .decode(EncodingPacket::deserialize(packet.as_bytes()));
-        Ok(result.map(|data| PyBytes::new(py, &data)))
+        Ok(result.map(|data| PyBytes::new(py, &data).into()))
     }
 }
 
 #[pymodule]
-pub fn raptorq(_py: Python, m: &PyModule) -> PyResult<()> {
+pub fn raptorq(_py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Encoder>()?;
     m.add_class::<Decoder>()?;
     Ok(())
