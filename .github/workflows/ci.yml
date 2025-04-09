@@ -38,7 +38,7 @@ jobs:
 
       - name: Install cargo-deny and just
         if: steps.rust-cache.outputs.cache-hit != 'true'
-        run: rustup run --install 1.74 cargo install --force --version 0.14.3 cargo-deny --locked && cargo install just
+        run: rustup run --install 1.74 cargo install --force --version 0.14.3 cargo-deny --locked && cargo install --version 1.13.0 just --locked
         
       - name: Run tests
         run: just test
