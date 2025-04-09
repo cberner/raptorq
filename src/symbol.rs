@@ -80,7 +80,11 @@ mod tests {
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut data2: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for ((d1, d2), res) in data1.iter_mut().zip(data2.iter_mut()).zip(result.iter_mut()) {
+        for ((d1, d2), res) in data1
+            .iter_mut()
+            .zip(data2.iter_mut())
+            .zip(result.iter_mut())
+        {
             *d1 = rand::thread_rng().gen();
             *d2 = rand::thread_rng().gen();
             *res = *d1 ^ *d2;

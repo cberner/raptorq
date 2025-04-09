@@ -878,7 +878,11 @@ mod tests {
         let mut data1: Vec<u8> = vec![0; size];
         let mut data2: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
-        for ((d1, d2), exp) in data1.iter_mut().zip(data2.iter_mut()).zip(expected.iter_mut()) {
+        for ((d1, d2), exp) in data1
+            .iter_mut()
+            .zip(data2.iter_mut())
+            .zip(expected.iter_mut())
+        {
             *d1 = rand::thread_rng().gen();
             *d2 = rand::thread_rng().gen();
             *exp = (Octet::new(*d1) + &Octet::new(*d2) * &scalar).byte();
