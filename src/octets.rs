@@ -443,9 +443,9 @@ pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
 
 fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     let scalar_index = scalar.byte() as usize;
-    for i in 0..octets.len() {
+    for (i, octet) in octets.iter_mut().enumerate() {
         unsafe {
-            *octets.get_unchecked_mut(i) ^= *OCTET_MUL
+            *octet ^= *OCTET_MUL
                 .get_unchecked(scalar_index)
                 .get_unchecked(*other.get_unchecked(i) as usize);
         }
@@ -861,9 +861,9 @@ mod tests {
         let scalar = Octet::new(rand::thread_rng().gen_range(1..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
-        for i in 0..size {
-            data1[i] = rand::thread_rng().gen();
-            expected[i] = (&Octet::new(data1[i]) * &scalar).byte();
+        for (i, (d1, exp)) in data1.iter_mut().zip(expected.iter_mut()).enumerate() {
+            *d1 = rand::thread_rng().gen();
+            *exp = (&Octet::new(*d1) * &scalar).byte();
         }
 
         mulassign_scalar(&mut data1, &scalar);
@@ -878,10 +878,10 @@ mod tests {
         let mut data1: Vec<u8> = vec![0; size];
         let mut data2: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
-        for i in 0..size {
-            data1[i] = rand::thread_rng().gen();
-            data2[i] = rand::thread_rng().gen();
-            expected[i] = (Octet::new(data1[i]) + &Octet::new(data2[i]) * &scalar).byte();
+        for ((d1, d2), exp) in data1.iter_mut().zip(data2.iter_mut()).zip(expected.iter_mut()) {
+            *d1 = rand::thread_rng().gen();
+            *d2 = rand::thread_rng().gen();
+            *exp = (Octet::new(*d1) + &Octet::new(*d2) * &scalar).byte();
         }
 
         fused_addassign_mul_scalar(&mut data1, &data2, &scalar);
