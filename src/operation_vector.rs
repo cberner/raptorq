@@ -87,7 +87,12 @@ mod tests {
         let mut data0: Vec<u8> = vec![0; symbol_size];
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for (i, ((d0, d1), res)) in data0.iter_mut().zip(data1.iter_mut()).zip(result.iter_mut()).enumerate() {
+        for (i, ((d0, d1), res)) in data0
+            .iter_mut()
+            .zip(data1.iter_mut())
+            .zip(result.iter_mut())
+            .enumerate()
+        {
             *d0 = data[0].as_bytes()[i];
             *d1 = data[1].as_bytes()[i];
             *res = *d0 ^ *d1;
@@ -120,7 +125,12 @@ mod tests {
         let mut data0: Vec<u8> = vec![0; symbol_size];
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for (i, ((d0, d1), res)) in data0.iter_mut().zip(data1.iter_mut()).zip(result.iter_mut()).enumerate() {
+        for (i, ((d0, d1), res)) in data0
+            .iter_mut()
+            .zip(data1.iter_mut())
+            .zip(result.iter_mut())
+            .enumerate()
+        {
             *d0 = data[0].as_bytes()[i];
             *d1 = data[1].as_bytes()[i];
             *res = *d0 ^ (Octet::new(*d1) * Octet::new(value)).byte();
