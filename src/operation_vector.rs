@@ -77,8 +77,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -109,8 +109,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -145,8 +145,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -178,8 +178,8 @@ mod tests {
 
         for i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = i as u8;
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = i as u8;
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);

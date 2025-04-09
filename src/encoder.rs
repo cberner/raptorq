@@ -441,8 +441,8 @@ mod tests {
 
     fn gen_test_data(size: usize) -> Vec<u8> {
         let mut data: Vec<u8> = vec![0; size];
-        for i in 0..size {
-            data[i] = rand::thread_rng().gen();
+        for byte in data.iter_mut() {
+            *byte = rand::thread_rng().gen();
         }
         data
     }
@@ -477,10 +477,10 @@ mod tests {
         let sys_index = systematic_index(NUM_SYMBOLS);
         let p1 = calculate_p1(NUM_SYMBOLS);
         // See section 5.3.3.4.1, item 1.
-        for i in 0..source_symbols.len() {
+        for (i, source_symbol) in source_symbols.iter().enumerate() {
             let tuple = intermediate_tuple(i as u32, lt_symbols, sys_index, p1);
             let encoded = enc(NUM_SYMBOLS, &intermediate_symbols, tuple);
-            assert_eq!(source_symbols[i], encoded);
+            assert_eq!(source_symbol, &encoded);
         }
     }
 
@@ -510,27 +510,27 @@ mod tests {
             D.push(C[B + i].clone());
         }
 
-        for i in 0..B {
+        for (i, c_item) in C.iter().take(B).enumerate() {
             let a = 1 + i / S;
             let b = i % S;
-            D[b] += &C[i];
+            D[b] += c_item;
 
             let b = (b + a) % S;
-            D[b] += &C[i];
+            D[b] += c_item;
 
             let b = (b + a) % S;
-            D[b] += &C[i];
+            D[b] += c_item;
         }
 
-        for i in 0..S {
+        for (i, d_item) in D.iter_mut().take(S).enumerate() {
             let a = i % P;
             let b = (i + 1) % P;
-            D[i] += &C[W + a];
-            D[i] += &C[W + b];
+            *d_item += &C[W + a];
+            *d_item += &C[W + b];
         }
 
-        for i in 0..S {
-            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
+        for d_item in D.iter().take(S) {
+            assert_eq!(Symbol::zero(SYMBOL_SIZE), *d_item);
         }
     }
 
