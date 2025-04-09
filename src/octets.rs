@@ -59,11 +59,7 @@ impl BinaryOctetVec {
 
         let result = (0..self.length)
             .map(|_| {
-                let value = if self.elements[word] & BinaryOctetVec::select_mask(bit) == 0 {
-                    0
-                } else {
-                    1
-                };
+                let value = u8::from(self.elements[word] & BinaryOctetVec::select_mask(bit) != 0);
 
                 bit += 1;
                 if bit == 64 {
@@ -898,8 +894,8 @@ mod tests {
         let size = 41;
         let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
         let mut binary_vec: Vec<u64> = vec![0; (size + 63) / 64];
-        for i in 0..binary_vec.len() {
-            binary_vec[i] = rand::thread_rng().gen();
+        for item in binary_vec.iter_mut() {
+            *item = rand::thread_rng().gen();
         }
         let binary_octet_vec = BinaryOctetVec::new(binary_vec, size);
         let mut data1: Vec<u8> = vec![0; size];
