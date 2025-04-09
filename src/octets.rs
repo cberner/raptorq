@@ -160,7 +160,7 @@ unsafe fn fused_addassign_mul_scalar_binary_neon(
         for (i, val) in octets.iter_mut().enumerate().take(16 - bit_in_first_bits) {
             // TODO: replace with UBFX instruction, once it's support in arm intrinsics
             let selected_bit = first_bits & (0x1 << (bit_in_first_bits + i));
-            let other_byte = if selected_bit == 0 { 0 } else { 1 };
+            let other_byte = u8::from(selected_bit != 0);
 
             // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
             *val ^= scalar.byte() * other_byte;
