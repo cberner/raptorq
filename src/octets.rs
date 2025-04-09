@@ -861,7 +861,7 @@ mod tests {
         let scalar = Octet::new(rand::thread_rng().gen_range(1..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
-        for (i, (d1, exp)) in data1.iter_mut().zip(expected.iter_mut()).enumerate() {
+        for (d1, exp) in data1.iter_mut().zip(expected.iter_mut()) {
             *d1 = rand::thread_rng().gen();
             *exp = (&Octet::new(*d1) * &scalar).byte();
         }
