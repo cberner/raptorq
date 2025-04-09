@@ -40,8 +40,11 @@ jobs:
         if: steps.rust-cache.outputs.cache-hit != 'true'
         run: rustup run --install 1.74 cargo install --force --version 0.14.3 cargo-deny --locked
 
+      - name: Install just
+        run: cargo install just
+        
       - name: Run tests
-        run: make test
+        run: just test
 
       - name: Compile benchmarks
         run: cargo bench --features benchmarking --no-run
@@ -55,4 +58,4 @@ jobs:
           source venv/bin/activate
           pip3 install --upgrade pip
           pip3 install maturin
-          make test_py
+          just test_py
