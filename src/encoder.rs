@@ -510,27 +510,27 @@ mod tests {
             D.push(C[B + i].clone());
         }
 
-        for (i, c_item) in C.iter().take(B).enumerate() {
+        for i in 0..B {
             let a = 1 + i / S;
             let b = i % S;
-            D[b] += c_item;
+            D[b] += &C[i];
 
             let b = (b + a) % S;
-            D[b] += c_item;
+            D[b] += &C[i];
 
             let b = (b + a) % S;
-            D[b] += c_item;
+            D[b] += &C[i];
         }
 
-        for (i, d_item) in D.iter_mut().take(S).enumerate() {
+        for i in 0..S {
             let a = i % P;
             let b = (i + 1) % P;
-            *d_item += &C[W + a];
-            *d_item += &C[W + b];
+            D[i] += &C[W + a];
+            D[i] += &C[W + b];
         }
 
-        for d_item in D.iter().take(S) {
-            assert_eq!(Symbol::zero(SYMBOL_SIZE), *d_item);
+        for i in 0..S {
+            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
         }
     }
 
