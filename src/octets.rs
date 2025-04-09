@@ -901,9 +901,9 @@ mod tests {
         let mut data1: Vec<u8> = vec![0; size];
         let data2: Vec<u8> = binary_octet_vec.to_octet_vec();
         let mut expected: Vec<u8> = vec![0; size];
-        for i in 0..size {
-            data1[i] = rand::thread_rng().gen();
-            expected[i] = (Octet::new(data1[i]) + &Octet::new(data2[i]) * &scalar).byte();
+        for (i, (d1, exp)) in data1.iter_mut().zip(expected.iter_mut()).enumerate() {
+            *d1 = rand::thread_rng().gen();
+            *exp = (Octet::new(*d1) + &Octet::new(data2[i]) * &scalar).byte();
         }
 
         fused_addassign_mul_scalar_binary(&mut data1, &binary_octet_vec, &scalar);
