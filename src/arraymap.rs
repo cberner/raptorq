@@ -1,5 +1,5 @@
 #[cfg(feature = "std")]
-use std::{mem::size_of, ops::Range, u32, vec::Vec};
+use std::{mem::size_of, ops::Range, vec::Vec};
 
 #[cfg(not(feature = "std"))]
 use core::{mem::size_of, ops::Range, u32};
