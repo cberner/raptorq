@@ -23,6 +23,7 @@ pub trait BinaryMatrix: Clone {
 
     fn width(&self) -> usize;
 
+    #[allow(dead_code)]
     fn size_in_bytes(&self) -> usize;
 
     fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize;
