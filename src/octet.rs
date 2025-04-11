@@ -68,7 +68,7 @@ const OCT_LOG: [u8; 256] = [
    79, 174, 213, 233, 230, 231, 173, 232, 116, 214, 244, 234, 168, 80,
    88, 175];
 
-pub const OCTET_MUL: [[u8; 256]; 256] = calculate_octet_mul_table();
+pub static OCTET_MUL: [[u8; 256]; 256] = calculate_octet_mul_table();
 
 // See "Screaming Fast Galois Field Arithmetic Using Intel SIMD Instructions" by Plank et al.
 // Further adapted to AVX2
@@ -180,7 +180,7 @@ impl Add for Octet {
     }
 }
 
-impl<'a, 'b> Add<&'b Octet> for &'a Octet {
+impl<'b> Add<&'b Octet> for &Octet {
     type Output = Octet;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -226,7 +226,7 @@ impl Mul for Octet {
     }
 }
 
-impl<'a, 'b> Mul<&'b Octet> for &'a Octet {
+impl<'b> Mul<&'b Octet> for &Octet {
     type Output = Octet;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -256,7 +256,7 @@ impl Div for Octet {
     }
 }
 
-impl<'a, 'b> Div<&'b Octet> for &'a Octet {
+impl<'b> Div<&'b Octet> for &Octet {
     type Output = Octet;
 
     #[allow(clippy::suspicious_arithmetic_impl)]

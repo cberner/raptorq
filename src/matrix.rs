@@ -87,7 +87,7 @@ impl DenseBinaryMatrix {
 
     // Number of words required per row
     fn row_word_width(&self) -> usize {
-        (self.width + WORD_WIDTH - 1) / WORD_WIDTH
+        self.width.div_ceil(WORD_WIDTH)
     }
 
     // Returns mask to select the given bit in a word
@@ -200,11 +200,7 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec {
-        let mut result = vec![
-            0;
-            (self.width - start_col + BinaryOctetVec::WORD_WIDTH - 1)
-                / BinaryOctetVec::WORD_WIDTH
-        ];
+        let mut result = vec![0; (self.width - start_col).div_ceil(BinaryOctetVec::WORD_WIDTH)];
         let mut word = result.len();
         let mut bit = 0;
         for col in (start_col..self.width).rev() {
