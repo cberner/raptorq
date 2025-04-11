@@ -17,7 +17,7 @@ serde = {version = "1.0.102", features=["std", "derive"], optional = true}
 pyo3 = {version = "0.24.1", features=["extension-module", "abi3-py37"], optional = true }
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 primal = "0.3"
 rand = "0.8"
 threadpool = "1.7"
