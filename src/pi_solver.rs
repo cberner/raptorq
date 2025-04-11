@@ -1,5 +1,5 @@
 #[cfg(feature = "std")]
-use std::{mem, mem::size_of, u16, vec::Vec};
+use std::{mem, mem::size_of, vec::Vec};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
