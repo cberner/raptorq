@@ -301,8 +301,7 @@ impl FirstPhaseRowSelectionStats {
             // Pick arbitrary node (column) to start
             node_queue.clear();
             node_queue.push(key);
-            while !node_queue.is_empty() {
-                let node = node_queue.pop().unwrap();
+            while let Some(node) = node_queue.pop() {
                 if self.col_graph.contains(node as usize) {
                     continue;
                 }
