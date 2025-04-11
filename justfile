@@ -4,7 +4,7 @@ build: pre
 pre:
     cargo deny --all-features check licenses
     cargo fmt --all -- --check
-    cargo clippy --all
+    cargo clippy --all --all-targets -- -Dwarnings
 
 release: pre
     cargo build --release

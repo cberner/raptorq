@@ -11,8 +11,8 @@ use raptorq::{Decoder, Encoder, EncodingPacket};
 fn main() {
     // Generate some random data to send
     let mut data: Vec<u8> = vec![0; 10_000];
-    for i in 0..data.len() {
-        data[i] = rand::thread_rng().gen();
+    for byte in data.iter_mut() {
+        *byte = rand::thread_rng().gen();
     }
 
     // Create the Encoder, with an MTU of 1400 (common for Ethernet)

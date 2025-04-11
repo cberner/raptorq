@@ -537,8 +537,8 @@ mod codec_tests {
         let symbol_count = 10;
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
+        for byte in data.iter_mut() {
+            *byte = rand::thread_rng().gen();
         }
 
         let total_bytes: usize = 1024 * 1024;
@@ -598,14 +598,16 @@ mod codec_tests {
         decoder.set_sparse_threshold(sparse_threshold);
 
         let mut result = None;
-        let mut parsed_packets = 0;
         // This test can theoretically fail with ~1/256^5 probability
-        for packet in encoder.repair_packets(0, (elements / symbol_size + 4) as u32) {
+        for (parsed_packets, packet) in encoder
+            .repair_packets(0, (elements / symbol_size + 4) as u32)
+            .into_iter()
+            .enumerate()
+        {
             if parsed_packets < elements / symbol_size && result.is_some() {
                 return false;
             }
             result = decoder.decode(iter::once(packet));
-            parsed_packets += 1;
         }
 
         return result.unwrap() == data;

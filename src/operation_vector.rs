@@ -77,8 +77,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -87,10 +87,15 @@ mod tests {
         let mut data0: Vec<u8> = vec![0; symbol_size];
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for i in 0..symbol_size {
-            data0[i] = data[0].as_bytes()[i];
-            data1[i] = data[1].as_bytes()[i];
-            result[i] = data0[i] ^ data1[i];
+        for (i, ((d0, d1), res)) in data0
+            .iter_mut()
+            .zip(data1.iter_mut())
+            .zip(result.iter_mut())
+            .enumerate()
+        {
+            *d0 = data[0].as_bytes()[i];
+            *d1 = data[1].as_bytes()[i];
+            *res = *d0 ^ *d1;
         }
         let mut symbol0 = Symbol::new(data0);
         let symbol1 = Symbol::new(data1);
@@ -109,8 +114,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -120,10 +125,15 @@ mod tests {
         let mut data0: Vec<u8> = vec![0; symbol_size];
         let mut data1: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for i in 0..symbol_size {
-            data0[i] = data[0].as_bytes()[i];
-            data1[i] = data[1].as_bytes()[i];
-            result[i] = data0[i] ^ (Octet::new(data1[i]) * Octet::new(value)).byte();
+        for (i, ((d0, d1), res)) in data0
+            .iter_mut()
+            .zip(data1.iter_mut())
+            .zip(result.iter_mut())
+            .enumerate()
+        {
+            *d0 = data[0].as_bytes()[i];
+            *d1 = data[1].as_bytes()[i];
+            *res = *d0 ^ (Octet::new(*d1) * Octet::new(value)).byte();
         }
 
         perform_op(
@@ -145,8 +155,8 @@ mod tests {
 
         for _i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = rand::thread_rng().gen();
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = rand::thread_rng().gen();
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);
@@ -155,9 +165,9 @@ mod tests {
         let value = 215;
         let mut data0: Vec<u8> = vec![0; symbol_size];
         let mut result: Vec<u8> = vec![0; symbol_size];
-        for i in 0..symbol_size {
-            data0[i] = data[0].as_bytes()[i];
-            result[i] = (Octet::new(data0[i]) * Octet::new(value)).byte();
+        for (i, (d0, res)) in data0.iter_mut().zip(result.iter_mut()).enumerate() {
+            *d0 = data[0].as_bytes()[i];
+            *res = (Octet::new(*d0) * Octet::new(value)).byte();
         }
 
         perform_op(
@@ -178,8 +188,8 @@ mod tests {
 
         for i in 0..rows {
             let mut symbol_data: Vec<u8> = vec![0; symbol_size];
-            for j in 0..symbol_size {
-                symbol_data[j] = i as u8;
+            for byte in symbol_data.iter_mut().take(symbol_size) {
+                *byte = i as u8;
             }
             let symbol = Symbol::new(symbol_data);
             data.push(symbol);

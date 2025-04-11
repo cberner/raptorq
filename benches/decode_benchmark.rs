@@ -16,8 +16,8 @@ fn benchmark(symbol_size: u16, overhead: f64) -> u64 {
     for &symbol_count in SYMBOL_COUNTS.iter() {
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
-        for i in 0..elements {
-            data[i] = rand::thread_rng().gen();
+        for byte in data.iter_mut() {
+            *byte = rand::thread_rng().gen();
         }
 
         let iterations = TARGET_TOTAL_BYTES / elements;
