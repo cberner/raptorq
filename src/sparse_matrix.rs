@@ -78,7 +78,7 @@ impl SparseBinaryMatrix {
 
     // Number of words required per row
     fn row_word_width(&self) -> usize {
-        (self.num_dense_columns + WORD_WIDTH - 1) / WORD_WIDTH
+        self.num_dense_columns.div_ceil(WORD_WIDTH)
     }
 
     // Returns the number of unused bits on the left of each row

@@ -42,10 +42,7 @@ impl BinaryOctetVec {
     pub(crate) const WORD_WIDTH: usize = 64;
 
     pub fn new(elements: Vec<u64>, length: usize) -> Self {
-        assert_eq!(
-            elements.len(),
-            (length + Self::WORD_WIDTH - 1) / Self::WORD_WIDTH
-        );
+        assert_eq!(elements.len(), length.div_ceil(Self::WORD_WIDTH));
         BinaryOctetVec { elements, length }
     }
 
@@ -857,7 +854,7 @@ mod tests {
 
     #[test]
     fn mul_assign() {
-        let size = 41;
+        let size: usize = 41;
         let scalar = Octet::new(rand::thread_rng().gen_range(1..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
@@ -873,7 +870,7 @@ mod tests {
 
     #[test]
     fn fma() {
-        let size = 41;
+        let size: usize = 41;
         let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut data2: Vec<u8> = vec![0; size];
@@ -895,9 +892,9 @@ mod tests {
 
     #[test]
     fn fma_binary() {
-        let size = 41;
+        let size: usize = 41;
         let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
-        let mut binary_vec: Vec<u64> = vec![0; (size + 63) / 64];
+        let mut binary_vec: Vec<u64> = vec![0; size.div_ceil(64)];
         for item in binary_vec.iter_mut() {
             *item = rand::thread_rng().gen();
         }

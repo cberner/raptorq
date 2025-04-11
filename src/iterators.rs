@@ -140,7 +140,7 @@ impl<'a> OctetIter<'a> {
     }
 }
 
-impl<'a> Iterator for OctetIter<'a> {
+impl Iterator for OctetIter<'_> {
     type Item = (usize, Octet);
 
     fn next(&mut self) -> Option<Self::Item> {
