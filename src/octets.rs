@@ -4,7 +4,6 @@ use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use crate::octet::Octet;
 use crate::octet::OCTET_MUL;
 #[cfg(all(
     any(
@@ -26,6 +25,7 @@ use crate::octet::OCTET_MUL_HI_BITS;
     feature = "std"
 ))]
 use crate::octet::OCTET_MUL_LOW_BITS;
+use crate::octet::Octet;
 
 #[cfg(all(target_arch = "aarch64", feature = "std"))]
 use std::arch::is_aarch64_feature_detected;
@@ -136,66 +136,68 @@ unsafe fn fused_addassign_mul_scalar_binary_neon(
     other: &BinaryOctetVec,
     scalar: &Octet,
 ) {
-    #[cfg(target_arch = "aarch64")]
-    use std::arch::aarch64::*;
-    #[cfg(target_arch = "arm")]
-    use std::arch::arm::*;
-    use std::mem;
+    unsafe {
+        #[cfg(target_arch = "aarch64")]
+        use std::arch::aarch64::*;
+        #[cfg(target_arch = "arm")]
+        use std::arch::arm::*;
+        use std::mem;
 
-    let first_bit = other.padding_bits();
-    let other_u16 = std::slice::from_raw_parts(
-        other.elements.as_ptr() as *const u16,
-        other.elements.len() * 4,
-    );
-    let mut other_batch_start_index = first_bit / 16;
-    let first_bits = other_u16[other_batch_start_index];
-    let bit_in_first_bits = first_bit % 16;
-    let mut remaining = octets.len();
-    let mut self_neon_ptr = octets.as_mut_ptr();
-    // Handle first bits to make remainder 16bit aligned
-    if bit_in_first_bits > 0 {
-        for (i, val) in octets.iter_mut().enumerate().take(16 - bit_in_first_bits) {
-            // TODO: replace with UBFX instruction, once it's support in arm intrinsics
-            let selected_bit = first_bits & (0x1 << (bit_in_first_bits + i));
-            let other_byte = u8::from(selected_bit != 0);
+        let first_bit = other.padding_bits();
+        let other_u16 = std::slice::from_raw_parts(
+            other.elements.as_ptr() as *const u16,
+            other.elements.len() * 4,
+        );
+        let mut other_batch_start_index = first_bit / 16;
+        let first_bits = other_u16[other_batch_start_index];
+        let bit_in_first_bits = first_bit % 16;
+        let mut remaining = octets.len();
+        let mut self_neon_ptr = octets.as_mut_ptr();
+        // Handle first bits to make remainder 16bit aligned
+        if bit_in_first_bits > 0 {
+            for (i, val) in octets.iter_mut().enumerate().take(16 - bit_in_first_bits) {
+                // TODO: replace with UBFX instruction, once it's support in arm intrinsics
+                let selected_bit = first_bits & (0x1 << (bit_in_first_bits + i));
+                let other_byte = u8::from(selected_bit != 0);
 
-            // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
-            *val ^= scalar.byte() * other_byte;
+                // other_byte is binary, so u8 multiplication is the same as GF256 multiplication
+                *val ^= scalar.byte() * other_byte;
+            }
+            remaining -= 16 - bit_in_first_bits;
+            other_batch_start_index += 1;
+            self_neon_ptr = self_neon_ptr.add(16 - bit_in_first_bits);
         }
-        remaining -= 16 - bit_in_first_bits;
-        other_batch_start_index += 1;
-        self_neon_ptr = self_neon_ptr.add(16 - bit_in_first_bits);
-    }
 
-    assert_eq!(remaining % 16, 0);
+        assert_eq!(remaining % 16, 0);
 
-    let shuffle_mask = vld1q_u8([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1].as_ptr());
-    let bit_select_mask = vld1q_u8(
-        [
-            1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80,
-        ]
-        .as_ptr(),
-    );
-    let scalar_neon = vdupq_n_u8(scalar.byte());
-    let other_neon = other_u16.as_ptr();
-    // Process the rest in 128bit chunks
-    for i in 0..(remaining / mem::size_of::<uint8x16_t>()) {
-        // Convert from bit packed u16 to 16xu8
-        let other_vec = vld1q_dup_u16(other_neon.add(other_batch_start_index + i));
-        let other_vec: uint8x16_t = mem::transmute(other_vec);
-        let other_vec = vqtbl1q_u8(other_vec, shuffle_mask);
-        let other_vec = vandq_u8(other_vec, bit_select_mask);
-        // The bits are now unpacked, but aren't in a defined position (may be in 0-7 bit of each byte)
+        let shuffle_mask = vld1q_u8([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1].as_ptr());
+        let bit_select_mask = vld1q_u8(
+            [
+                1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80,
+            ]
+            .as_ptr(),
+        );
+        let scalar_neon = vdupq_n_u8(scalar.byte());
+        let other_neon = other_u16.as_ptr();
+        // Process the rest in 128bit chunks
+        for i in 0..(remaining / mem::size_of::<uint8x16_t>()) {
+            // Convert from bit packed u16 to 16xu8
+            let other_vec = vld1q_dup_u16(other_neon.add(other_batch_start_index + i));
+            let other_vec: uint8x16_t = mem::transmute(other_vec);
+            let other_vec = vqtbl1q_u8(other_vec, shuffle_mask);
+            let other_vec = vandq_u8(other_vec, bit_select_mask);
+            // The bits are now unpacked, but aren't in a defined position (may be in 0-7 bit of each byte)
 
-        // Test non-zero to get one or zero in the correct byte position
-        let other_vec = vcgeq_u8(other_vec, vdupq_n_u8(1));
-        // Multiply by scalar. other_vec is binary (0xFF or 0x00), so just mask with the scalar
-        let product = vandq_u8(other_vec, scalar_neon);
+            // Test non-zero to get one or zero in the correct byte position
+            let other_vec = vcgeq_u8(other_vec, vdupq_n_u8(1));
+            // Multiply by scalar. other_vec is binary (0xFF or 0x00), so just mask with the scalar
+            let product = vandq_u8(other_vec, scalar_neon);
 
-        // Add to self
-        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        let result = veorq_u8(self_vec, product);
-        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+            // Add to self
+            let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            let result = veorq_u8(self_vec, product);
+            store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+        }
     }
 }
 
@@ -288,38 +290,40 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
 #[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
-    #[cfg(target_arch = "aarch64")]
-    use std::arch::aarch64::*;
-    #[cfg(target_arch = "arm")]
-    use std::arch::arm::*;
-    use std::mem;
+    unsafe {
+        #[cfg(target_arch = "aarch64")]
+        use std::arch::aarch64::*;
+        #[cfg(target_arch = "arm")]
+        use std::arch::arm::*;
+        use std::mem;
 
-    let mask = vdupq_n_u8(0x0F);
-    let self_neon_ptr = octets.as_mut_ptr();
-    #[allow(clippy::cast_ptr_alignment)]
-    let low_table = vld1q_u8(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr());
-    #[allow(clippy::cast_ptr_alignment)]
-    let hi_table = vld1q_u8(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr());
-
-    for i in 0..(octets.len() / mem::size_of::<uint8x16_t>()) {
-        // Multiply by scalar
+        let mask = vdupq_n_u8(0x0F);
+        let self_neon_ptr = octets.as_mut_ptr();
         #[allow(clippy::cast_ptr_alignment)]
-        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        let low = vandq_u8(self_vec, mask);
-        let low_result = vqtbl1q_u8(low_table, low);
-        let hi = vshrq_n_u8(self_vec, 4);
-        let hi = vandq_u8(hi, mask);
-        let hi_result = vqtbl1q_u8(hi_table, hi);
-        let result = veorq_u8(hi_result, low_result);
-        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
-    }
+        let low_table = vld1q_u8(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr());
+        #[allow(clippy::cast_ptr_alignment)]
+        let hi_table = vld1q_u8(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr());
 
-    let remainder = octets.len() % mem::size_of::<uint8x16_t>();
-    let scalar_index = scalar.byte() as usize;
-    for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) = *OCTET_MUL
-            .get_unchecked(scalar_index)
-            .get_unchecked(*octets.get_unchecked(i) as usize);
+        for i in 0..(octets.len() / mem::size_of::<uint8x16_t>()) {
+            // Multiply by scalar
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            let low = vandq_u8(self_vec, mask);
+            let low_result = vqtbl1q_u8(low_table, low);
+            let hi = vshrq_n_u8(self_vec, 4);
+            let hi = vandq_u8(hi, mask);
+            let hi_result = vqtbl1q_u8(hi_table, hi);
+            let result = veorq_u8(hi_result, low_result);
+            store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+        }
+
+        let remainder = octets.len() % mem::size_of::<uint8x16_t>();
+        let scalar_index = scalar.byte() as usize;
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) = *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*octets.get_unchecked(i) as usize);
+        }
     }
 }
 
@@ -461,45 +465,47 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: 
 #[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scalar: &Octet) {
-    #[cfg(target_arch = "aarch64")]
-    use std::arch::aarch64::*;
-    #[cfg(target_arch = "arm")]
-    use std::arch::arm::*;
-    use std::mem;
+    unsafe {
+        #[cfg(target_arch = "aarch64")]
+        use std::arch::aarch64::*;
+        #[cfg(target_arch = "arm")]
+        use std::arch::arm::*;
+        use std::mem;
 
-    let mask = vdupq_n_u8(0x0F);
-    let self_neon_ptr = octets.as_mut_ptr();
-    let other_neon_ptr = other.as_ptr();
-    #[allow(clippy::cast_ptr_alignment)]
-    let low_table = vld1q_u8(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr());
-    #[allow(clippy::cast_ptr_alignment)]
-    let hi_table = vld1q_u8(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr());
-
-    for i in 0..(octets.len() / mem::size_of::<uint8x16_t>()) {
-        // Multiply by scalar
+        let mask = vdupq_n_u8(0x0F);
+        let self_neon_ptr = octets.as_mut_ptr();
+        let other_neon_ptr = other.as_ptr();
         #[allow(clippy::cast_ptr_alignment)]
-        let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        let low = vandq_u8(other_vec, mask);
-        let low_result = vqtbl1q_u8(low_table, low);
-        let hi = vshrq_n_u8(other_vec, 4);
-        let hi = vandq_u8(hi, mask);
-        let hi_result = vqtbl1q_u8(hi_table, hi);
-        let other_vec = veorq_u8(hi_result, low_result);
-
-        // Add to self
+        let low_table = vld1q_u8(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr());
         #[allow(clippy::cast_ptr_alignment)]
-        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        let result = veorq_u8(self_vec, other_vec);
-        #[allow(clippy::cast_ptr_alignment)]
-        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
-    }
+        let hi_table = vld1q_u8(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr());
 
-    let remainder = octets.len() % mem::size_of::<uint8x16_t>();
-    let scalar_index = scalar.byte() as usize;
-    for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) ^= *OCTET_MUL
-            .get_unchecked(scalar_index)
-            .get_unchecked(*other.get_unchecked(i) as usize);
+        for i in 0..(octets.len() / mem::size_of::<uint8x16_t>()) {
+            // Multiply by scalar
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            let low = vandq_u8(other_vec, mask);
+            let low_result = vqtbl1q_u8(low_table, low);
+            let hi = vshrq_n_u8(other_vec, 4);
+            let hi = vandq_u8(hi, mask);
+            let hi_result = vqtbl1q_u8(hi_table, hi);
+            let other_vec = veorq_u8(hi_result, low_result);
+
+            // Add to self
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            let result = veorq_u8(self_vec, other_vec);
+            #[allow(clippy::cast_ptr_alignment)]
+            store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+        }
+
+        let remainder = octets.len() % mem::size_of::<uint8x16_t>();
+        let scalar_index = scalar.byte() as usize;
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) ^= *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*other.get_unchecked(i) as usize);
+        }
     }
 }
 
@@ -685,58 +691,62 @@ use std::arch::aarch64::uint8x16_t;
 #[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
-    #[cfg(target_arch = "aarch64")]
-    use std::arch::aarch64::*;
-    #[cfg(target_arch = "arm")]
-    use std::arch::arm::*;
+    unsafe {
+        #[cfg(target_arch = "aarch64")]
+        use std::arch::aarch64::*;
+        #[cfg(target_arch = "arm")]
+        use std::arch::arm::*;
 
-    // TODO: replace with vst1q_u8 when it's supported
-    let reinterp = vreinterpretq_u64_u8(value);
-    (ptr as *mut u64).write_unaligned(vgetq_lane_u64(reinterp, 0));
-    (ptr as *mut u64)
-        .add(1)
-        .write_unaligned(vgetq_lane_u64(reinterp, 1));
+        // TODO: replace with vst1q_u8 when it's supported
+        let reinterp = vreinterpretq_u64_u8(value);
+        (ptr as *mut u64).write_unaligned(vgetq_lane_u64(reinterp, 0));
+        (ptr as *mut u64)
+            .add(1)
+            .write_unaligned(vgetq_lane_u64(reinterp, 1));
+    }
 }
 
 // TODO: enable when stable
 #[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
-    #[cfg(target_arch = "aarch64")]
-    use std::arch::aarch64::*;
-    #[cfg(target_arch = "arm")]
-    use std::arch::arm::*;
-    use std::mem;
+    unsafe {
+        #[cfg(target_arch = "aarch64")]
+        use std::arch::aarch64::*;
+        #[cfg(target_arch = "arm")]
+        use std::arch::arm::*;
+        use std::mem;
 
-    assert_eq!(octets.len(), other.len());
-    let self_neon_ptr = octets.as_mut_ptr();
-    let other_neon_ptr = other.as_ptr();
-    for i in 0..(octets.len() / 16) {
-        #[allow(clippy::cast_ptr_alignment)]
-        let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        #[allow(clippy::cast_ptr_alignment)]
-        let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
-        let result = veorq_u8(self_vec, other_vec);
-        #[allow(clippy::cast_ptr_alignment)]
-        store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
-    }
+        assert_eq!(octets.len(), other.len());
+        let self_neon_ptr = octets.as_mut_ptr();
+        let other_neon_ptr = other.as_ptr();
+        for i in 0..(octets.len() / 16) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = vld1q_u8(self_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_vec = vld1q_u8(other_neon_ptr.add(i * mem::size_of::<uint8x16_t>()));
+            let result = veorq_u8(self_vec, other_vec);
+            #[allow(clippy::cast_ptr_alignment)]
+            store_neon((self_neon_ptr as *mut uint8x16_t).add(i), result);
+        }
 
-    let remainder = octets.len() % 16;
-    let self_ptr = octets.as_mut_ptr();
-    let other_ptr = other.as_ptr();
-    for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
-        #[allow(clippy::cast_ptr_alignment)]
-        let self_value = (self_ptr as *mut u64).add(i).read_unaligned();
-        #[allow(clippy::cast_ptr_alignment)]
-        let other_value = (other_ptr as *mut u64).add(i).read_unaligned();
-        let result = self_value ^ other_value;
-        #[allow(clippy::cast_ptr_alignment)]
-        (self_ptr as *mut u64).add(i).write_unaligned(result);
-    }
+        let remainder = octets.len() % 16;
+        let self_ptr = octets.as_mut_ptr();
+        let other_ptr = other.as_ptr();
+        for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_value = (self_ptr as *mut u64).add(i).read_unaligned();
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_value = (other_ptr as *mut u64).add(i).read_unaligned();
+            let result = self_value ^ other_value;
+            #[allow(clippy::cast_ptr_alignment)]
+            (self_ptr as *mut u64).add(i).write_unaligned(result);
+        }
 
-    let remainder = octets.len() % 8;
-    for i in (octets.len() - remainder)..octets.len() {
-        *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
+        let remainder = octets.len() % 8;
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
+        }
     }
 }
 
@@ -867,7 +877,7 @@ mod tests {
     use crate::octet::Octet;
     use crate::octets::mulassign_scalar;
     use crate::octets::{
-        fused_addassign_mul_scalar, fused_addassign_mul_scalar_binary, BinaryOctetVec,
+        BinaryOctetVec, fused_addassign_mul_scalar, fused_addassign_mul_scalar_binary,
     };
 
     #[test]
