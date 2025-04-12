@@ -4,13 +4,14 @@ use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use crate::base::intermediate_tuple;
-use crate::base::partition;
+use crate::ObjectTransmissionInformation;
 use crate::base::EncodingPacket;
 use crate::base::PayloadId;
+use crate::base::intermediate_tuple;
+use crate::base::partition;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::matrix::DenseBinaryMatrix;
-use crate::operation_vector::{perform_op, SymbolOps};
+use crate::operation_vector::{SymbolOps, perform_op};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
@@ -22,7 +23,6 @@ use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::util::int_div_ceil;
-use crate::ObjectTransmissionInformation;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -423,14 +423,14 @@ mod tests {
 
     use super::*;
 
+    use crate::PayloadId;
     use crate::base::intermediate_tuple;
     use crate::symbol::Symbol;
     use crate::systematic_constants::num_lt_symbols;
     use crate::systematic_constants::num_pi_symbols;
     use crate::systematic_constants::{
-        calculate_p1, num_ldpc_symbols, systematic_index, MAX_SOURCE_SYMBOLS_PER_BLOCK,
+        MAX_SOURCE_SYMBOLS_PER_BLOCK, calculate_p1, num_ldpc_symbols, systematic_index,
     };
-    use crate::PayloadId;
     #[cfg(not(feature = "python"))]
     use crate::{Encoder, EncoderBuilder, EncodingPacket, ObjectTransmissionInformation};
     #[cfg(not(feature = "python"))]

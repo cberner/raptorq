@@ -169,7 +169,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn count_ones(&self, row: usize, start_col: usize, end_col: usize) -> usize {
         if end_col > self.width - self.num_dense_columns {
-            unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
+            unimplemented!(
+                "It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A"
+            );
         }
         let mut ones = 0;
         let physical_row = self.logical_row_to_physical[row] as usize;
@@ -253,7 +255,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
         if end_col > self.width - self.num_dense_columns {
-            unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
+            unimplemented!(
+                "It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A"
+            );
         }
         let physical_row = self.logical_row_to_physical[row] as usize;
         let sparse_elements = &self.sparse_elements[physical_row];
@@ -295,7 +299,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
     fn swap_columns(&mut self, i: usize, j: usize, _: usize) {
         if j >= self.width - self.num_dense_columns {
-            unimplemented!("It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A");
+            unimplemented!(
+                "It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A"
+            );
         }
 
         #[cfg(debug_assertions)]
@@ -499,7 +505,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
 
 #[cfg(test)]
 mod tests {
-    use crate::systematic_constants::{num_intermediate_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
+    use crate::systematic_constants::{MAX_SOURCE_SYMBOLS_PER_BLOCK, num_intermediate_symbols};
 
     #[test]
     fn check_max_width_optimization() {

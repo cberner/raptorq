@@ -1051,7 +1051,7 @@ pub fn calculate_p1(source_block_symbols: u32) -> u32 {
 mod tests {
     use crate::systematic_constants::num_ldpc_symbols;
     use crate::systematic_constants::num_lt_symbols;
-    use crate::systematic_constants::{calculate_p1, num_pi_symbols, MAX_SOURCE_SYMBOLS_PER_BLOCK};
+    use crate::systematic_constants::{MAX_SOURCE_SYMBOLS_PER_BLOCK, calculate_p1, num_pi_symbols};
 
     #[test]
     fn all_prime() {

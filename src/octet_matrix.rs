@@ -5,8 +5,8 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 use crate::octet::Octet;
+use crate::octets::{BinaryOctetVec, fused_addassign_mul_scalar};
 use crate::octets::{add_assign, fused_addassign_mul_scalar_binary, mulassign_scalar};
-use crate::octets::{fused_addassign_mul_scalar, BinaryOctetVec};
 use crate::util::get_both_indices;
 #[cfg(feature = "benchmarking")]
 use std::mem::size_of;
