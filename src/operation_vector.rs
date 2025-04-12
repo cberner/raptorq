@@ -66,7 +66,7 @@ mod tests {
     use std::vec::Vec;
 
     use crate::octet::Octet;
-    use crate::operation_vector::{perform_op, SymbolOps};
+    use crate::operation_vector::{SymbolOps, perform_op};
     use crate::symbol::Symbol;
 
     #[test]

@@ -7,10 +7,10 @@ use core::iter;
 #[cfg(not(feature = "std"))]
 use alloc::{collections::BTreeSet as Set, vec::Vec};
 
-use crate::base::intermediate_tuple;
-use crate::base::partition;
 use crate::base::EncodingPacket;
 use crate::base::ObjectTransmissionInformation;
+use crate::base::intermediate_tuple;
+use crate::base::partition;
 use crate::constraint_matrix::enc_indices;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::encoder::SPARSE_MATRIX_THRESHOLD;
@@ -339,15 +339,15 @@ mod codec_tests {
     use std::{
         iter,
         sync::{
-            atomic::{AtomicU32, Ordering},
             Arc,
+            atomic::{AtomicU32, Ordering},
         },
         vec::Vec,
     };
 
+    use rand::Rng;
     #[cfg(not(feature = "python"))]
     use rand::seq::SliceRandom;
-    use rand::Rng;
 
     #[cfg(not(feature = "python"))]
     use crate::Decoder;

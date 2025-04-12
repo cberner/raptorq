@@ -279,11 +279,11 @@ impl<'b> Div<&'b Octet> for &Octet {
 mod tests {
     use rand::Rng;
 
-    use crate::octet::Octet;
-    use crate::octet::OCTET_MUL_HI_BITS;
-    use crate::octet::OCTET_MUL_LOW_BITS;
     use crate::octet::OCT_EXP;
     use crate::octet::OCT_LOG;
+    use crate::octet::OCTET_MUL_HI_BITS;
+    use crate::octet::OCTET_MUL_LOW_BITS;
+    use crate::octet::Octet;
 
     #[test]
     fn multiplication_tables() {

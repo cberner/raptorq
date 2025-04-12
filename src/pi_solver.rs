@@ -1342,8 +1342,8 @@ mod tests {
     use crate::matrix::DenseBinaryMatrix;
     use crate::symbol::Symbol;
     use crate::systematic_constants::{
-        extended_source_block_symbols, num_ldpc_symbols, num_lt_symbols,
-        MAX_SOURCE_SYMBOLS_PER_BLOCK,
+        MAX_SOURCE_SYMBOLS_PER_BLOCK, extended_source_block_symbols, num_ldpc_symbols,
+        num_lt_symbols,
     };
     use std::vec::Vec;
 
