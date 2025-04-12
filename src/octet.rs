@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn addition() {
         let octet = Octet {
-            value: rand::thread_rng().gen(),
+            value: rand::rng().random(),
         };
         // See section 5.7.2. u is its own additive inverse
         assert_eq!(Octet::zero(), &octet + &octet);
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn multiplication_identity() {
         let octet = Octet {
-            value: rand::thread_rng().gen(),
+            value: rand::rng().random(),
         };
         assert_eq!(octet, &octet * &Octet::one());
     }
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn multiplicative_inverse() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1..255),
+            value: rand::rng().random_range(1..255),
         };
         let one = Octet::one();
         assert_eq!(one, &octet * &(&one / &octet));
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn division() {
         let octet = Octet {
-            value: rand::thread_rng().gen_range(1..255),
+            value: rand::rng().random_range(1..255),
         };
         assert_eq!(Octet::one(), &octet / &octet);
     }

@@ -6,7 +6,7 @@ const TARGET_TOTAL_BYTES: usize = 128 * 1024 * 1024;
 const SYMBOL_COUNTS: [usize; 10] = [10, 100, 250, 500, 1000, 2000, 5000, 10000, 20000, 50000];
 
 fn black_box(value: u64) {
-    if value == rand::thread_rng().gen() {
+    if value == rand::rng().random() {
         println!("{value}");
     }
 }
@@ -17,7 +17,7 @@ fn benchmark(symbol_size: u16, pre_plan: bool) -> u64 {
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
         for byte in data.iter_mut() {
-            *byte = rand::thread_rng().gen();
+            *byte = rand::rng().random();
         }
 
         let plan = if pre_plan {

@@ -85,8 +85,8 @@ mod tests {
             .zip(data2.iter_mut())
             .zip(result.iter_mut())
         {
-            *d1 = rand::thread_rng().gen();
-            *d2 = rand::thread_rng().gen();
+            *d1 = rand::rng().random();
+            *d2 = rand::rng().random();
             *res = *d1 ^ *d2;
         }
         let mut symbol1 = Symbol::new(data1);

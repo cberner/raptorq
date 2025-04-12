@@ -339,8 +339,8 @@ mod tests {
     #[test]
     fn payload_id_serialization() {
         let payload_id = PayloadId::new(
-            rand::thread_rng().gen(),
-            rand::thread_rng().gen_range(0..(256 * 256 * 256)),
+            rand::rng().random(),
+            rand::rng().random_range(0..(256 * 256 * 256)),
         );
         let deserialized = PayloadId::deserialize(&payload_id.serialize());
         assert_eq!(deserialized, payload_id);
@@ -349,10 +349,10 @@ mod tests {
     #[test]
     fn encoding_packet_serialization() {
         let payload_id = PayloadId::new(
-            rand::thread_rng().gen(),
-            rand::thread_rng().gen_range(0..(256 * 256 * 256)),
+            rand::rng().random(),
+            rand::rng().random_range(0..(256 * 256 * 256)),
         );
-        let packet = EncodingPacket::new(payload_id, vec![rand::thread_rng().gen()]);
+        let packet = EncodingPacket::new(payload_id, vec![rand::rng().random()]);
         let deserialized = EncodingPacket::deserialize(&packet.serialize());
         assert_eq!(deserialized, packet);
     }
@@ -360,8 +360,8 @@ mod tests {
     #[test]
     fn oti_serialization() {
         let oti = ObjectTransmissionInformation::with_defaults(
-            rand::thread_rng().gen_range(0..(256 * 256 * 256 * 256 * 256)),
-            rand::thread_rng().gen(),
+            rand::rng().random_range(0..(256 * 256 * 256 * 256 * 256)),
+            rand::rng().random(),
         );
         let deserialized = ObjectTransmissionInformation::deserialize(&oti.serialize());
         assert_eq!(deserialized, oti);

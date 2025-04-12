@@ -442,7 +442,7 @@ mod tests {
     fn gen_test_data(size: usize) -> Vec<u8> {
         let mut data: Vec<u8> = vec![0; size];
         for byte in data.iter_mut() {
-            *byte = rand::thread_rng().gen();
+            *byte = rand::rng().random();
         }
         data
     }

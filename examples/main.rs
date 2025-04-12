@@ -12,7 +12,7 @@ fn main() {
     // Generate some random data to send
     let mut data: Vec<u8> = vec![0; 10_000];
     for byte in data.iter_mut() {
-        *byte = rand::thread_rng().gen();
+        *byte = rand::rng().random();
     }
 
     // Create the Encoder, with an MTU of 1400 (common for Ethernet)
@@ -27,7 +27,7 @@ fn main() {
 
     // Here we simulate losing 10 of the packets randomly. Normally, you would send them over
     // (potentially lossy) network here.
-    packets.shuffle(&mut rand::thread_rng());
+    packets.shuffle(&mut rand::rng());
     // Erase 10 packets at random
     let length = packets.len();
     packets.truncate(length - 10);

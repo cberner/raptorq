@@ -274,7 +274,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn fast_hdpc() {
-        let source_block_symbols = rand::thread_rng().gen_range(1..50000);
+        let source_block_symbols = rand::rng().random_range(1..50000);
         let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
         let S = num_ldpc_symbols(source_block_symbols) as usize;
         let H = num_hdpc_symbols(source_block_symbols) as usize;
