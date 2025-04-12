@@ -855,11 +855,11 @@ mod tests {
     #[test]
     fn mul_assign() {
         let size: usize = 41;
-        let scalar = Octet::new(rand::thread_rng().gen_range(1..255));
+        let scalar = Octet::new(rand::rng().random_range(1..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
         for (d1, exp) in data1.iter_mut().zip(expected.iter_mut()) {
-            *d1 = rand::thread_rng().gen();
+            *d1 = rand::rng().random();
             *exp = (&Octet::new(*d1) * &scalar).byte();
         }
 
@@ -871,7 +871,7 @@ mod tests {
     #[test]
     fn fma() {
         let size: usize = 41;
-        let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
+        let scalar = Octet::new(rand::rng().random_range(2..255));
         let mut data1: Vec<u8> = vec![0; size];
         let mut data2: Vec<u8> = vec![0; size];
         let mut expected: Vec<u8> = vec![0; size];
@@ -880,8 +880,8 @@ mod tests {
             .zip(data2.iter_mut())
             .zip(expected.iter_mut())
         {
-            *d1 = rand::thread_rng().gen();
-            *d2 = rand::thread_rng().gen();
+            *d1 = rand::rng().random();
+            *d2 = rand::rng().random();
             *exp = (Octet::new(*d1) + &Octet::new(*d2) * &scalar).byte();
         }
 
@@ -893,17 +893,17 @@ mod tests {
     #[test]
     fn fma_binary() {
         let size: usize = 41;
-        let scalar = Octet::new(rand::thread_rng().gen_range(2..255));
+        let scalar = Octet::new(rand::rng().random_range(2..255));
         let mut binary_vec: Vec<u64> = vec![0; size.div_ceil(64)];
         for item in binary_vec.iter_mut() {
-            *item = rand::thread_rng().gen();
+            *item = rand::rng().random();
         }
         let binary_octet_vec = BinaryOctetVec::new(binary_vec, size);
         let mut data1: Vec<u8> = vec![0; size];
         let data2: Vec<u8> = binary_octet_vec.to_octet_vec();
         let mut expected: Vec<u8> = vec![0; size];
         for (i, (d1, exp)) in data1.iter_mut().zip(expected.iter_mut()).enumerate() {
-            *d1 = rand::thread_rng().gen();
+            *d1 = rand::rng().random();
             *exp = (Octet::new(*d1) + &Octet::new(data2[i]) * &scalar).byte();
         }
 

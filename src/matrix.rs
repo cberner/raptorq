@@ -326,9 +326,9 @@ mod tests {
         let mut sparse = SparseBinaryMatrix::new(size, size, 1);
         // Generate 50% filled random matrices
         for _ in 0..(size * size / 2) {
-            let i = rand::thread_rng().gen_range(0..size);
-            let j = rand::thread_rng().gen_range(0..size);
-            let value = rand::thread_rng().gen_range(0..2);
+            let i = rand::rng().random_range(0..size);
+            let j = rand::rng().random_range(0..size);
+            let value = rand::rng().random_range(0..2);
             dense.set(i, j, Octet::new(value));
             sparse.set(i, j, Octet::new(value));
         }
@@ -355,8 +355,8 @@ mod tests {
         // rand_dense_and_sparse uses set(), so just check that it works
         let (dense, sparse) = rand_dense_and_sparse(8);
         for row in 0..dense.height() {
-            let start_col = rand::thread_rng().gen_range(0..(dense.width() - 2));
-            let end_col = rand::thread_rng().gen_range((start_col + 1)..dense.width());
+            let start_col = rand::rng().random_range(0..(dense.width() - 2));
+            let end_col = rand::rng().random_range((start_col + 1)..dense.width());
             let mut dense_iter = dense.get_row_iter(row, start_col, end_col);
             let mut sparse_iter = sparse.get_row_iter(row, start_col, end_col);
             for col in start_col..end_col {
@@ -453,10 +453,10 @@ mod tests {
         assert_matrices_eq(&dense, &sparse);
         sparse.disable_column_access_acceleration();
         for _ in 0..1000 {
-            let i = rand::thread_rng().gen_range(0..size);
-            let mut j = rand::thread_rng().gen_range(0..size);
+            let i = rand::rng().random_range(0..size);
+            let mut j = rand::rng().random_range(0..size);
             while j == i {
-                j = rand::thread_rng().gen_range(0..size);
+                j = rand::rng().random_range(0..size);
             }
             dense.add_assign_rows(i, j, 0);
             sparse.add_assign_rows(i, j, 0);

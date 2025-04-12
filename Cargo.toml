@@ -19,7 +19,7 @@ pyo3 = {version = "0.24.1", features=["extension-module", "abi3-py37"], optional
 [dev-dependencies]
 criterion = "0.5"
 primal = "0.3"
-rand = "0.8"
+rand = "0.9"
 threadpool = "1.7"
 
 [[bench]]

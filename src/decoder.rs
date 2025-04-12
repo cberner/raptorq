@@ -372,19 +372,19 @@ mod codec_tests {
 
     #[cfg(not(feature = "python"))]
     fn random_erasure(sparse_threshold: u32) {
-        let elements: usize = rand::thread_rng().gen_range(1..1_000_000);
+        let elements: usize = rand::rng().random_range(1..1_000_000);
         let mut data: Vec<u8> = vec![0; elements];
         for element in &mut data {
-            *element = rand::thread_rng().gen();
+            *element = rand::rng().random();
         }
 
         // MTU is set to not be too small, otherwise this test may take a very long time
-        let mtu = rand::thread_rng().gen_range(((elements / 100) as u16)..10_000);
+        let mtu = rand::rng().random_range(((elements / 100) as u16)..10_000);
 
         let encoder = Encoder::with_defaults(&data, mtu);
 
         let mut packets = encoder.get_encoded_packets(15);
-        packets.shuffle(&mut rand::thread_rng());
+        packets.shuffle(&mut rand::rng());
         // Erase 10 packets at random
         let length = packets.len();
         packets.truncate(length - 10);
@@ -409,7 +409,7 @@ mod codec_tests {
         let elements: usize = 10_000;
         let mut data: Vec<u8> = vec![0; elements];
         for element in &mut data {
-            *element = rand::thread_rng().gen();
+            *element = rand::rng().random();
         }
 
         let mut builder = EncoderBuilder::new();
@@ -429,7 +429,7 @@ mod codec_tests {
 
         // Test repair
         let mut packets = encoder.get_encoded_packets(15);
-        packets.shuffle(&mut rand::thread_rng());
+        packets.shuffle(&mut rand::rng());
         // Erase 10 packets at random
         let length = packets.len();
         packets.truncate(length - 10);
@@ -475,7 +475,7 @@ mod codec_tests {
             let elements = symbol_size * symbol_count;
             let mut data: Vec<u8> = vec![0; elements];
             for element in &mut data {
-                *element = rand::thread_rng().gen();
+                *element = rand::rng().random();
             }
 
             if progress && symbol_count % 100 == 0 {
@@ -538,7 +538,7 @@ mod codec_tests {
         let elements = symbol_count * symbol_size as usize;
         let mut data: Vec<u8> = vec![0; elements];
         for byte in data.iter_mut() {
-            *byte = rand::thread_rng().gen();
+            *byte = rand::rng().random();
         }
 
         let total_bytes: usize = 1024 * 1024;
@@ -583,7 +583,7 @@ mod codec_tests {
         let elements = symbol_size * symbol_count;
         let mut data: Vec<u8> = vec![0; elements];
         for element in &mut data {
-            *element = rand::thread_rng().gen();
+            *element = rand::rng().random();
         }
 
         let config = ObjectTransmissionInformation::new(0, 8, 0, 1, 1);
