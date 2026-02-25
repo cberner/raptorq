@@ -301,14 +301,9 @@ pub fn intermediate_tuple(
     let W = lt_symbols;
     let P1 = p1;
 
-    let mut A = 53591 + J * 997;
-
-    if A % 2 == 0 {
-        A += 1;
-    }
-
-    let B = 10267 * (J + 1);
-    let y: u32 = ((B as u64 + internal_symbol_id as u64 * A as u64) % 4294967296) as u32;
+    let A = 53591u32.wrapping_add(J.wrapping_mul(997)) | 1;
+    let B = 10267u32.wrapping_mul(J.wrapping_add(1));
+    let y = B.wrapping_add(internal_symbol_id.wrapping_mul(A));
     let v = rand(y, 0u32, 1048576);
     let d = deg(v, W);
     let a = 1 + rand(y, 1u32, W - 1);
