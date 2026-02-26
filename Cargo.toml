@@ -40,6 +40,10 @@ harness = false
 name = "decode_benchmark"
 harness = false
 
+[[bench]]
+name = "roundtrip_benchmark"
+harness = false
+
 [[example]]
 name = "main"
 required-features = ["std"]
@@ -47,6 +51,15 @@ required-features = ["std"]
 [profile.release]
 debug = true
 lto = false
+codegen-units = 1
+
+[profile.perf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+debug = false
+strip = "symbols"
 
 [features]
 default = ["std"]

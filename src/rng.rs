@@ -227,16 +227,20 @@ const V3: [u32; 256] = [
     3432275192];
 
 // As defined in section 5.3.5.1
-pub fn rand<TI>(y: u32, i: TI, m: u32) -> u32
-where
-    TI: Into<u32>,
-{
+#[inline]
+pub fn rand(y: u32, i: u32, m: u32) -> u32 {
     assert!(m > 0);
-    let i = i.into();
-    let x0 = (y + i) % 256;
-    let x1 = ((y >> 8) + i) % 256;
-    let x2 = ((y >> 16) + i) % 256;
-    let x3 = ((y >> 24) + i) % 256;
 
-    (V0[x0 as usize] ^ V1[x1 as usize] ^ V2[x2 as usize] ^ V3[x3 as usize]) % m
+    let i = i as u8;
+    let x0 = (y as u8).wrapping_add(i) as usize;
+    let x1 = ((y >> 8) as u8).wrapping_add(i) as usize;
+    let x2 = ((y >> 16) as u8).wrapping_add(i) as usize;
+    let x3 = ((y >> 24) as u8).wrapping_add(i) as usize;
+
+    let value = V0[x0] ^ V1[x1] ^ V2[x2] ^ V3[x3];
+    if m.is_power_of_two() {
+        value & (m - 1)
+    } else {
+        value % m
+    }
 }

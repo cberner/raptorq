@@ -1,8 +1,9 @@
 #[cfg(feature = "std")]
+use std::collections::{HashMap, VecDeque};
+#[cfg(feature = "std")]
+use std::sync::{Arc, Mutex, OnceLock};
+#[cfg(feature = "std")]
 use std::vec::Vec;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 use crate::ObjectTransmissionInformation;
 use crate::base::EncodingPacket;
@@ -23,6 +24,8 @@ use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::util::int_div_ceil;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -188,6 +191,55 @@ impl SourceBlockEncodingPlan {
     }
 }
 
+#[cfg(feature = "std")]
+const SOURCE_BLOCK_ENCODING_PLAN_CACHE_CAPACITY: usize = 64;
+
+#[cfg(feature = "std")]
+#[derive(Default)]
+struct SourceBlockEncodingPlanCache {
+    plans: HashMap<u16, Arc<SourceBlockEncodingPlan>>,
+    insertion_order: VecDeque<u16>,
+}
+
+#[cfg(feature = "std")]
+fn source_block_encoding_plan_cache() -> &'static Mutex<SourceBlockEncodingPlanCache> {
+    static CACHE: OnceLock<Mutex<SourceBlockEncodingPlanCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(SourceBlockEncodingPlanCache::default()))
+}
+
+#[cfg(feature = "std")]
+fn get_or_generate_source_block_encoding_plan(symbol_count: u16) -> Arc<SourceBlockEncodingPlan> {
+    {
+        let cache = source_block_encoding_plan_cache();
+        let guard = cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(plan) = guard.plans.get(&symbol_count) {
+            return Arc::clone(plan);
+        }
+    }
+
+    let generated = Arc::new(SourceBlockEncodingPlan::generate(symbol_count));
+    let cache = source_block_encoding_plan_cache();
+    let mut guard = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if let Some(plan) = guard.plans.get(&symbol_count) {
+        return Arc::clone(plan);
+    }
+
+    if guard.plans.len() >= SOURCE_BLOCK_ENCODING_PLAN_CACHE_CAPACITY {
+        if let Some(evicted_symbol_count) = guard.insertion_order.pop_front() {
+            guard.plans.remove(&evicted_symbol_count);
+        }
+    }
+
+    guard.insertion_order.push_back(symbol_count);
+    guard.plans.insert(symbol_count, Arc::clone(&generated));
+    generated
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncoder {
@@ -235,16 +287,34 @@ impl SourceBlockEncoder {
     ) -> SourceBlockEncoder {
         let source_symbols = SourceBlockEncoder::create_symbols(config, data);
 
-        let (intermediate_symbols, _) = gen_intermediate_symbols(
-            &source_symbols,
-            config.symbol_size() as usize,
-            SPARSE_MATRIX_THRESHOLD,
-        );
+        #[cfg(feature = "std")]
+        {
+            let plan = get_or_generate_source_block_encoding_plan(source_symbols.len() as u16);
+            let intermediate_symbols = gen_intermediate_symbols_with_plan(
+                &source_symbols,
+                config.symbol_size() as usize,
+                &plan.operations,
+            );
+            return SourceBlockEncoder {
+                source_block_id,
+                source_symbols,
+                intermediate_symbols,
+            };
+        }
 
-        SourceBlockEncoder {
-            source_block_id,
-            source_symbols,
-            intermediate_symbols: intermediate_symbols.unwrap(),
+        #[cfg(not(feature = "std"))]
+        {
+            let (intermediate_symbols, _) = gen_intermediate_symbols(
+                &source_symbols,
+                config.symbol_size() as usize,
+                SPARSE_MATRIX_THRESHOLD,
+            );
+
+            return SourceBlockEncoder {
+                source_block_id,
+                source_symbols,
+                intermediate_symbols: intermediate_symbols.unwrap(),
+            };
         }
     }
 
@@ -287,23 +357,27 @@ impl SourceBlockEncoder {
 
     // See section 5.3.4
     pub fn repair_packets(&self, start_repair_symbol_id: u32, packets: u32) -> Vec<EncodingPacket> {
-        let start_encoding_symbol_id = start_repair_symbol_id
-            + extended_source_block_symbols(self.source_symbols.len() as u32);
-        let mut result = vec![];
-        let lt_symbols = num_lt_symbols(self.source_symbols.len() as u32);
-        let sys_index = systematic_index(self.source_symbols.len() as u32);
-        let p1 = calculate_p1(self.source_symbols.len() as u32);
+        let source_block_symbols = self.source_symbols.len() as u32;
+        let start_encoding_symbol_id =
+            start_repair_symbol_id + extended_source_block_symbols(source_block_symbols);
+        let mut result = Vec::with_capacity(packets as usize);
+        let lt_symbols = num_lt_symbols(source_block_symbols);
+        let pi_symbols = num_pi_symbols(source_block_symbols);
+        let sys_index = systematic_index(source_block_symbols);
+        let p1 = calculate_p1(source_block_symbols);
         for i in 0..packets {
             let tuple = intermediate_tuple(start_encoding_symbol_id + i, lt_symbols, sys_index, p1);
             result.push(EncodingPacket::new(
                 PayloadId::new(
                     self.source_block_id,
-                    self.source_symbols.len() as u32 + start_repair_symbol_id + i,
+                    source_block_symbols + start_repair_symbol_id + i,
                 ),
-                enc(
-                    self.source_symbols.len() as u32,
+                enc_with_params(
                     &self.intermediate_symbols,
                     tuple,
+                    lt_symbols,
+                    pi_symbols,
+                    p1,
                 )
                 .into_bytes(),
             ));
@@ -375,6 +449,7 @@ fn gen_intermediate_symbols_with_plan(
 }
 
 // Enc[] function, as defined in section 5.3.5.3
+#[cfg(test)]
 #[allow(clippy::many_single_char_names)]
 fn enc(
     source_block_symbols: u32,
@@ -384,30 +459,52 @@ fn enc(
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
     let p1 = calculate_p1(source_block_symbols);
+    enc_with_params(intermediate_symbols, source_tuple, w, p, p1)
+}
+
+#[inline]
+fn add_mod(mut value: u32, addend: u32, modulus: u32) -> u32 {
+    value += addend;
+    if value >= modulus {
+        value -= modulus;
+    }
+    value
+}
+
+// Inner Enc[] function with pre-computed parameters for use in hot loops
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn enc_with_params(
+    intermediate_symbols: &[Symbol],
+    source_tuple: (u32, u32, u32, u32, u32, u32),
+    w: u32,
+    p: u32,
+    p1: u32,
+) -> Symbol {
     let (d, a, mut b, d1, a1, mut b1) = source_tuple;
 
     assert!(1 <= a && a < w);
     assert!(b < w);
     assert!(d1 == 2 || d1 == 3);
-    assert!(1 <= a1 && a < w);
-    assert!(b1 < w);
+    assert!(1 <= a1 && a1 < p1);
+    assert!(b1 < p1);
 
     let mut result = intermediate_symbols[b as usize].clone();
     for _ in 1..d {
-        b = (b + a) % w;
+        b = add_mod(b, a, w);
         result += &intermediate_symbols[b as usize];
     }
 
     while b1 >= p {
-        b1 = (b1 + a1) % p1;
+        b1 = add_mod(b1, a1, p1);
     }
 
     result += &intermediate_symbols[(w + b1) as usize];
 
     for _ in 1..d1 {
-        b1 = (b1 + a1) % p1;
+        b1 = add_mod(b1, a1, p1);
         while b1 >= p {
-            b1 = (b1 + a1) % p1;
+            b1 = add_mod(b1, a1, p1);
         }
         result += &intermediate_symbols[(w + b1) as usize];
     }

@@ -1,4 +1,5 @@
 // Get two non-overlapping ranges starting at i & j, both with length len
+#[inline]
 pub fn get_both_ranges<T>(
     vector: &mut [T],
     i: usize,
@@ -19,6 +20,7 @@ pub fn get_both_ranges<T>(
     }
 }
 
+#[inline]
 pub fn get_both_indices<T>(vector: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
     debug_assert_ne!(i, j);
     debug_assert!(i < vector.len());
@@ -37,6 +39,7 @@ pub fn get_both_indices<T>(vector: &mut [T], i: usize, j: usize) -> (&mut T, &mu
 // (1) the result is known to not overflow u32 from elsewhere;
 // (2) `denom` is known to not be `0` from elsewhere.
 // TODO this is definitely not always the case! Let's do something about it.
+#[inline]
 pub fn int_div_ceil(num: u64, denom: u64) -> u32 {
     if num % denom == 0 {
         (num / denom) as u32
