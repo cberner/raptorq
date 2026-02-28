@@ -389,8 +389,8 @@ fn enc(
     assert!(1 <= a && a < w);
     assert!(b < w);
     assert!(d1 == 2 || d1 == 3);
-    assert!(1 <= a1 && a < w);
-    assert!(b1 < w);
+    assert!(1 <= a1 && a1 < p1);
+    assert!(b1 < p1);
 
     let mut result = intermediate_symbols[b as usize].clone();
     for _ in 1..d {
