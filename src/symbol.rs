@@ -47,6 +47,7 @@ impl Symbol {
     }
 
     /// Return the underlying byte slice for a symbol.
+    #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         &self.value
     }
@@ -56,16 +57,19 @@ impl Symbol {
         self.value
     }
 
+    #[inline]
     pub fn mulassign_scalar(&mut self, scalar: &Octet) {
         mulassign_scalar(&mut self.value, scalar);
     }
 
+    #[inline]
     pub fn fused_addassign_mul_scalar(&mut self, other: &Symbol, scalar: &Octet) {
         fused_addassign_mul_scalar(&mut self.value, &other.value, scalar);
     }
 }
 
 impl<'a> AddAssign<&'a Symbol> for Symbol {
+    #[inline]
     fn add_assign(&mut self, other: &'a Symbol) {
         add_assign(&mut self.value, &other.value);
     }

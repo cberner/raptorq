@@ -134,27 +134,33 @@ pub struct Octet {
 }
 
 impl Octet {
+    #[inline]
     pub fn new(value: u8) -> Octet {
         Octet { value }
     }
 
+    #[inline]
     pub fn zero() -> Octet {
         Octet { value: 0 }
     }
 
+    #[inline]
     pub fn one() -> Octet {
         Octet { value: 1 }
     }
 
+    #[inline]
     pub fn alpha(i: usize) -> Octet {
         assert!(i < 256);
         Octet { value: OCT_EXP[i] }
     }
 
+    #[inline]
     pub fn byte(&self) -> u8 {
         self.value
     }
 
+    #[inline]
     pub fn fma(&mut self, other1: &Octet, other2: &Octet) {
         if other1.value != 0 && other2.value != 0 {
             unsafe {
@@ -171,6 +177,7 @@ impl Octet {
 impl Add for Octet {
     type Output = Octet;
 
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: Octet) -> Octet {
         Octet {
@@ -183,6 +190,7 @@ impl Add for Octet {
 impl<'b> Add<&'b Octet> for &Octet {
     type Output = Octet;
 
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: &'b Octet) -> Octet {
         Octet {
@@ -193,6 +201,7 @@ impl<'b> Add<&'b Octet> for &Octet {
 }
 
 impl AddAssign for Octet {
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl, clippy::suspicious_op_assign_impl)]
     fn add_assign(&mut self, other: Octet) {
         self.value ^= other.value;
@@ -200,6 +209,7 @@ impl AddAssign for Octet {
 }
 
 impl<'a> AddAssign<&'a Octet> for Octet {
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl, clippy::suspicious_op_assign_impl)]
     fn add_assign(&mut self, other: &'a Octet) {
         self.value ^= other.value;
@@ -209,6 +219,7 @@ impl<'a> AddAssign<&'a Octet> for Octet {
 impl Sub for Octet {
     type Output = Octet;
 
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Octet) -> Octet {
         Octet {
@@ -221,6 +232,7 @@ impl Sub for Octet {
 impl Mul for Octet {
     type Output = Octet;
 
+    #[inline]
     fn mul(self, other: Octet) -> Octet {
         &self * &other
     }
@@ -229,6 +241,7 @@ impl Mul for Octet {
 impl<'b> Mul<&'b Octet> for &Octet {
     type Output = Octet;
 
+    #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, other: &'b Octet) -> Octet {
         // As defined in section 5.7.2, multiplication is implemented via the tables above
