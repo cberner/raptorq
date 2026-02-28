@@ -303,7 +303,7 @@ pub fn intermediate_tuple(
 
     let mut A = 53591 + J * 997;
 
-    if A % 2 == 0 {
+    if A.is_multiple_of(2) {
         A += 1;
     }
 
