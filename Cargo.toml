@@ -40,6 +40,11 @@ harness = false
 name = "decode_benchmark"
 harness = false
 
+
+[[bench]]
+name = "roundtrip_benchmark"
+harness = false
+required-features = ["benchmarking"]
 [[example]]
 name = "main"
 required-features = ["std"]
