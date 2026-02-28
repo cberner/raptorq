@@ -36,9 +36,14 @@ impl Symbol {
         }
     }
 
-    #[cfg(feature = "benchmarking")]
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.value.len()
+    }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
     }
 
     /// Return the underlying byte slice for a symbol.

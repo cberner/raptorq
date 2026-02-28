@@ -38,7 +38,7 @@ pub fn get_both_indices<T>(vector: &mut [T], i: usize, j: usize) -> (&mut T, &mu
 // (2) `denom` is known to not be `0` from elsewhere.
 // TODO this is definitely not always the case! Let's do something about it.
 pub fn int_div_ceil(num: u64, denom: u64) -> u32 {
-    if num % denom == 0 {
+    if num.is_multiple_of(denom) {
         (num / denom) as u32
     } else {
         (num / denom + 1) as u32

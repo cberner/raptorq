@@ -156,10 +156,8 @@ impl<'a, T: Iterator<Item = &'a (u16, u16)>> Iterator for AdjacentIterator<T> {
     type Item = u16;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((node, adjacent)) = self.edges.next() {
-            if *node == self.node {
-                return Some(*adjacent);
-            }
+        if let Some((_node, adjacent)) = self.edges.next().filter(|(node, _)| *node == self.node) {
+            return Some(*adjacent);
         }
         None
     }

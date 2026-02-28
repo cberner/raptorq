@@ -1067,7 +1067,7 @@ mod tests {
         for i in 0..=MAX_SOURCE_SYMBOLS_PER_BLOCK {
             let mut p1 = num_pi_symbols(i);
             while !primal::is_prime(p1 as u64) {
-                if p1 % 2 == 0 {
+                if p1.is_multiple_of(2) {
                     p1 += 1;
                 } else {
                     p1 += 2;

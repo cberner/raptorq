@@ -556,10 +556,12 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     #[cfg(debug_assertions)]
     fn get_A_value(&self, row: usize, col: usize) -> Octet {
-        if let Some(ref hdpc) = self.A_hdpc_rows {
-            if row >= self.A.height() - hdpc.height() {
-                return hdpc.get(row - (self.A.height() - hdpc.height()), col);
-            }
+        if let Some(hdpc) = self
+            .A_hdpc_rows
+            .as_ref()
+            .filter(|hdpc| row >= self.A.height() - hdpc.height())
+        {
+            return hdpc.get(row - (self.A.height() - hdpc.height()), col);
         }
         return self.A.get(row, col);
     }
