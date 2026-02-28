@@ -30,6 +30,7 @@ impl SparseBinaryVec {
         self.elements.binary_search(&i)
     }
 
+    #[allow(dead_code)]
     pub fn size_in_bytes(&self) -> usize {
         size_of::<Self>() + size_of::<u16>() * self.elements.len()
     }
