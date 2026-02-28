@@ -82,6 +82,7 @@ impl BinaryOctetVec {
     }
 }
 
+#[inline]
 pub fn fused_addassign_mul_scalar_binary(
     octets: &mut [u8],
     other: &BinaryOctetVec,
@@ -415,6 +416,7 @@ unsafe fn mulassign_scalar_ssse3(octets: &mut [u8], scalar: &Octet) {
     }
 }
 
+#[inline]
 pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
@@ -611,6 +613,7 @@ unsafe fn fused_addassign_mul_scalar_ssse3(octets: &mut [u8], other: &[u8], scal
     }
 }
 
+#[inline]
 pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     debug_assert_ne!(
         *scalar,
@@ -834,6 +837,7 @@ unsafe fn add_assign_ssse3(octets: &mut [u8], other: &[u8]) {
     }
 }
 
+#[inline]
 pub fn add_assign(octets: &mut [u8], other: &[u8]) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
