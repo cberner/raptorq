@@ -253,7 +253,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         }
     }
 
-    fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter {
+    fn get_row_iter(&self, row: usize, start_col: usize, end_col: usize) -> OctetIter<'_> {
         if end_col > self.width - self.num_dense_columns {
             unimplemented!(
                 "It was assumed that this wouldn't be needed, because the method would only be called on the V section of matrix A"
