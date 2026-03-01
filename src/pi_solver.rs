@@ -514,6 +514,56 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         temp
     }
 
+    /// Creates a solver without HDPC rows.
+    /// Used when decoding with sufficient overhead to solve the system in GF(2) only.
+    /// The constraint matrix must NOT contain HDPC rows (G_ENC starts at row S).
+    pub fn new_no_hdpc(
+        matrix: T,
+        symbols: Vec<Symbol>,
+        num_source_symbols: u32,
+    ) -> IntermediateSymbolDecoder<T> {
+        assert!(matrix.width() <= symbols.len());
+        assert_eq!(matrix.height(), symbols.len());
+        let mut c = Vec::with_capacity(matrix.width());
+        let mut d = Vec::with_capacity(symbols.len());
+        for i in 0..matrix.width() {
+            c.push(i);
+        }
+        for i in 0..symbols.len() {
+            d.push(i);
+        }
+
+        let intermediate_symbols = num_intermediate_symbols(num_source_symbols) as usize;
+        let pi_symbols = num_pi_symbols(num_source_symbols) as usize;
+        #[cfg(debug_assertions)]
+        let mut X = matrix.clone();
+        #[cfg(debug_assertions)]
+        X.resize(X.height(), X.width() - pi_symbols);
+
+        let mut A = matrix;
+        A.enable_column_access_acceleration();
+
+        IntermediateSymbolDecoder {
+            A,
+            A_hdpc_rows: None,
+            #[cfg(debug_assertions)]
+            X,
+            D: symbols,
+            c,
+            d,
+            i: 0,
+            u: pi_symbols,
+            L: intermediate_symbols,
+            deferred_D_ops: Vec::with_capacity(70 * intermediate_symbols),
+            num_source_symbols,
+            debug_symbol_mul_ops: 0,
+            debug_symbol_add_ops: 0,
+            debug_symbol_mul_ops_by_phase: vec![0; 5],
+            debug_symbol_add_ops_by_phase: vec![0; 5],
+        }
+        // No HDPC row swapping needed — matrix has no HDPC rows
+    }
+
     #[inline(never)]
     fn apply_deferred_symbol_ops(&mut self) {
         for op in self.deferred_D_ops.iter() {
@@ -667,7 +717,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         //    +-----------+-----------------+---------+
         // Figure 6: Submatrices of A in the First Phase
 
-        let num_hdpc_rows = self.A_hdpc_rows.as_ref().unwrap().height();
+        let num_hdpc_rows = self.A_hdpc_rows.as_ref().map_or(0, |h| h.height());
 
         let mut selection_helper = FirstPhaseRowSelectionStats::new(
             &self.A,
@@ -718,7 +768,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                     .get_ones_in_column(temp, self.i + 1, self.A.height() - num_hdpc_rows);
             selection_helper.resize(
                 self.i + 1,
-                self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
+                self.A.height() - num_hdpc_rows,
                 self.i + 1,
                 self.A.width() - self.u - (r - 1),
                 &ones_in_column,
@@ -752,26 +802,28 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             }
 
             // apply to hdpc rows as well, which are stored separately
-            let pi_octets = self
-                .A
-                .get_sub_row_as_octets(temp, self.A.width() - (self.u + r - 1));
-            for row in 0..num_hdpc_rows {
-                let leading_value = self.A_hdpc_rows.as_ref().unwrap().get(row, temp);
-                if leading_value != Octet::zero() {
-                    // Addition is equivalent to subtraction
-                    let beta = &leading_value / &temp_value;
-                    self.fma_rows_with_pi(
-                        temp,
-                        row + (self.A.height() - num_hdpc_rows),
-                        beta,
-                        // self.i is the only non-PI column which can have a nonzero,
-                        // since all the rest were column swapped into the PI submatrix.
-                        Some(temp),
-                        Some(&pi_octets),
-                        0,
-                    );
-                    // It's safe to skip updating the selection helper, since it will never
-                    // select an HDPC row
+            if num_hdpc_rows > 0 {
+                let pi_octets = self
+                    .A
+                    .get_sub_row_as_octets(temp, self.A.width() - (self.u + r - 1));
+                for row in 0..num_hdpc_rows {
+                    let leading_value = self.A_hdpc_rows.as_ref().unwrap().get(row, temp);
+                    if leading_value != Octet::zero() {
+                        // Addition is equivalent to subtraction
+                        let beta = &leading_value / &temp_value;
+                        self.fma_rows_with_pi(
+                            temp,
+                            row + (self.A.height() - num_hdpc_rows),
+                            beta,
+                            // self.i is the only non-PI column which can have a nonzero,
+                            // since all the rest were column swapped into the PI submatrix.
+                            Some(temp),
+                            Some(&pi_octets),
+                            0,
+                        );
+                        // It's safe to skip updating the selection helper, since it will never
+                        // select an HDPC row
+                    }
                 }
             }
 
@@ -840,7 +892,10 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         let temp = self.i;
         let size = self.u;
         // HDPC rows can be removed, since they can't have been selected for U_upper
-        let hdpc_rows = self.A_hdpc_rows.take().unwrap();
+        let hdpc_rows = self
+            .A_hdpc_rows
+            .take()
+            .unwrap_or_else(|| DenseOctetMatrix::new(0, size, 0));
         if let Some(submatrix) = self.record_reduce_to_row_echelon(hdpc_rows, temp, temp, size) {
             // Perform backwards elimination
             self.backwards_elimination(submatrix, temp, temp, size);
@@ -1268,10 +1323,9 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     fn swap_columns(&mut self, j: usize, jprime: usize, start_row: usize) {
         self.A.swap_columns(j, jprime, start_row);
-        self.A_hdpc_rows
-            .as_mut()
-            .unwrap()
-            .swap_columns(j, jprime, 0);
+        if let Some(ref mut hdpc) = self.A_hdpc_rows {
+            hdpc.swap_columns(j, jprime, 0);
+        }
         self.c.swap(j, jprime);
     }
 
@@ -1333,6 +1387,16 @@ pub fn fused_inverse_mul_symbols<T: BinaryMatrix>(
     num_source_symbols: u32,
 ) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
     IntermediateSymbolDecoder::new(matrix, hdpc_rows, symbols, num_source_symbols).execute()
+}
+
+// Fused implementation without HDPC rows.
+// Used during decoding with sufficient overhead to solve in GF(2) only.
+pub fn fused_inverse_mul_symbols_no_hdpc<T: BinaryMatrix>(
+    matrix: T,
+    symbols: Vec<Symbol>,
+    num_source_symbols: u32,
+) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+    IntermediateSymbolDecoder::new_no_hdpc(matrix, symbols, num_source_symbols).execute()
 }
 
 #[cfg(feature = "std")]

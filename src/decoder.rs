@@ -13,16 +13,19 @@ use crate::base::intermediate_tuple;
 use crate::base::partition;
 use crate::constraint_matrix::enc_indices;
 use crate::constraint_matrix::generate_constraint_matrix;
+use crate::constraint_matrix::generate_constraint_matrix_no_hdpc;
 use crate::encoder::SPARSE_MATRIX_THRESHOLD;
 use crate::matrix::{BinaryMatrix, DenseBinaryMatrix};
 use crate::octet_matrix::DenseOctetMatrix;
 use crate::pi_solver::fused_inverse_mul_symbols;
+use crate::pi_solver::fused_inverse_mul_symbols_no_hdpc;
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::{
-    calculate_p1, extended_source_block_symbols, num_lt_symbols, num_pi_symbols, systematic_index,
+    calculate_p1, extended_source_block_symbols, num_intermediate_symbols, num_lt_symbols,
+    num_pi_symbols, systematic_index,
 };
 use crate::util::int_div_ceil;
 #[cfg(feature = "serde_support")]
@@ -227,6 +230,47 @@ impl SourceBlockDecoder {
         return Some(result);
     }
 
+    /// Attempt to decode without HDPC rows (pure GF(2) solve).
+    /// Returns None if the GF(2)-only system is rank-deficient.
+    fn try_pi_decode_no_hdpc(
+        &mut self,
+        constraint_matrix: impl BinaryMatrix,
+        symbols: Vec<Symbol>,
+    ) -> Option<Vec<u8>> {
+        let intermediate_symbols = match fused_inverse_mul_symbols_no_hdpc(
+            constraint_matrix,
+            symbols,
+            self.source_block_symbols,
+        ) {
+            (None, _) => return None,
+            (Some(s), _) => s,
+        };
+
+        let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
+        let lt_symbols = num_lt_symbols(self.source_block_symbols);
+        let pi_symbols = num_pi_symbols(self.source_block_symbols);
+        let sys_index = systematic_index(self.source_block_symbols);
+        let p1 = calculate_p1(self.source_block_symbols);
+        for i in 0..self.source_block_symbols as usize {
+            if let Some(ref symbol) = self.source_symbols[i] {
+                self.unpack_sub_blocks(&mut result, symbol, i);
+            } else {
+                let rebuilt = self.rebuild_source_symbol(
+                    &intermediate_symbols,
+                    i as u32,
+                    lt_symbols,
+                    pi_symbols,
+                    sys_index,
+                    p1,
+                );
+                self.unpack_sub_blocks(&mut result, &rebuilt, i);
+            }
+        }
+
+        self.decoded = true;
+        return Some(result);
+    }
+
     pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
         &mut self,
         packets: T,
@@ -275,27 +319,66 @@ impl SourceBlockDecoder {
         // Case 3: we may have sufficient symbols to do a standard decoding
         let s = num_ldpc_symbols(self.source_block_symbols) as usize;
         let h = num_hdpc_symbols(self.source_block_symbols) as usize;
+        let l = num_intermediate_symbols(self.source_block_symbols) as usize;
 
         let mut encoded_isis = vec![];
-        // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
-        let mut d = vec![Symbol::zero(self.symbol_size); s + h];
         for (i, source) in self.source_symbols.iter().enumerate() {
-            if let Some(symbol) = source {
+            if source.is_some() {
                 encoded_isis.push(i as u32);
-                d.push(symbol.clone());
             }
         }
-
-        // Append the extended padding symbols
         for i in self.source_block_symbols..num_extended_symbols {
             encoded_isis.push(i);
-            d.push(Symbol::zero(self.symbol_size));
+        }
+        for repair_packet in self.repair_packets.iter() {
+            encoded_isis.push(repair_packet.payload_id.encoding_symbol_id() + num_padding_symbols);
         }
 
-        // Append the received repair symbols
+        // Case 3a: try to solve without HDPC rows (pure GF(2)) when we have enough overhead.
+        // This avoids expensive GF(256) operations in the solver.
+        // We need at least L total rows: S LDPC + encoded >= L, i.e. encoded >= K' + H.
+        if s + encoded_isis.len() >= l {
+            let mut d_no_hdpc = vec![Symbol::zero(self.symbol_size); s];
+            for symbol in self.source_symbols.iter().flatten() {
+                d_no_hdpc.push(symbol.clone());
+            }
+            for _i in self.source_block_symbols..num_extended_symbols {
+                d_no_hdpc.push(Symbol::zero(self.symbol_size));
+            }
+            for repair_packet in self.repair_packets.iter() {
+                d_no_hdpc.push(Symbol::new(repair_packet.data.clone()));
+            }
+
+            let result = if num_extended_symbols >= self.sparse_threshold {
+                let matrix = generate_constraint_matrix_no_hdpc::<SparseBinaryMatrix>(
+                    self.source_block_symbols,
+                    &encoded_isis,
+                );
+                self.try_pi_decode_no_hdpc(matrix, d_no_hdpc)
+            } else {
+                let matrix = generate_constraint_matrix_no_hdpc::<DenseBinaryMatrix>(
+                    self.source_block_symbols,
+                    &encoded_isis,
+                );
+                self.try_pi_decode_no_hdpc(matrix, d_no_hdpc)
+            };
+            if result.is_some() {
+                return result;
+            }
+            // Reset decoded flag since the no-HDPC attempt may have set it on a false path
+            self.decoded = false;
+        }
+
+        // Case 3b: standard decode with HDPC rows
+        // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
+        let mut d = vec![Symbol::zero(self.symbol_size); s + h];
+        for symbol in self.source_symbols.iter().flatten() {
+            d.push(symbol.clone());
+        }
+        for _i in self.source_block_symbols..num_extended_symbols {
+            d.push(Symbol::zero(self.symbol_size));
+        }
         for repair_packet in self.repair_packets.iter() {
-            // We need to convert from ESI to ISI
-            encoded_isis.push(repair_packet.payload_id.encoding_symbol_id() + num_padding_symbols);
             d.push(Symbol::new(repair_packet.data.clone()));
         }
 
@@ -351,6 +434,7 @@ mod codec_tests {
 
     #[cfg(not(feature = "python"))]
     use crate::Decoder;
+    use crate::systematic_constants::{num_intermediate_symbols, num_ldpc_symbols};
     #[cfg(not(feature = "python"))]
     use crate::{Encoder, EncoderBuilder};
     use crate::{
@@ -611,5 +695,93 @@ mod codec_tests {
         }
 
         return result.unwrap() == data;
+    }
+
+    /// Test that the no-HDPC decode path produces identical results to the standard path
+    /// across a range of symbol counts and overhead levels.
+    #[test]
+    fn decode_no_hdpc_matches_standard() {
+        let symbol_size = 8;
+        // Symbol counts spanning small (no-HDPC won't trigger) to large (will trigger)
+        for symbol_count in [10, 50, 100, 250, 500] {
+            let elements = symbol_size * symbol_count;
+            let mut data: Vec<u8> = vec![0; elements];
+            for element in &mut data {
+                *element = rand::rng().random();
+            }
+
+            let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+            let encoder = SourceBlockEncoder::new(1, &config, &data);
+
+            // Drop one source packet so we cannot return via the all-source fast path.
+            let mut source_packets = encoder.source_packets();
+            source_packets.remove(0);
+
+            // Ensure we cross the no-HDPC trigger: S + encoded >= L.
+            let k = symbol_count as u32;
+            let required_repair = num_intermediate_symbols(k) - num_ldpc_symbols(k);
+            let repair_count = required_repair + 4;
+            let repair_packets = encoder.repair_packets(0, repair_count);
+
+            let received_encoded = source_packets.len() as u32 + repair_count;
+            assert!(num_ldpc_symbols(k) + received_encoded >= num_intermediate_symbols(k));
+
+            let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
+            let all_packets = source_packets.into_iter().chain(repair_packets);
+            let result = decoder.decode(all_packets);
+
+            assert!(
+                result.is_some(),
+                "Failed to decode with 10% overhead at symbol_count={symbol_count}"
+            );
+            assert_eq!(
+                result.unwrap(),
+                data,
+                "Decoded data mismatch at symbol_count={symbol_count}"
+            );
+        }
+    }
+
+    /// Test that the no-HDPC decode path works when only repair packets are used
+    /// (all source packets lost, heavy overhead).
+    #[test]
+    fn decode_no_hdpc_repair_only() {
+        let symbol_size = 8;
+        for symbol_count in [100, 250, 500] {
+            let elements = symbol_size * symbol_count;
+            let mut data: Vec<u8> = vec![0; elements];
+            for element in &mut data {
+                *element = rand::rng().random();
+            }
+
+            let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+            let encoder = SourceBlockEncoder::new(1, &config, &data);
+
+            // Ensure we cross the no-HDPC trigger: S + encoded >= L.
+            // In repair-only mode, encoded == repair_count.
+            let k = symbol_count as u32;
+            let required_repair = num_intermediate_symbols(k) - num_ldpc_symbols(k);
+            let repair_count = required_repair + 4;
+            let repair_packets = encoder.repair_packets(0, repair_count);
+
+            let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
+            let mut result = None;
+            for packet in repair_packets {
+                result = decoder.decode(iter::once(packet));
+                if result.is_some() {
+                    break;
+                }
+            }
+
+            assert!(
+                result.is_some(),
+                "Failed to decode repair-only at symbol_count={symbol_count}"
+            );
+            assert_eq!(
+                result.unwrap(),
+                data,
+                "Decoded data mismatch (repair-only) at symbol_count={symbol_count}"
+            );
+        }
     }
 }
