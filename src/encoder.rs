@@ -12,10 +12,12 @@ use crate::base::intermediate_tuple;
 use crate::base::partition;
 use crate::constraint_matrix::generate_constraint_matrix;
 use crate::matrix::DenseBinaryMatrix;
+use crate::octets::add_assign;
 use crate::operation_vector::{SymbolOps, perform_op};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
+use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -244,7 +246,7 @@ fn get_or_generate_source_block_encoding_plan(symbol_count: u16) -> Arc<SourceBl
 pub struct SourceBlockEncoder {
     source_block_id: u8,
     source_symbols: Vec<Symbol>,
-    intermediate_symbols: Vec<Symbol>,
+    intermediate_symbols: SymbolSlab,
 }
 
 impl SourceBlockEncoder {
@@ -307,7 +309,7 @@ impl SourceBlockEncoder {
 
         #[cfg(not(feature = "std"))]
         {
-            let (intermediate_symbols, _) = gen_intermediate_symbols(
+            let (intermediate_symbols, _operations) = gen_intermediate_symbols(
                 &source_symbols,
                 config.symbol_size() as usize,
                 SPARSE_MATRIX_THRESHOLD,
@@ -345,14 +347,11 @@ impl SourceBlockEncoder {
     }
 
     pub fn source_packets(&self) -> Vec<EncodingPacket> {
-        let mut esi: i32 = -1;
-        self.source_symbols
-            .iter()
-            .map(|symbol| {
-                esi += 1;
+        (0..self.source_symbols.len())
+            .map(|i| {
                 EncodingPacket::new(
-                    PayloadId::new(self.source_block_id, esi as u32),
-                    symbol.as_bytes().to_vec(),
+                    PayloadId::new(self.source_block_id, i as u32),
+                    self.source_symbols[i].as_bytes().to_vec(),
                 )
             })
             .collect()
@@ -366,19 +365,22 @@ impl SourceBlockEncoder {
         let lt_symbols = num_lt_symbols(self.source_symbols.len() as u32);
         let sys_index = systematic_index(self.source_symbols.len() as u32);
         let p1 = calculate_p1(self.source_symbols.len() as u32);
+        let symbol_size = self.intermediate_symbols.symbol_size();
         for i in 0..packets {
             let tuple = intermediate_tuple(start_encoding_symbol_id + i, lt_symbols, sys_index, p1);
+            let mut data = vec![0u8; symbol_size];
+            enc_into(
+                &mut data,
+                self.source_symbols.len() as u32,
+                &self.intermediate_symbols,
+                tuple,
+            );
             result.push(EncodingPacket::new(
                 PayloadId::new(
                     self.source_block_id,
                     self.source_symbols.len() as u32 + start_repair_symbol_id + i,
                 ),
-                enc(
-                    self.source_symbols.len() as u32,
-                    &self.intermediate_symbols,
-                    tuple,
-                )
-                .into_bytes(),
+                data,
             ));
         }
         result
@@ -389,24 +391,20 @@ impl SourceBlockEncoder {
 fn create_d(
     source_block: &[Symbol],
     symbol_size: usize,
-    extended_source_symbols: usize,
-) -> Vec<Symbol> {
+    _extended_source_symbols: usize,
+) -> SymbolSlab {
     let L = num_intermediate_symbols(source_block.len() as u32);
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
 
-    let mut D = Vec::with_capacity(L as usize);
-    for _ in 0..(S + H) {
-        D.push(Symbol::zero(symbol_size));
+    let mut D = SymbolSlab::with_zeros(L as usize, symbol_size);
+    // First S+H entries are zero (already set).
+    // Copy source symbols into positions S+H..
+    for (i, symbol) in source_block.iter().enumerate() {
+        D.get_mut((S + H) as usize + i)
+            .copy_from_slice(symbol.as_bytes());
     }
-    for symbol in source_block {
-        D.push(symbol.clone());
-    }
-    // Extend the source block with padding. See section 5.3.2
-    for _ in 0..(extended_source_symbols - source_block.len()) {
-        D.push(Symbol::zero(symbol_size));
-    }
-    assert_eq!(D.len(), L as usize);
+    // Extended padding symbols stay zero.
     D
 }
 
@@ -416,28 +414,29 @@ fn gen_intermediate_symbols(
     source_block: &[Symbol],
     symbol_size: usize,
     sparse_threshold: u32,
-) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
     let D = create_d(source_block, symbol_size, extended_source_symbols as usize);
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
-    if extended_source_symbols >= sparse_threshold {
+    let (intermediate_symbols, operations) = if extended_source_symbols >= sparse_threshold {
         let (A, hdpc) =
             generate_constraint_matrix::<SparseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols);
+        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols)
     } else {
         let (A, hdpc) =
             generate_constraint_matrix::<DenseBinaryMatrix>(extended_source_symbols, &indices);
-        return fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols);
-    }
-}
+        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols)
+    };
 
+    (intermediate_symbols, operations)
+}
 #[allow(non_snake_case)]
 fn gen_intermediate_symbols_with_plan(
     source_block: &[Symbol],
     symbol_size: usize,
     operation_vector: &[SymbolOps],
-) -> Vec<Symbol> {
+) -> SymbolSlab {
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
     let mut D = create_d(source_block, symbol_size, extended_source_symbols as usize);
 
@@ -447,13 +446,15 @@ fn gen_intermediate_symbols_with_plan(
     D
 }
 
-// Enc[] function, as defined in section 5.3.5.3
+// Allocation-free Enc[] function, as defined in section 5.3.5.3.
+// Writes the encoded symbol directly into `dest`.
 #[allow(clippy::many_single_char_names)]
-fn enc(
+fn enc_into(
+    dest: &mut [u8],
     source_block_symbols: u32,
-    intermediate_symbols: &[Symbol],
+    intermediate_symbols: &SymbolSlab,
     source_tuple: (u32, u32, u32, u32, u32, u32),
-) -> Symbol {
+) {
     let w = num_lt_symbols(source_block_symbols);
     let p = num_pi_symbols(source_block_symbols);
     let p1 = calculate_p1(source_block_symbols);
@@ -465,27 +466,25 @@ fn enc(
     assert!(1 <= a1 && a1 < p1);
     assert!(b1 < p1);
 
-    let mut result = intermediate_symbols[b as usize].clone();
+    dest.copy_from_slice(intermediate_symbols.get(b as usize));
     for _ in 1..d {
         b = (b + a) % w;
-        result += &intermediate_symbols[b as usize];
+        add_assign(dest, intermediate_symbols.get(b as usize));
     }
 
     while b1 >= p {
         b1 = (b1 + a1) % p1;
     }
 
-    result += &intermediate_symbols[(w + b1) as usize];
+    add_assign(dest, intermediate_symbols.get((w + b1) as usize));
 
     for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
         }
-        result += &intermediate_symbols[(w + b1) as usize];
+        add_assign(dest, intermediate_symbols.get((w + b1) as usize));
     }
-
-    result
 }
 
 #[cfg(feature = "std")]
@@ -552,8 +551,9 @@ mod tests {
         // See section 5.3.3.4.1, item 1.
         for (i, source_symbol) in source_symbols.iter().enumerate() {
             let tuple = intermediate_tuple(i as u32, lt_symbols, sys_index, p1);
-            let encoded = enc(NUM_SYMBOLS, &intermediate_symbols, tuple);
-            assert_eq!(source_symbol, &encoded);
+            let mut encoded = vec![0u8; SYMBOL_SIZE];
+            enc_into(&mut encoded, NUM_SYMBOLS, &intermediate_symbols, tuple);
+            assert_eq!(source_symbol.as_bytes(), &encoded[..]);
         }
     }
 
@@ -578,32 +578,31 @@ mod tests {
         let B = W - S;
 
         // See section 5.3.3.3
-        let mut D = vec![];
-        for i in 0..S {
-            D.push(C[B + i].clone());
-        }
+        // Work with raw byte slices from the slab
+        let ss = C.symbol_size();
+        let mut D: Vec<Vec<u8>> = (0..S).map(|i| C.get(B + i).to_vec()).collect();
 
         for i in 0..B {
             let a = 1 + i / S;
             let b = i % S;
-            D[b] += &C[i];
+            crate::octets::add_assign(&mut D[b], C.get(i));
 
             let b = (b + a) % S;
-            D[b] += &C[i];
+            crate::octets::add_assign(&mut D[b], C.get(i));
 
             let b = (b + a) % S;
-            D[b] += &C[i];
+            crate::octets::add_assign(&mut D[b], C.get(i));
         }
 
         for i in 0..S {
             let a = i % P;
             let b = (i + 1) % P;
-            D[i] += &C[W + a];
-            D[i] += &C[W + b];
+            crate::octets::add_assign(&mut D[i], C.get(W + a));
+            crate::octets::add_assign(&mut D[i], C.get(W + b));
         }
 
         for i in 0..S {
-            assert_eq!(Symbol::zero(SYMBOL_SIZE), D[i]);
+            assert_eq!(vec![0u8; ss], D[i]);
         }
     }
 
