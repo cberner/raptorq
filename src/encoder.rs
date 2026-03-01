@@ -1,8 +1,9 @@
 #[cfg(feature = "std")]
+use std::collections::{HashMap, VecDeque};
+#[cfg(feature = "std")]
+use std::sync::{Arc, Mutex, OnceLock};
+#[cfg(feature = "std")]
 use std::vec::Vec;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 use crate::ObjectTransmissionInformation;
 use crate::base::EncodingPacket;
@@ -23,6 +24,8 @@ use crate::systematic_constants::num_lt_symbols;
 use crate::systematic_constants::num_pi_symbols;
 use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::util::int_div_ceil;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -188,6 +191,54 @@ impl SourceBlockEncodingPlan {
     }
 }
 
+#[cfg(feature = "std")]
+const SOURCE_BLOCK_ENCODING_PLAN_CACHE_CAPACITY: usize = 64;
+
+#[cfg(feature = "std")]
+#[derive(Default)]
+struct SourceBlockEncodingPlanCache {
+    plans: HashMap<u16, Arc<SourceBlockEncodingPlan>>,
+    insertion_order: VecDeque<u16>,
+}
+
+#[cfg(feature = "std")]
+fn source_block_encoding_plan_cache() -> &'static Mutex<SourceBlockEncodingPlanCache> {
+    static CACHE: OnceLock<Mutex<SourceBlockEncodingPlanCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(SourceBlockEncodingPlanCache::default()))
+}
+
+#[cfg(feature = "std")]
+fn get_or_generate_source_block_encoding_plan(symbol_count: u16) -> Arc<SourceBlockEncodingPlan> {
+    {
+        let cache = source_block_encoding_plan_cache();
+        let guard = cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(plan) = guard.plans.get(&symbol_count) {
+            return Arc::clone(plan);
+        }
+    }
+
+    let generated = Arc::new(SourceBlockEncodingPlan::generate(symbol_count));
+    let cache = source_block_encoding_plan_cache();
+    let mut guard = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if let Some(plan) = guard.plans.get(&symbol_count) {
+        return Arc::clone(plan);
+    }
+
+    if guard.plans.len() >= SOURCE_BLOCK_ENCODING_PLAN_CACHE_CAPACITY
+        && let Some(evicted_symbol_count) = guard.insertion_order.pop_front()
+    {
+        guard.plans.remove(&evicted_symbol_count);
+    }
+
+    guard.insertion_order.push_back(symbol_count);
+    guard.plans.insert(symbol_count, Arc::clone(&generated));
+    generated
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncoder {
@@ -235,16 +286,38 @@ impl SourceBlockEncoder {
     ) -> SourceBlockEncoder {
         let source_symbols = SourceBlockEncoder::create_symbols(config, data);
 
-        let (intermediate_symbols, _) = gen_intermediate_symbols(
-            &source_symbols,
-            config.symbol_size() as usize,
-            SPARSE_MATRIX_THRESHOLD,
-        );
+        #[cfg(feature = "std")]
+        {
+            assert!(
+                source_symbols.len() <= u16::MAX as usize,
+                "source_symbols.len() exceeds u16::MAX"
+            );
+            let plan = get_or_generate_source_block_encoding_plan(source_symbols.len() as u16);
+            let intermediate_symbols = gen_intermediate_symbols_with_plan(
+                &source_symbols,
+                config.symbol_size() as usize,
+                &plan.operations,
+            );
+            return SourceBlockEncoder {
+                source_block_id,
+                source_symbols,
+                intermediate_symbols,
+            };
+        }
 
-        SourceBlockEncoder {
-            source_block_id,
-            source_symbols,
-            intermediate_symbols: intermediate_symbols.unwrap(),
+        #[cfg(not(feature = "std"))]
+        {
+            let (intermediate_symbols, _) = gen_intermediate_symbols(
+                &source_symbols,
+                config.symbol_size() as usize,
+                SPARSE_MATRIX_THRESHOLD,
+            );
+
+            return SourceBlockEncoder {
+                source_block_id,
+                source_symbols,
+                intermediate_symbols: intermediate_symbols.unwrap(),
+            };
         }
     }
 
