@@ -202,11 +202,18 @@ impl BinaryMatrix for SparseBinaryMatrix {
     }
 
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {
+        let mut result = Vec::with_capacity(self.num_dense_columns);
+        self.query_non_zero_columns_into(row, start_col, &mut result);
+        result
+    }
+
+    fn query_non_zero_columns_into(&self, row: usize, start_col: usize, out: &mut Vec<usize>) {
         // The following implementation is equivalent to .filter(|x| self.get(row, x) != Octet::zero())
         // but this implementation optimizes for sequential access and avoids all the
         // extra bit index math
         assert_eq!(start_col, self.width - self.num_dense_columns);
-        let mut result = vec![];
+        out.clear();
+        out.reserve(self.num_dense_columns);
         let physical_row = self.logical_row_to_physical[row] as usize;
         let (mut word, bit) =
             self.bit_position(physical_row, self.logical_col_to_dense_col(start_col));
@@ -216,7 +223,7 @@ impl BinaryMatrix for SparseBinaryMatrix {
         // must be the column we're looking for, so they're no need to zero out columns left of it.
         let mut block = self.dense_elements[word];
         while block.trailing_zeros() < WORD_WIDTH as u32 {
-            result.push(col + block.trailing_zeros() as usize - bit);
+            out.push(col + block.trailing_zeros() as usize - bit);
             block &= !(SparseBinaryMatrix::select_mask(block.trailing_zeros() as usize));
         }
         col += WORD_WIDTH - bit;
@@ -226,14 +233,12 @@ impl BinaryMatrix for SparseBinaryMatrix {
             let mut block = self.dense_elements[word];
             // process the whole word in one shot to improve efficiency
             while block.trailing_zeros() < WORD_WIDTH as u32 {
-                result.push(col + block.trailing_zeros() as usize);
+                out.push(col + block.trailing_zeros() as usize);
                 block &= !(SparseBinaryMatrix::select_mask(block.trailing_zeros() as usize));
             }
             col += WORD_WIDTH;
             word += 1;
         }
-
-        result
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
@@ -270,11 +275,24 @@ impl BinaryMatrix for SparseBinaryMatrix {
     }
 
     fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32> {
+        let mut rows = Vec::with_capacity(end_row.saturating_sub(start_row));
+        self.get_ones_in_column_into(col, start_row, end_row, &mut rows);
+        rows
+    }
+
+    fn get_ones_in_column_into(
+        &self,
+        col: usize,
+        start_row: usize,
+        end_row: usize,
+        out: &mut Vec<u32>,
+    ) {
         assert!(!self.column_index_disabled);
         #[cfg(debug_assertions)]
         debug_assert!(self.debug_indexed_column_valid[col]);
         let physical_col = self.logical_col_to_physical[col];
-        let mut rows = vec![];
+        out.clear();
+        out.reserve(end_row.saturating_sub(start_row));
         for physical_row in self
             .sparse_columnar_values
             .as_ref()
@@ -283,11 +301,9 @@ impl BinaryMatrix for SparseBinaryMatrix {
         {
             let logical_row = self.physical_row_to_logical[*physical_row as usize];
             if start_row <= logical_row as usize && logical_row < end_row as u32 {
-                rows.push(logical_row);
+                out.push(logical_row);
             }
         }
-
-        rows
     }
 
     fn swap_rows(&mut self, i: usize, j: usize) {
