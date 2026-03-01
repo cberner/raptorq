@@ -19,12 +19,13 @@ use crate::systematic_constants::{calculate_p1, systematic_index};
 
 // Simulates Enc[] function to get indices of accessed intermediate symbols, as defined in section 5.3.5.3
 #[allow(clippy::many_single_char_names)]
-pub fn enc_indices(
+pub fn enc_indices<F: FnMut(usize)>(
     source_tuple: (u32, u32, u32, u32, u32, u32),
     lt_symbols: u32,
     pi_symbols: u32,
     p1: u32,
-) -> Vec<usize> {
+    mut f: F,
+) {
     let w = lt_symbols;
     let p = pi_symbols;
     let (d, a, mut b, d1, a1, mut b1) = source_tuple;
@@ -36,29 +37,26 @@ pub fn enc_indices(
     assert!(1 <= a1 && a1 < p1);
     assert!(b1 < p1);
 
-    let mut indices = Vec::with_capacity((d + d1) as usize);
-    indices.push(b as usize);
+    f(b as usize);
 
     for _ in 1..d {
         b = (b + a) % w;
-        indices.push(b as usize);
+        f(b as usize);
     }
 
     while b1 >= p {
         b1 = (b1 + a1) % p1;
     }
 
-    indices.push((w + b1) as usize);
+    f((w + b1) as usize);
 
     for _ in 1..d1 {
         b1 = (b1 + a1) % p1;
         while b1 >= p {
             b1 = (b1 + a1) % p1;
         }
-        indices.push((w + b1) as usize);
+        f((w + b1) as usize);
     }
-
-    indices
 }
 
 #[allow(non_snake_case)]
@@ -166,9 +164,9 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
         // row != i, because i is the ESI
         let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
 
-        for j in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
+        enc_indices(tuple, lt_symbols, pi_symbols, p1, |j| {
             matrix.set(row + S + H, j, Octet::one());
-        }
+        });
     }
 
     (matrix, generate_hdpc_rows(Kprime, S, H))
