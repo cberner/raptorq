@@ -209,8 +209,10 @@ impl FirstPhaseRowSelectionStats {
 
         self.col_graph.remove_node(start_col - 1);
 
+        let mut ones_in_removed_col = Vec::new();
         for col in end_col..self.end_col {
-            for row in matrix.get_ones_in_column(col, self.start_row, end_row) {
+            matrix.get_ones_in_column_into(col, self.start_row, end_row, &mut ones_in_removed_col);
+            for row in ones_in_removed_col.iter().copied() {
                 let row = row as usize;
                 self.ones_per_row.decrement(row);
                 let ones = self.ones_per_row.get(row);
@@ -320,6 +322,7 @@ impl FirstPhaseRowSelectionStats {
         start_row: usize,
         end_row: usize,
         matrix: &T,
+        ones_in_column: &mut Vec<u32>,
     ) -> usize {
         // Find a node (col) in the largest connected component
         let node = self
@@ -327,7 +330,8 @@ impl FirstPhaseRowSelectionStats {
             .get_node_in_largest_connected_component(self.start_col, self.end_col);
 
         // Find a row with two ones in the given column
-        for row in matrix.get_ones_in_column(node, start_row, end_row) {
+        matrix.get_ones_in_column_into(node, start_row, end_row, ones_in_column);
+        for row in ones_in_column.iter().copied() {
             let row = row as usize;
             if self.ones_per_row.get(row) == 2 {
                 return row;
@@ -390,6 +394,7 @@ impl FirstPhaseRowSelectionStats {
         start_row: usize,
         end_row: usize,
         matrix: &T,
+        ones_in_column: &mut Vec<u32>,
     ) -> (Option<usize>, Option<usize>) {
         let mut r = None;
         for i in 1..=(self.end_col - self.start_col) {
@@ -410,7 +415,7 @@ impl FirstPhaseRowSelectionStats {
             // See paragraph starting "If r = 2 and there is a row with exactly 2 ones in V..."
             #[cfg(debug_assertions)]
             self.first_phase_graph_substep_verify(start_row, end_row);
-            let row = self.first_phase_graph_substep(start_row, end_row, matrix);
+            let row = self.first_phase_graph_substep(start_row, end_row, matrix, ones_in_column);
             return (Some(row), r);
         } else {
             let row = self.first_phase_original_degree_substep(start_row, end_row, r.unwrap());
@@ -677,6 +682,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
         // Record of first phase row operations performed on non-HDPC rows
         let mut row_ops = vec![];
+        let mut row_selection_ones = Vec::new();
+        let mut pivot_column_ones = Vec::new();
 
         while self.i + self.u < self.L {
             // Calculate r
@@ -687,6 +694,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
                 self.i,
                 self.A.height() - num_hdpc_rows,
                 &self.A,
+                &mut row_selection_ones,
             );
 
             r?;
@@ -713,15 +721,18 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             // because of Errata 2.
             let temp_value = self.A.get(temp, temp);
 
-            let ones_in_column =
-                self.A
-                    .get_ones_in_column(temp, self.i + 1, self.A.height() - num_hdpc_rows);
+            self.A.get_ones_in_column_into(
+                temp,
+                self.i + 1,
+                self.A.height() - num_hdpc_rows,
+                &mut pivot_column_ones,
+            );
             selection_helper.resize(
                 self.i + 1,
                 self.A.height() - self.A_hdpc_rows.as_ref().unwrap().height(),
                 self.i + 1,
                 self.A.width() - self.u - (r - 1),
-                &ones_in_column,
+                &pivot_column_ones,
                 &self.A,
             );
             for i in 0..(r - 1) {
@@ -730,7 +741,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             }
 
             // Skip the first element since that's the i'th row
-            for row in ones_in_column {
+            for row in pivot_column_ones.iter().copied() {
                 let row = row as usize;
                 assert_eq!(&temp_value, &Octet::one());
                 // Addition is equivalent to subtraction.
@@ -945,8 +956,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     #[allow(non_snake_case)]
     #[inline(never)]
     fn fourth_phase(&mut self) {
+        let mut non_zero_columns = Vec::new();
         for i in 0..self.i {
-            for j in self.A.query_non_zero_columns(i, self.i) {
+            self.A
+                .query_non_zero_columns_into(i, self.i, &mut non_zero_columns);
+            for j in non_zero_columns.iter().copied() {
                 #[cfg(debug_assertions)]
                 self.fma_rows(j, i, Octet::one(), 0);
                 // Skip applying to cols before i due to Errata 11
