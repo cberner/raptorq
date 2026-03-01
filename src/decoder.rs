@@ -17,10 +17,13 @@ use crate::constraint_matrix::generate_constraint_matrix_no_hdpc;
 use crate::encoder::SPARSE_MATRIX_THRESHOLD;
 use crate::matrix::{BinaryMatrix, DenseBinaryMatrix};
 use crate::octet_matrix::DenseOctetMatrix;
+use crate::octets::add_assign;
+use crate::operation_vector::SymbolOps;
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::pi_solver::fused_inverse_mul_symbols_no_hdpc;
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol::Symbol;
+use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::{
@@ -139,6 +142,13 @@ pub struct SourceBlockDecoder {
     sparse_threshold: u32,
 }
 
+#[derive(Copy, Clone)]
+struct EncodingParameters {
+    lt_symbols: u32,
+    pi_symbols: u32,
+    sys_index: u32,
+    p1: u32,
+}
 impl SourceBlockDecoder {
     pub fn new(
         source_block_id: u8,
@@ -167,7 +177,7 @@ impl SourceBlockDecoder {
         self.sparse_threshold = value;
     }
 
-    fn unpack_sub_blocks(&self, result: &mut [u8], symbol: &Symbol, symbol_index: usize) {
+    fn unpack_sub_blocks(&self, result: &mut [u8], symbol: &[u8], symbol_index: usize) {
         let (tl, ts, nl, ns) = partition(
             (self.symbol_size / self.symbol_alignment as u16) as u32,
             self.num_sub_blocks,
@@ -183,46 +193,59 @@ impl SourceBlockDecoder {
             };
             let start = sub_block_offset + bytes * symbol_index;
             result[start..start + bytes]
-                .copy_from_slice(&symbol.as_bytes()[symbol_offset..symbol_offset + bytes]);
+                .copy_from_slice(&symbol[symbol_offset..symbol_offset + bytes]);
             symbol_offset += bytes;
             sub_block_offset += bytes * self.source_block_symbols as usize;
         }
+    }
+
+    fn extract_reorder_mapping(operation_vector: &[SymbolOps]) -> Option<Vec<usize>> {
+        operation_vector.iter().rev().find_map(|op| match op {
+            SymbolOps::Reorder { order } => Some(order.clone()),
+            _ => None,
+        })
     }
 
     fn try_pi_decode(
         &mut self,
         constraint_matrix: impl BinaryMatrix,
         hdpc_rows: DenseOctetMatrix,
-        symbols: Vec<Symbol>,
+        symbols: SymbolSlab,
     ) -> Option<Vec<u8>> {
-        let intermediate_symbols = match fused_inverse_mul_symbols(
+        let (intermediate_symbols, operations) = match fused_inverse_mul_symbols(
             constraint_matrix,
             hdpc_rows,
             symbols,
             self.source_block_symbols,
         ) {
             (None, _) => return None,
-            (Some(s), _) => s,
+            (Some(s), ops) => (s, ops),
         };
+        let intermediate_symbol_mapping = operations
+            .as_ref()
+            .and_then(|ops| Self::extract_reorder_mapping(ops));
 
         let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
-        let lt_symbols = num_lt_symbols(self.source_block_symbols);
-        let pi_symbols = num_pi_symbols(self.source_block_symbols);
-        let sys_index = systematic_index(self.source_block_symbols);
-        let p1 = calculate_p1(self.source_block_symbols);
+        let params = EncodingParameters {
+            lt_symbols: num_lt_symbols(self.source_block_symbols),
+            pi_symbols: num_pi_symbols(self.source_block_symbols),
+            sys_index: systematic_index(self.source_block_symbols),
+            p1: calculate_p1(self.source_block_symbols),
+        };
+        let ss = self.symbol_size as usize;
+        let mut rebuilt_buf = vec![0u8; ss];
         for i in 0..self.source_block_symbols as usize {
             if let Some(ref symbol) = self.source_symbols[i] {
-                self.unpack_sub_blocks(&mut result, symbol, i);
+                self.unpack_sub_blocks(&mut result, symbol.as_bytes(), i);
             } else {
-                let rebuilt = self.rebuild_source_symbol(
+                self.rebuild_source_symbol_into(
+                    &mut rebuilt_buf,
                     &intermediate_symbols,
+                    intermediate_symbol_mapping.as_deref(),
                     i as u32,
-                    lt_symbols,
-                    pi_symbols,
-                    sys_index,
-                    p1,
+                    params,
                 );
-                self.unpack_sub_blocks(&mut result, &rebuilt, i);
+                self.unpack_sub_blocks(&mut result, &rebuilt_buf, i);
             }
         }
 
@@ -247,28 +270,41 @@ impl SourceBlockDecoder {
         };
 
         let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
-        let lt_symbols = num_lt_symbols(self.source_block_symbols);
-        let pi_symbols = num_pi_symbols(self.source_block_symbols);
-        let sys_index = systematic_index(self.source_block_symbols);
-        let p1 = calculate_p1(self.source_block_symbols);
+        let params = EncodingParameters {
+            lt_symbols: num_lt_symbols(self.source_block_symbols),
+            pi_symbols: num_pi_symbols(self.source_block_symbols),
+            sys_index: systematic_index(self.source_block_symbols),
+            p1: calculate_p1(self.source_block_symbols),
+        };
+        let mut rebuilt_buf = vec![0u8; self.symbol_size as usize];
         for i in 0..self.source_block_symbols as usize {
             if let Some(ref symbol) = self.source_symbols[i] {
-                self.unpack_sub_blocks(&mut result, symbol, i);
+                self.unpack_sub_blocks(&mut result, symbol.as_bytes(), i);
             } else {
-                let rebuilt = self.rebuild_source_symbol(
-                    &intermediate_symbols,
-                    i as u32,
-                    lt_symbols,
-                    pi_symbols,
-                    sys_index,
-                    p1,
+                let tuple =
+                    intermediate_tuple(i as u32, params.lt_symbols, params.sys_index, params.p1);
+                let mut first = true;
+                enc_indices(
+                    tuple,
+                    params.lt_symbols,
+                    params.pi_symbols,
+                    params.p1,
+                    |j| {
+                        let src = intermediate_symbols[j].as_bytes();
+                        if first {
+                            rebuilt_buf.copy_from_slice(src);
+                            first = false;
+                        } else {
+                            add_assign(&mut rebuilt_buf, src);
+                        }
+                    },
                 );
-                self.unpack_sub_blocks(&mut result, &rebuilt, i);
+                self.unpack_sub_blocks(&mut result, &rebuilt_buf, i);
             }
         }
 
         self.decoded = true;
-        return Some(result);
+        Some(result)
     }
 
     pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
@@ -309,7 +345,7 @@ impl SourceBlockDecoder {
             let mut result =
                 vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
             for (i, symbol) in self.source_symbols.iter().enumerate() {
-                self.unpack_sub_blocks(&mut result, symbol.as_ref().unwrap(), i);
+                self.unpack_sub_blocks(&mut result, symbol.as_ref().unwrap().as_bytes(), i);
             }
 
             self.decoded = true;
@@ -369,18 +405,27 @@ impl SourceBlockDecoder {
             self.decoded = false;
         }
 
-        // Case 3b: standard decode with HDPC rows
+        // Case 3b: standard decode with HDPC rows (slab-backed)
         // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
-        let mut d = vec![Symbol::zero(self.symbol_size); s + h];
+        let num_padding = (num_extended_symbols - self.source_block_symbols) as usize;
+        let num_repair = self.repair_packets.len();
+        let total = s + h + self.received_source_symbols as usize + num_padding + num_repair;
+        let ss = self.symbol_size as usize;
+        let mut d = SymbolSlab::with_zeros(total, ss);
+        let mut row = s + h;
         for symbol in self.source_symbols.iter().flatten() {
-            d.push(symbol.clone());
+            d.get_mut(row).copy_from_slice(symbol.as_bytes());
+            row += 1;
         }
         for _i in self.source_block_symbols..num_extended_symbols {
-            d.push(Symbol::zero(self.symbol_size));
+            // Padding row already zero
+            row += 1;
         }
         for repair_packet in self.repair_packets.iter() {
-            d.push(Symbol::new(repair_packet.data.clone()));
+            d.get_mut(row).copy_from_slice(&repair_packet.data);
+            row += 1;
         }
+        assert_eq!(row, total);
 
         if num_extended_symbols >= self.sparse_threshold {
             let (constraint_matrix, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(
@@ -397,25 +442,42 @@ impl SourceBlockDecoder {
         }
     }
 
-    fn rebuild_source_symbol(
+    fn rebuild_source_symbol_into(
         &self,
-        intermediate_symbols: &[Symbol],
+        dest: &mut [u8],
+        intermediate_symbols: &SymbolSlab,
+        intermediate_symbol_mapping: Option<&[usize]>,
         source_symbol_id: u32,
-        lt_symbols: u32,
-        pi_symbols: u32,
-        sys_index: u32,
-        p1: u32,
-    ) -> Symbol {
-        let mut rebuilt = Symbol::zero(self.symbol_size);
-        let tuple = intermediate_tuple(source_symbol_id, lt_symbols, sys_index, p1);
+        params: EncodingParameters,
+    ) {
+        let mapped = |idx: usize| -> &[u8] {
+            let row = intermediate_symbol_mapping.map_or(idx, |map| map[idx]);
+            intermediate_symbols.get(row)
+        };
 
-        enc_indices(tuple, lt_symbols, pi_symbols, p1, |i| {
-            rebuilt += &intermediate_symbols[i];
-        });
-        rebuilt
+        let tuple = intermediate_tuple(
+            source_symbol_id,
+            params.lt_symbols,
+            params.sys_index,
+            params.p1,
+        );
+        let mut first = true;
+        enc_indices(
+            tuple,
+            params.lt_symbols,
+            params.pi_symbols,
+            params.p1,
+            |i| {
+                if first {
+                    dest.copy_from_slice(mapped(i));
+                    first = false;
+                } else {
+                    add_assign(dest, mapped(i));
+                }
+            },
+        );
     }
 }
-
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod codec_tests {

@@ -16,11 +16,11 @@ use crate::octet_matrix::DenseOctetMatrix;
 use crate::octets::BinaryOctetVec;
 use crate::operation_vector::SymbolOps;
 use crate::symbol::Symbol;
+use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
-use crate::util::get_both_indices;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 enum RowOp {
@@ -431,7 +431,7 @@ pub struct IntermediateSymbolDecoder<T: BinaryMatrix> {
     // since it's not actually needed
     #[cfg(debug_assertions)]
     X: T,
-    D: Vec<Symbol>,
+    D: SymbolSlab,
     c: Vec<usize>,
     d: Vec<usize>,
     i: usize,
@@ -451,7 +451,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     pub fn new(
         matrix: T,
         hdpc_rows: DenseOctetMatrix,
-        symbols: Vec<Symbol>,
+        symbols: SymbolSlab,
         num_source_symbols: u32,
     ) -> IntermediateSymbolDecoder<T> {
         assert!(matrix.width() <= symbols.len());
@@ -524,6 +524,8 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     ) -> IntermediateSymbolDecoder<T> {
         assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
+        let symbol_size = symbols.first().map(|s| s.as_bytes().len()).unwrap_or(0);
+        let symbols = SymbolSlab::from_symbols(symbols, symbol_size);
         let mut c = Vec::with_capacity(matrix.width());
         let mut d = Vec::with_capacity(symbols.len());
         for i in 0..matrix.width() {
@@ -569,15 +571,13 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         for op in self.deferred_D_ops.iter() {
             match op {
                 SymbolOps::AddAssign { dest, src } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
-                    *dest += temp;
+                    self.D.add_assign(*dest, *src);
                 }
                 SymbolOps::MulAssign { dest, scalar } => {
-                    self.D[*dest].mulassign_scalar(scalar);
+                    self.D.mulassign_scalar(*dest, scalar);
                 }
                 SymbolOps::FMA { dest, src, scalar } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
-                    dest.fused_addassign_mul_scalar(temp, scalar);
+                    self.D.fma(*dest, *src, scalar);
                 }
                 SymbolOps::Reorder { order: _order } => {}
             }
@@ -1330,7 +1330,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     }
 
     #[inline(never)]
-    pub fn execute(&mut self) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+    pub fn execute(&mut self) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
         #[cfg(debug_assertions)]
         self.X.disable_column_access_acceleration();
 
@@ -1356,24 +1356,14 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             index_mapping[self.c[i]] = self.d[i];
         }
 
-        #[allow(non_snake_case)]
-        let mut removable_D: Vec<Option<Symbol>> = self.D.drain(..).map(Some).collect();
-
-        let mut result = Vec::with_capacity(self.L);
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..self.L {
-            // push a None so it can be swapped in
-            removable_D.push(None);
-            result.push(removable_D.swap_remove(index_mapping[i]).unwrap());
-        }
-
-        let mut reorder = Vec::with_capacity(self.L);
-        for i in index_mapping.iter().take(self.L) {
-            reorder.push(*i);
-        }
+        // Keep D in-place and return logical reorder mapping.
+        // D.len() may be > L when decoder has overhead symbols.
+        let reorder: Vec<usize> = index_mapping[..self.L].to_vec();
 
         let mut operation_vector = mem::take(&mut self.deferred_D_ops);
         operation_vector.push(SymbolOps::Reorder { order: reorder });
+        let symbol_size = self.D.symbol_size();
+        let result = mem::replace(&mut self.D, SymbolSlab::with_zeros(0, symbol_size));
         return (Some(result), Some(operation_vector));
     }
 }
@@ -1383,9 +1373,9 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 pub fn fused_inverse_mul_symbols<T: BinaryMatrix>(
     matrix: T,
     hdpc_rows: DenseOctetMatrix,
-    symbols: Vec<Symbol>,
+    symbols: SymbolSlab,
     num_source_symbols: u32,
-) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
+) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
     IntermediateSymbolDecoder::new(matrix, hdpc_rows, symbols, num_source_symbols).execute()
 }
 
@@ -1396,7 +1386,29 @@ pub fn fused_inverse_mul_symbols_no_hdpc<T: BinaryMatrix>(
     symbols: Vec<Symbol>,
     num_source_symbols: u32,
 ) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
-    IntermediateSymbolDecoder::new_no_hdpc(matrix, symbols, num_source_symbols).execute()
+    let (slab, ops) =
+        IntermediateSymbolDecoder::new_no_hdpc(matrix, symbols, num_source_symbols).execute();
+    let slab = match slab {
+        Some(s) => s,
+        None => return (None, None),
+    };
+    // execute() no longer physically reorders — it appends a Reorder op.
+    // Apply the mapping to produce correctly-ordered Vec<Symbol>.
+    let reorder = ops.as_ref().and_then(|ops| {
+        ops.iter().rev().find_map(|op| match op {
+            SymbolOps::Reorder { order } => Some(order),
+            _ => None,
+        })
+    });
+    let symbols: Vec<Symbol> = if let Some(order) = reorder {
+        order
+            .iter()
+            .map(|&idx| Symbol::new(slab.get(idx).to_vec()))
+            .collect()
+    } else {
+        slab.into_symbols()
+    };
+    (Some(symbols), ops)
 }
 
 #[cfg(feature = "std")]
@@ -1406,7 +1418,7 @@ mod tests {
     use crate::constraint_matrix::generate_constraint_matrix;
     use crate::matrix::BinaryMatrix;
     use crate::matrix::DenseBinaryMatrix;
-    use crate::symbol::Symbol;
+    use crate::symbol_slab::SymbolSlab;
     use crate::systematic_constants::{
         MAX_SOURCE_SYMBOLS_PER_BLOCK, extended_source_block_symbols, num_ldpc_symbols,
         num_lt_symbols,
@@ -1421,7 +1433,7 @@ mod tests {
             let num_symbols = extended_source_block_symbols(elements);
             let indices: Vec<u32> = (0..num_symbols).collect();
             let (a, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(num_symbols, &indices);
-            let symbols = vec![Symbol::zero(1usize); a.width()];
+            let symbols = SymbolSlab::with_zeros(a.width(), 1);
             let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
             decoder.execute();
             assert!(
