@@ -95,8 +95,16 @@ pub fn fused_addassign_mul_scalar_binary(
     );
 
     assert_eq!(octets.len(), other.len());
+    if octets.is_empty() {
+        return;
+    }
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
+        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512bw") {
+            unsafe {
+                return fused_addassign_mul_scalar_binary_avx512(octets, other, scalar);
+            }
+        }
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("bmi1") {
             unsafe {
                 return fused_addassign_mul_scalar_binary_avx2(octets, other, scalar);
@@ -274,6 +282,194 @@ unsafe fn fused_addassign_mul_scalar_binary_avx2(
     }
 }
 
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
+#[target_feature(enable = "avx512f")]
+#[target_feature(enable = "avx512bw")]
+unsafe fn fused_addassign_mul_scalar_binary_avx512(
+    octets: &mut [u8],
+    other: &BinaryOctetVec,
+    scalar: &Octet,
+) {
+    unsafe {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+
+        if octets.is_empty() {
+            return;
+        }
+        let first_bit = other.padding_bits();
+        let other_u64 = other.elements.as_ptr();
+        let mut other_batch_start_index = first_bit / 64;
+        let first_bits = *other_u64.add(other_batch_start_index);
+        let bit_in_first_bits = first_bit % 64;
+        let mut remaining = octets.len();
+        let mut self_ptr = octets.as_mut_ptr();
+        // Handle first bits to make remainder 64-bit aligned
+        if bit_in_first_bits > 0 {
+            for i in 0..(64 - bit_in_first_bits) {
+                let other_byte = ((first_bits >> (bit_in_first_bits + i)) & 1) as u8;
+                *self_ptr.add(i) ^= scalar.byte() * other_byte;
+            }
+            remaining -= 64 - bit_in_first_bits;
+            other_batch_start_index += 1;
+            self_ptr = self_ptr.add(64 - bit_in_first_bits);
+        }
+
+        assert_eq!(remaining % 64, 0);
+
+        let scalar_avx = _mm512_set1_epi8(scalar.byte() as i8);
+        // Process 64 bytes at a time: use masked move to broadcast scalar where bit=1
+        for i in 0..(remaining / 64) {
+            let bits = *other_u64.add(other_batch_start_index + i);
+            // LDPC rows are sparse; most u64 words are zero
+            if bits == 0 {
+                continue;
+            }
+            // Single instruction: keep scalar byte where mask bit=1, zero where bit=0
+            let product = _mm512_maskz_mov_epi8(bits, scalar_avx);
+
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = _mm512_loadu_si512(self_ptr.add(i * 64) as *const __m512i);
+            let result = _mm512_xor_si512(self_vec, product);
+            #[allow(clippy::cast_ptr_alignment)]
+            _mm512_storeu_si512(self_ptr.add(i * 64) as *mut __m512i, result);
+        }
+    }
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
+#[target_feature(enable = "avx512f")]
+#[target_feature(enable = "avx512bw")]
+unsafe fn mulassign_scalar_avx512(octets: &mut [u8], scalar: &Octet) {
+    unsafe {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+
+        let low_mask = _mm512_set1_epi8(0x0F);
+        let self_ptr = octets.as_mut_ptr();
+        let low_table128 =
+            _mm_loadu_si128(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m128i);
+        let hi_table128 =
+            _mm_loadu_si128(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m128i);
+        let low_table = _mm512_broadcast_i32x4(low_table128);
+        let hi_table = _mm512_broadcast_i32x4(hi_table128);
+
+        for i in 0..(octets.len() / 64) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = _mm512_loadu_si512(self_ptr.add(i * 64) as *const __m512i);
+            let low = _mm512_and_si512(self_vec, low_mask);
+            let low_result = _mm512_shuffle_epi8(low_table, low);
+            let hi = _mm512_srli_epi64(self_vec, 4);
+            let hi = _mm512_and_si512(hi, low_mask);
+            let hi_result = _mm512_shuffle_epi8(hi_table, hi);
+            let result = _mm512_xor_si512(hi_result, low_result);
+            #[allow(clippy::cast_ptr_alignment)]
+            _mm512_storeu_si512(self_ptr.add(i * 64) as *mut __m512i, result);
+        }
+
+        let remainder = octets.len() % 64;
+        let scalar_index = usize::from(scalar.byte());
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) = *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*octets.get_unchecked(i) as usize);
+        }
+    }
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
+#[target_feature(enable = "avx512f")]
+#[target_feature(enable = "avx512bw")]
+unsafe fn fused_addassign_mul_scalar_avx512(octets: &mut [u8], other: &[u8], scalar: &Octet) {
+    unsafe {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+
+        let low_mask = _mm512_set1_epi8(0x0F);
+        let self_ptr = octets.as_mut_ptr();
+        let other_ptr = other.as_ptr();
+        let low_table128 =
+            _mm_loadu_si128(OCTET_MUL_LOW_BITS[scalar.byte() as usize].as_ptr() as *const __m128i);
+        let hi_table128 =
+            _mm_loadu_si128(OCTET_MUL_HI_BITS[scalar.byte() as usize].as_ptr() as *const __m128i);
+        let low_table = _mm512_broadcast_i32x4(low_table128);
+        let hi_table = _mm512_broadcast_i32x4(hi_table128);
+
+        for i in 0..(octets.len() / 64) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_vec = _mm512_loadu_si512(other_ptr.add(i * 64) as *const __m512i);
+            let low = _mm512_and_si512(other_vec, low_mask);
+            let low_result = _mm512_shuffle_epi8(low_table, low);
+            let hi = _mm512_srli_epi64(other_vec, 4);
+            let hi = _mm512_and_si512(hi, low_mask);
+            let hi_result = _mm512_shuffle_epi8(hi_table, hi);
+            let other_vec = _mm512_xor_si512(hi_result, low_result);
+
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = _mm512_loadu_si512(self_ptr.add(i * 64) as *const __m512i);
+            let result = _mm512_xor_si512(self_vec, other_vec);
+            #[allow(clippy::cast_ptr_alignment)]
+            _mm512_storeu_si512(self_ptr.add(i * 64) as *mut __m512i, result);
+        }
+
+        let remainder = octets.len() % 64;
+        let scalar_index = usize::from(scalar.byte());
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) ^= *OCTET_MUL
+                .get_unchecked(scalar_index)
+                .get_unchecked(*other.get_unchecked(i) as usize);
+        }
+    }
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
+#[target_feature(enable = "avx512f")]
+unsafe fn add_assign_avx512(octets: &mut [u8], other: &[u8]) {
+    unsafe {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+
+        assert_eq!(octets.len(), other.len());
+        let self_ptr = octets.as_mut_ptr();
+        let other_ptr = other.as_ptr();
+        for i in 0..(octets.len() / 64) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_vec = _mm512_loadu_si512(self_ptr.add(i * 64) as *const __m512i);
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_vec = _mm512_loadu_si512(other_ptr.add(i * 64) as *const __m512i);
+            let result = _mm512_xor_si512(self_vec, other_vec);
+            #[allow(clippy::cast_ptr_alignment)]
+            _mm512_storeu_si512(self_ptr.add(i * 64) as *mut __m512i, result);
+        }
+
+        let remainder = octets.len() % 64;
+        let self_ptr = octets.as_mut_ptr();
+        let other_ptr = other.as_ptr();
+        for i in ((octets.len() - remainder) / 8)..(octets.len() / 8) {
+            #[allow(clippy::cast_ptr_alignment)]
+            let self_value = (self_ptr as *const u64).add(i).read_unaligned();
+            #[allow(clippy::cast_ptr_alignment)]
+            let other_value = (other_ptr as *const u64).add(i).read_unaligned();
+            let result = self_value ^ other_value;
+            #[allow(clippy::cast_ptr_alignment)]
+            (self_ptr as *mut u64).add(i).write_unaligned(result);
+        }
+
+        let remainder = octets.len() % 8;
+        for i in (octets.len() - remainder)..octets.len() {
+            *octets.get_unchecked_mut(i) ^= other.get_unchecked(i);
+        }
+    }
+}
+
 fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
     let scalar_index = usize::from(scalar.byte());
     for item in octets {
@@ -420,6 +616,11 @@ unsafe fn mulassign_scalar_ssse3(octets: &mut [u8], scalar: &Octet) {
 pub fn mulassign_scalar(octets: &mut [u8], scalar: &Octet) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
+        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512bw") {
+            unsafe {
+                return mulassign_scalar_avx512(octets, scalar);
+            }
+        }
         if is_x86_feature_detected!("avx2") {
             unsafe {
                 return mulassign_scalar_avx2(octets, scalar);
@@ -629,6 +830,11 @@ pub fn fused_addassign_mul_scalar(octets: &mut [u8], other: &[u8], scalar: &Octe
     assert_eq!(octets.len(), other.len());
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
+        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512bw") {
+            unsafe {
+                return fused_addassign_mul_scalar_avx512(octets, other, scalar);
+            }
+        }
         if is_x86_feature_detected!("avx2") {
             unsafe {
                 return fused_addassign_mul_scalar_avx2(octets, other, scalar);
@@ -841,6 +1047,11 @@ unsafe fn add_assign_ssse3(octets: &mut [u8], other: &[u8]) {
 pub fn add_assign(octets: &mut [u8], other: &[u8]) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "std"))]
     {
+        if is_x86_feature_detected!("avx512f") {
+            unsafe {
+                return add_assign_avx512(octets, other);
+            }
+        }
         if is_x86_feature_detected!("avx2") {
             unsafe {
                 return add_assign_avx2(octets, other);
@@ -942,5 +1153,16 @@ mod tests {
         fused_addassign_mul_scalar_binary(&mut data1, &binary_octet_vec, &scalar);
 
         assert_eq!(expected, data1);
+    }
+
+    #[test]
+    fn fma_binary_zero_len_noop() {
+        let scalar = Octet::new(2);
+        let binary_octet_vec = BinaryOctetVec::new(vec![], 0);
+        let mut data: Vec<u8> = vec![];
+
+        fused_addassign_mul_scalar_binary(&mut data, &binary_octet_vec, &scalar);
+
+        assert!(data.is_empty());
     }
 }
