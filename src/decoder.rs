@@ -326,9 +326,9 @@ impl SourceBlockDecoder {
         let mut rebuilt = Symbol::zero(self.symbol_size);
         let tuple = intermediate_tuple(source_symbol_id, lt_symbols, sys_index, p1);
 
-        for i in enc_indices(tuple, lt_symbols, pi_symbols, p1) {
+        enc_indices(tuple, lt_symbols, pi_symbols, p1, |i| {
             rebuilt += &intermediate_symbols[i];
-        }
+        });
         rebuilt
     }
 }
