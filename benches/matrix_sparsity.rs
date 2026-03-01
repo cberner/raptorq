@@ -1,6 +1,6 @@
 use raptorq::IntermediateSymbolDecoder;
 use raptorq::Octet;
-use raptorq::Symbol;
+use raptorq::SymbolSlab;
 use raptorq::generate_constraint_matrix;
 use raptorq::{BinaryMatrix, SparseBinaryMatrix, extended_source_block_symbols};
 
@@ -55,7 +55,7 @@ fn main() {
             100.0 * density as f64 / (a.height() * a.width()) as f64
         );
 
-        let symbols = vec![Symbol::zero(1usize); a.width()];
+        let symbols = SymbolSlab::with_zeros(a.width(), 1);
         let mut decoder = IntermediateSymbolDecoder::new(a, hdpc, symbols, num_symbols);
         println!(
             "Initial memory usage: {}KB",
