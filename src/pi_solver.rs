@@ -20,7 +20,6 @@ use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
 use crate::systematic_constants::num_ldpc_symbols;
 use crate::systematic_constants::num_pi_symbols;
-use crate::util::get_both_indices;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 enum RowOp {
@@ -516,18 +515,36 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
 
     #[inline(never)]
     fn apply_deferred_symbol_ops(&mut self) {
+        let d_ptr = self.D.as_mut_ptr();
+        let d_len = self.D.len();
         for op in self.deferred_D_ops.iter() {
             match op {
                 SymbolOps::AddAssign { dest, src } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
-                    *dest += temp;
+                    debug_assert!(*dest < d_len && *src < d_len);
+                    assert!(dest != src, "dest and src must not alias");
+                    // SAFETY: dest != src is asserted above, both indices within bounds.
+                    unsafe {
+                        let dest_sym = &mut *d_ptr.add(*dest);
+                        let src_sym = &*d_ptr.add(*src);
+                        *dest_sym += src_sym;
+                    }
                 }
                 SymbolOps::MulAssign { dest, scalar } => {
-                    self.D[*dest].mulassign_scalar(scalar);
+                    debug_assert!(*dest < d_len);
+                    // SAFETY: dest is within bounds
+                    unsafe {
+                        (*d_ptr.add(*dest)).mulassign_scalar(scalar);
+                    }
                 }
                 SymbolOps::FMA { dest, src, scalar } => {
-                    let (dest, temp) = get_both_indices(&mut self.D, *dest, *src);
-                    dest.fused_addassign_mul_scalar(temp, scalar);
+                    debug_assert!(*dest < d_len && *src < d_len);
+                    assert!(dest != src, "dest and src must not alias");
+                    // SAFETY: dest != src is asserted above, both indices within bounds.
+                    unsafe {
+                        let dest_sym = &mut *d_ptr.add(*dest);
+                        let src_sym = &*d_ptr.add(*src);
+                        dest_sym.fused_addassign_mul_scalar(src_sym, scalar);
+                    }
                 }
                 SymbolOps::Reorder { order: _order } => {}
             }

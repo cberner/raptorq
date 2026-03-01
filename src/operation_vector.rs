@@ -6,7 +6,6 @@ use alloc::vec::Vec;
 
 use crate::octet::Octet;
 use crate::symbol::Symbol;
-use crate::util::get_both_indices;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -32,25 +31,35 @@ pub enum SymbolOps {
     },
 }
 
+#[inline]
 pub fn perform_op(op: &SymbolOps, symbols: &mut Vec<Symbol>) {
     match op {
         SymbolOps::AddAssign { dest, src } => {
-            let (dest, temp) = get_both_indices(symbols, *dest, *src);
-            *dest += temp;
+            debug_assert!(*dest < symbols.len() && *src < symbols.len());
+            assert!(dest != src, "dest and src must not alias");
+            // SAFETY: dest != src is asserted above, both indices within bounds.
+            unsafe {
+                let ptr = symbols.as_mut_ptr();
+                let dest_sym = &mut *ptr.add(*dest);
+                let src_sym = &*ptr.add(*src);
+                *dest_sym += src_sym;
+            }
         }
         SymbolOps::MulAssign { dest, scalar } => {
             symbols[*dest].mulassign_scalar(scalar);
         }
         SymbolOps::FMA { dest, src, scalar } => {
-            let (dest, temp) = get_both_indices(symbols, *dest, *src);
-            dest.fused_addassign_mul_scalar(temp, scalar);
+            debug_assert!(*dest < symbols.len() && *src < symbols.len());
+            assert!(dest != src, "dest and src must not alias");
+            // SAFETY: dest != src is asserted above, both indices within bounds.
+            unsafe {
+                let ptr = symbols.as_mut_ptr();
+                let dest_sym = &mut *ptr.add(*dest);
+                let src_sym = &*ptr.add(*src);
+                dest_sym.fused_addassign_mul_scalar(src_sym, scalar);
+            }
         }
         SymbolOps::Reorder { order } => {
-            /* TODO: Reorder is the last step of the algorithm. It should be
-             *       possible to move reorder to be the first step and use when
-             *       creating D (place all rows in correct position before
-             *       calculations). This will however force an update on all
-             *       row-numbers used in all other "Operations". */
             let mut temp_symbols: Vec<Option<Symbol>> = symbols.drain(..).map(Some).collect();
             for row_index in order.iter() {
                 symbols.push(temp_symbols[*row_index].take().unwrap());
