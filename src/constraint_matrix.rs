@@ -172,6 +172,64 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
     (matrix, generate_hdpc_rows(Kprime, S, H))
 }
 
+// Generates the constraint matrix without HDPC rows.
+// Used during decoding when sufficient overhead makes the GF(2)-only system solvable.
+// The G_ENC rows start at row S (instead of S + H), and no HDPC rows are generated.
+// Requires encoded_symbol_indices.len() >= K' + H to be overdetermined.
+#[allow(non_snake_case)]
+pub fn generate_constraint_matrix_no_hdpc<T: BinaryMatrix>(
+    source_block_symbols: u32,
+    encoded_symbol_indices: &[u32],
+) -> T {
+    let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
+    let S = num_ldpc_symbols(source_block_symbols) as usize;
+    let W = num_lt_symbols(source_block_symbols) as usize;
+    let B = W - S;
+    let P = num_pi_symbols(source_block_symbols) as usize;
+    let L = num_intermediate_symbols(source_block_symbols) as usize;
+
+    // Need at least L rows total (S LDPC + encoded) to have a chance at full rank
+    assert!(S + encoded_symbol_indices.len() >= L);
+
+    let mut matrix = T::new(S + encoded_symbol_indices.len(), L, P);
+
+    // G_LDPC,1 (same as standard)
+    for i in 0..B {
+        let a = 1 + i / S;
+        let b = i % S;
+        matrix.set(b, i, Octet::one());
+        let b = (b + a) % S;
+        matrix.set(b, i, Octet::one());
+        let b = (b + a) % S;
+        matrix.set(b, i, Octet::one());
+    }
+
+    // I_S
+    for i in 0..S {
+        matrix.set(i, i + B, Octet::one());
+    }
+
+    // G_LDPC,2
+    for i in 0..S {
+        matrix.set(i, (i % P) + W, Octet::one());
+        matrix.set(i, ((i + 1) % P) + W, Octet::one());
+    }
+
+    // G_ENC — starts at row S (no HDPC rows in between)
+    let lt_symbols = num_lt_symbols(Kprime as u32);
+    let pi_symbols = num_pi_symbols(Kprime as u32);
+    let sys_index = systematic_index(Kprime as u32);
+    let p1 = calculate_p1(Kprime as u32);
+    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
+        let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
+        enc_indices(tuple, lt_symbols, pi_symbols, p1, |j| {
+            matrix.set(row + S, j, Octet::one());
+        });
+    }
+
+    matrix
+}
+
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
