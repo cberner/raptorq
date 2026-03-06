@@ -34,12 +34,28 @@ pub trait BinaryMatrix: Clone {
     // An iterator over rows with a 1-valued entry for the given col
     fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32>;
 
+    #[inline]
+    fn get_ones_in_column_into(
+        &self,
+        col: usize,
+        start_row: usize,
+        end_row: usize,
+        out: &mut Vec<u32>,
+    ) {
+        out.clear();
+        out.extend(self.get_ones_in_column(col, start_row, end_row));
+    }
     // Get a slice of columns from a row as Octets
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec;
 
     // Returns a list of columns with non-zero values in the given row, starting with start_col
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize>;
 
+    #[inline]
+    fn query_non_zero_columns_into(&self, row: usize, start_col: usize, out: &mut Vec<usize>) {
+        out.clear();
+        out.extend(self.query_non_zero_columns(row, start_col));
+    }
     fn get(&self, i: usize, j: usize) -> Octet;
 
     fn swap_rows(&mut self, i: usize, j: usize);
@@ -189,14 +205,25 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn get_ones_in_column(&self, col: usize, start_row: usize, end_row: usize) -> Vec<u32> {
-        let mut rows = vec![];
+        let mut rows = Vec::with_capacity(end_row.saturating_sub(start_row));
+        self.get_ones_in_column_into(col, start_row, end_row, &mut rows);
+        rows
+    }
+
+    fn get_ones_in_column_into(
+        &self,
+        col: usize,
+        start_row: usize,
+        end_row: usize,
+        out: &mut Vec<u32>,
+    ) {
+        out.clear();
+        out.reserve(end_row.saturating_sub(start_row));
         for row in start_row..end_row {
             if self.get(row, col) == Octet::one() {
-                rows.push(row as u32);
+                out.push(row as u32);
             }
         }
-
-        rows
     }
 
     fn get_sub_row_as_octets(&self, row: usize, start_col: usize) -> BinaryOctetVec {
@@ -219,9 +246,19 @@ impl BinaryMatrix for DenseBinaryMatrix {
     }
 
     fn query_non_zero_columns(&self, row: usize, start_col: usize) -> Vec<usize> {
-        (start_col..self.width)
-            .filter(|col| self.get(row, *col) != Octet::zero())
-            .collect()
+        let mut cols = Vec::with_capacity(self.width.saturating_sub(start_col));
+        self.query_non_zero_columns_into(row, start_col, &mut cols);
+        cols
+    }
+
+    fn query_non_zero_columns_into(&self, row: usize, start_col: usize, out: &mut Vec<usize>) {
+        out.clear();
+        out.reserve(self.width.saturating_sub(start_col));
+        for col in start_col..self.width {
+            if self.get(row, col) != Octet::zero() {
+                out.push(col);
+            }
+        }
     }
 
     fn get(&self, i: usize, j: usize) -> Octet {
