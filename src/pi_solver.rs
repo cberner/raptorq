@@ -15,7 +15,6 @@ use crate::octet::Octet;
 use crate::octet_matrix::DenseOctetMatrix;
 use crate::octets::BinaryOctetVec;
 use crate::operation_vector::SymbolOps;
-use crate::symbol::Symbol;
 use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::num_hdpc_symbols;
 use crate::systematic_constants::num_intermediate_symbols;
@@ -519,13 +518,11 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
     /// The constraint matrix must NOT contain HDPC rows (G_ENC starts at row S).
     pub fn new_no_hdpc(
         matrix: T,
-        symbols: Vec<Symbol>,
+        symbols: SymbolSlab,
         num_source_symbols: u32,
     ) -> IntermediateSymbolDecoder<T> {
         assert!(matrix.width() <= symbols.len());
         assert_eq!(matrix.height(), symbols.len());
-        let symbol_size = symbols.first().map(|s| s.as_bytes().len()).unwrap_or(0);
-        let symbols = SymbolSlab::from_symbols(symbols, symbol_size);
         let mut c = Vec::with_capacity(matrix.width());
         let mut d = Vec::with_capacity(symbols.len());
         for i in 0..matrix.width() {
@@ -1386,19 +1383,10 @@ pub fn fused_inverse_mul_symbols<T: BinaryMatrix>(
 // Used during decoding with sufficient overhead to solve in GF(2) only.
 pub fn fused_inverse_mul_symbols_no_hdpc<T: BinaryMatrix>(
     matrix: T,
-    symbols: Vec<Symbol>,
+    symbols: SymbolSlab,
     num_source_symbols: u32,
-) -> (Option<Vec<Symbol>>, Option<Vec<SymbolOps>>) {
-    let (slab, ops) =
-        IntermediateSymbolDecoder::new_no_hdpc(matrix, symbols, num_source_symbols).execute();
-    let slab = match slab {
-        Some(s) => s,
-        None => return (None, None),
-    };
-    // execute() now embeds the reorder mapping in the slab, so into_symbols()
-    // returns symbols in the correct logical order.
-    let symbols: Vec<Symbol> = slab.into_symbols();
-    (Some(symbols), ops)
+) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
+    IntermediateSymbolDecoder::new_no_hdpc(matrix, symbols, num_source_symbols).execute()
 }
 
 #[cfg(feature = "std")]
