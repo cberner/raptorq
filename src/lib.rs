@@ -36,6 +36,7 @@ mod rng;
 mod sparse_matrix;
 mod sparse_vec;
 mod symbol;
+mod symbol_slab;
 mod systematic_constants;
 mod util;
 
@@ -74,3 +75,5 @@ pub use crate::pi_solver::IntermediateSymbolDecoder;
 pub use crate::sparse_matrix::SparseBinaryMatrix;
 #[cfg(feature = "benchmarking")]
 pub use crate::symbol::Symbol;
+#[cfg(feature = "benchmarking")]
+pub use crate::symbol_slab::SymbolSlab;
