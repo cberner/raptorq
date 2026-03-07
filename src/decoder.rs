@@ -246,7 +246,7 @@ impl SourceBlockDecoder {
     fn try_pi_decode_no_hdpc(
         &mut self,
         constraint_matrix: impl BinaryMatrix,
-        symbols: Vec<Symbol>,
+        symbols: SymbolSlab,
     ) -> Option<Vec<u8>> {
         let intermediate_symbols = match fused_inverse_mul_symbols_no_hdpc(
             constraint_matrix,
@@ -269,23 +269,11 @@ impl SourceBlockDecoder {
             if let Some(ref symbol) = self.source_symbols[i] {
                 self.unpack_sub_blocks(&mut result, symbol.as_bytes(), i);
             } else {
-                let tuple =
-                    intermediate_tuple(i as u32, params.lt_symbols, params.sys_index, params.p1);
-                let mut first = true;
-                enc_indices(
-                    tuple,
-                    params.lt_symbols,
-                    params.pi_symbols,
-                    params.p1,
-                    |j| {
-                        let src = intermediate_symbols[j].as_bytes();
-                        if first {
-                            rebuilt_buf.copy_from_slice(src);
-                            first = false;
-                        } else {
-                            add_assign(&mut rebuilt_buf, src);
-                        }
-                    },
+                self.rebuild_source_symbol_into(
+                    &mut rebuilt_buf,
+                    &intermediate_symbols,
+                    i as u32,
+                    params,
                 );
                 self.unpack_sub_blocks(&mut result, &rebuilt_buf, i);
             }
@@ -361,17 +349,27 @@ impl SourceBlockDecoder {
         // Case 3a: try to solve without HDPC rows (pure GF(2)) when we have enough overhead.
         // This avoids expensive GF(256) operations in the solver.
         // We need at least L total rows: S LDPC + encoded >= L, i.e. encoded >= K' + H.
+        let num_padding = (num_extended_symbols - self.source_block_symbols) as usize;
+        let num_repair = self.repair_packets.len();
+        let ss = self.symbol_size as usize;
         if s + encoded_isis.len() >= l {
-            let mut d_no_hdpc = vec![Symbol::zero(self.symbol_size); s];
+            let total_no_hdpc =
+                s + self.received_source_symbols as usize + num_padding + num_repair;
+            let mut d_no_hdpc = SymbolSlab::with_zeros(total_no_hdpc, ss);
+            let mut row = s;
             for symbol in self.source_symbols.iter().flatten() {
-                d_no_hdpc.push(symbol.clone());
+                d_no_hdpc.get_mut(row).copy_from_slice(symbol.as_bytes());
+                row += 1;
             }
             for _i in self.source_block_symbols..num_extended_symbols {
-                d_no_hdpc.push(Symbol::zero(self.symbol_size));
+                // Padding row already zero
+                row += 1;
             }
             for repair_packet in self.repair_packets.iter() {
-                d_no_hdpc.push(Symbol::new(repair_packet.data.clone()));
+                d_no_hdpc.get_mut(row).copy_from_slice(&repair_packet.data);
+                row += 1;
             }
+            assert_eq!(row, total_no_hdpc);
 
             let result = if num_extended_symbols >= self.sparse_threshold {
                 let matrix = generate_constraint_matrix_no_hdpc::<SparseBinaryMatrix>(
@@ -395,10 +393,7 @@ impl SourceBlockDecoder {
 
         // Case 3b: standard decode with HDPC rows (slab-backed)
         // See section 5.3.3.4.2. There are S + H zero symbols to start the D vector
-        let num_padding = (num_extended_symbols - self.source_block_symbols) as usize;
-        let num_repair = self.repair_packets.len();
         let total = s + h + self.received_source_symbols as usize + num_padding + num_repair;
-        let ss = self.symbol_size as usize;
         let mut d = SymbolSlab::with_zeros(total, ss);
         let mut row = s + h;
         for symbol in self.source_symbols.iter().flatten() {
