@@ -39,6 +39,22 @@ impl SymbolSlab {
         }
     }
 
+    /// Create a slab from already-contiguous symbol bytes.
+    pub(crate) fn from_bytes(data: Vec<u8>, symbol_size: usize) -> Self {
+        assert!(symbol_size > 0, "symbol_size must be non-zero");
+        assert_eq!(
+            data.len() % symbol_size,
+            0,
+            "symbol data length mismatch in SymbolSlab::from_bytes"
+        );
+        SymbolSlab {
+            count: data.len() / symbol_size,
+            data,
+            symbol_size,
+            mapping: None,
+        }
+    }
+
     /// Convert a `Vec<Symbol>` into a contiguous slab.
     /// All symbols must have the same length.
     #[allow(dead_code)]
@@ -54,12 +70,7 @@ impl SymbolSlab {
             );
             data.extend_from_slice(&bytes);
         }
-        SymbolSlab {
-            data,
-            count,
-            symbol_size,
-            mapping: None,
-        }
+        SymbolSlab::from_bytes(data, symbol_size)
     }
 
     /// Convert back to individual `Symbol`s (allocates one `Vec<u8>` per symbol).
@@ -89,6 +100,15 @@ impl SymbolSlab {
     #[inline]
     pub fn symbol_size(&self) -> usize {
         self.symbol_size
+    }
+
+    #[inline]
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        assert!(
+            self.mapping.is_none(),
+            "as_bytes called with active mapping"
+        );
+        &self.data
     }
 
     #[inline(always)]
@@ -168,11 +188,11 @@ impl SymbolSlab {
     /// `source` must be `count * symbol_size` bytes.
     #[allow(dead_code)]
     pub fn copy_block_from(&mut self, dest_symbol_start: usize, source: &[u8]) {
-        debug_assert!(
+        assert!(
             self.mapping.is_none(),
             "copy_block_from called with active mapping"
         );
-        debug_assert_eq!(source.len() % self.symbol_size, 0);
+        assert_eq!(source.len() % self.symbol_size, 0);
         let start = dest_symbol_start * self.symbol_size;
         self.data[start..start + source.len()].copy_from_slice(source);
     }
@@ -181,7 +201,7 @@ impl SymbolSlab {
     /// The new slab has `indices.len()` symbols.
     #[allow(dead_code)]
     pub fn gather(&self, indices: &[usize]) -> Self {
-        debug_assert!(self.mapping.is_none(), "gather called with active mapping");
+        assert!(self.mapping.is_none(), "gather called with active mapping");
         let ss = self.symbol_size;
         let new_count = indices.len();
         let mut data = vec![0u8; new_count * ss];
