@@ -16,7 +16,6 @@ use crate::octets::add_assign;
 use crate::operation_vector::{SymbolOps, perform_op};
 use crate::pi_solver::fused_inverse_mul_symbols;
 use crate::sparse_matrix::SparseBinaryMatrix;
-use crate::symbol::Symbol;
 use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::extended_source_block_symbols;
 use crate::systematic_constants::num_hdpc_symbols;
@@ -184,7 +183,7 @@ impl SourceBlockEncodingPlan {
     // where ceil(data_length / symbol_size) = symbol_count
     pub fn generate(symbol_count: u16) -> SourceBlockEncodingPlan {
         // TODO: refactor pi_solver, so that we don't need this dummy data to generate a plan
-        let symbols = vec![Symbol::new(vec![0]); symbol_count as usize];
+        let symbols = SymbolSlab::with_zeros(symbol_count as usize, 1);
         let (_, ops) = gen_intermediate_symbols(&symbols, 1, SPARSE_MATRIX_THRESHOLD);
         SourceBlockEncodingPlan {
             operations: ops.unwrap(),
@@ -245,15 +244,17 @@ fn get_or_generate_source_block_encoding_plan(symbol_count: u16) -> Arc<SourceBl
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncoder {
     source_block_id: u8,
-    source_symbols: Vec<Symbol>,
+    source_symbols: SymbolSlab,
     intermediate_symbols: SymbolSlab,
 }
 
 impl SourceBlockEncoder {
-    fn create_symbols(config: &ObjectTransmissionInformation, data: &[u8]) -> Vec<Symbol> {
-        assert_eq!(data.len() % config.symbol_size() as usize, 0);
+    fn create_symbols(config: &ObjectTransmissionInformation, data: &[u8]) -> SymbolSlab {
+        let symbol_size = config.symbol_size() as usize;
+        assert_eq!(data.len() % symbol_size, 0);
+        let symbol_count = data.len() / symbol_size;
         if config.sub_blocks() > 1 {
-            let mut symbols = vec![vec![]; data.len() / config.symbol_size() as usize];
+            let mut symbols = vec![0u8; data.len()];
             let (tl, ts, nl, ns) = partition(
                 (config.symbol_size() / config.symbol_alignment() as u16) as u32,
                 config.sub_blocks(),
@@ -261,23 +262,25 @@ impl SourceBlockEncoder {
             // Divide the block into sub-blocks and then concatenate the sub-symbols into symbols
             // See second to last paragraph in section 4.4.1.2.
             let mut offset = 0;
+            let mut symbol_offset = 0;
             for sub_block in 0..(nl + ns) {
                 let bytes = if sub_block < nl {
                     tl as usize * config.symbol_alignment() as usize
                 } else {
                     ts as usize * config.symbol_alignment() as usize
                 };
-                for symbol in &mut symbols {
-                    symbol.extend_from_slice(&data[offset..offset + bytes]);
+                for symbol_index in 0..symbol_count {
+                    let dest_start = symbol_index * symbol_size + symbol_offset;
+                    symbols[dest_start..dest_start + bytes]
+                        .copy_from_slice(&data[offset..offset + bytes]);
                     offset += bytes;
                 }
+                symbol_offset += bytes;
             }
             assert_eq!(offset, data.len());
-            symbols.drain(..).map(Symbol::new).collect()
+            SymbolSlab::from_bytes(symbols, symbol_size)
         } else {
-            data.chunks(config.symbol_size() as usize)
-                .map(|x| Symbol::new(Vec::from(x)))
-                .collect()
+            SymbolSlab::from_bytes(data.to_vec(), symbol_size)
         }
     }
 
@@ -351,7 +354,7 @@ impl SourceBlockEncoder {
             .map(|i| {
                 EncodingPacket::new(
                     PayloadId::new(self.source_block_id, i as u32),
-                    self.source_symbols[i].as_bytes().to_vec(),
+                    self.source_symbols.get(i).to_vec(),
                 )
             })
             .collect()
@@ -388,22 +391,16 @@ impl SourceBlockEncoder {
 }
 
 #[allow(non_snake_case)]
-fn create_d(
-    source_block: &[Symbol],
-    symbol_size: usize,
-    _extended_source_symbols: usize,
-) -> SymbolSlab {
+fn create_d(source_block: &SymbolSlab, symbol_size: usize) -> SymbolSlab {
     let L = num_intermediate_symbols(source_block.len() as u32);
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
 
+    debug_assert_eq!(source_block.symbol_size(), symbol_size);
     let mut D = SymbolSlab::with_zeros(L as usize, symbol_size);
     // First S+H entries are zero (already set).
     // Copy source symbols into positions S+H..
-    for (i, symbol) in source_block.iter().enumerate() {
-        D.get_mut((S + H) as usize + i)
-            .copy_from_slice(symbol.as_bytes());
-    }
+    D.copy_block_from((S + H) as usize, source_block.as_bytes());
     // Extended padding symbols stay zero.
     D
 }
@@ -411,12 +408,12 @@ fn create_d(
 // See section 5.3.3.4
 #[allow(non_snake_case)]
 fn gen_intermediate_symbols(
-    source_block: &[Symbol],
+    source_block: &SymbolSlab,
     symbol_size: usize,
     sparse_threshold: u32,
 ) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
-    let D = create_d(source_block, symbol_size, extended_source_symbols as usize);
+    let D = create_d(source_block, symbol_size);
 
     let indices: Vec<u32> = (0..extended_source_symbols).collect();
     let (intermediate_symbols, operations) = if extended_source_symbols >= sparse_threshold {
@@ -433,12 +430,11 @@ fn gen_intermediate_symbols(
 }
 #[allow(non_snake_case)]
 fn gen_intermediate_symbols_with_plan(
-    source_block: &[Symbol],
+    source_block: &SymbolSlab,
     symbol_size: usize,
     operation_vector: &[SymbolOps],
 ) -> SymbolSlab {
-    let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
-    let mut D = create_d(source_block, symbol_size, extended_source_symbols as usize);
+    let mut D = create_d(source_block, symbol_size);
 
     for op in operation_vector {
         perform_op(op, &mut D);
@@ -519,13 +515,13 @@ mod tests {
         data
     }
 
-    fn gen_test_symbols() -> Vec<Symbol> {
+    fn gen_test_symbols() -> SymbolSlab {
         let mut source_block: Vec<Symbol> = vec![];
         for _ in 0..NUM_SYMBOLS {
             let data = gen_test_data(SYMBOL_SIZE);
             source_block.push(Symbol::new(data));
         }
-        source_block
+        SymbolSlab::from_symbols(source_block, SYMBOL_SIZE)
     }
 
     #[test]
@@ -549,11 +545,11 @@ mod tests {
         let sys_index = systematic_index(NUM_SYMBOLS);
         let p1 = calculate_p1(NUM_SYMBOLS);
         // See section 5.3.3.4.1, item 1.
-        for (i, source_symbol) in source_symbols.iter().enumerate() {
+        for i in 0..source_symbols.len() {
             let tuple = intermediate_tuple(i as u32, lt_symbols, sys_index, p1);
             let mut encoded = vec![0u8; SYMBOL_SIZE];
             enc_into(&mut encoded, NUM_SYMBOLS, &intermediate_symbols, tuple);
-            assert_eq!(source_symbol.as_bytes(), &encoded[..]);
+            assert_eq!(source_symbols.get(i), &encoded[..]);
         }
     }
 
