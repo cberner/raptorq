@@ -20,54 +20,54 @@ See the `examples/` directory for usage.
 
 ### Benchmarks
 
-The following were run on a Ryzen 9 9950X3D @ 4.30GHz, as of raptorq version 2.0.0
+The following were run on a Ryzen 9 9950X3D @ 4.30GHz
 ```
 Symbol size: 1280 bytes (without pre-built plan)
-symbol count = 10, encoded 127 MB in 0.166secs, throughput: 6168.2Mbit/s
-symbol count = 100, encoded 127 MB in 0.130secs, throughput: 7872.6Mbit/s
-symbol count = 250, encoded 127 MB in 0.129secs, throughput: 7929.8Mbit/s
-symbol count = 500, encoded 127 MB in 0.141secs, throughput: 7237.6Mbit/s
-symbol count = 1000, encoded 126 MB in 0.146secs, throughput: 6956.3Mbit/s
-symbol count = 2000, encoded 126 MB in 0.150secs, throughput: 6770.8Mbit/s
-symbol count = 5000, encoded 122 MB in 0.165secs, throughput: 5918.6Mbit/s
-symbol count = 10000, encoded 122 MB in 0.208secs, throughput: 4695.0Mbit/s
-symbol count = 20000, encoded 122 MB in 0.259secs, throughput: 3770.5Mbit/s
-symbol count = 50000, encoded 122 MB in 0.367secs, throughput: 2660.9Mbit/s
+symbol count = 10, encoded 127 MB in 0.046secs, throughput: 22259.3Mbit/s
+symbol count = 100, encoded 127 MB in 0.046secs, throughput: 22248.6Mbit/s
+symbol count = 250, encoded 127 MB in 0.050secs, throughput: 20459.0Mbit/s
+symbol count = 500, encoded 127 MB in 0.038secs, throughput: 26855.5Mbit/s
+symbol count = 1000, encoded 126 MB in 0.054secs, throughput: 18807.9Mbit/s
+symbol count = 2000, encoded 126 MB in 0.058secs, throughput: 17510.8Mbit/s
+symbol count = 5000, encoded 122 MB in 0.067secs, throughput: 14575.6Mbit/s
+symbol count = 10000, encoded 122 MB in 0.087secs, throughput: 11224.9Mbit/s
+symbol count = 20000, encoded 122 MB in 0.136secs, throughput: 7180.6Mbit/s
+symbol count = 50000, encoded 122 MB in 0.267secs, throughput: 3657.5Mbit/s
 
 Symbol size: 1280 bytes (with pre-built plan)
-symbol count = 10, encoded 127 MB in 0.083secs, throughput: 12336.5Mbit/s
-symbol count = 100, encoded 127 MB in 0.057secs, throughput: 17955.0Mbit/s
-symbol count = 250, encoded 127 MB in 0.061secs, throughput: 16769.7Mbit/s
-symbol count = 500, encoded 127 MB in 0.062secs, throughput: 16459.8Mbit/s
-symbol count = 1000, encoded 126 MB in 0.062secs, throughput: 16381.0Mbit/s
-symbol count = 2000, encoded 126 MB in 0.066secs, throughput: 15388.3Mbit/s
-symbol count = 5000, encoded 122 MB in 0.073secs, throughput: 13377.6Mbit/s
-symbol count = 10000, encoded 122 MB in 0.094secs, throughput: 10389.0Mbit/s
-symbol count = 20000, encoded 122 MB in 0.133secs, throughput: 7342.6Mbit/s
-symbol count = 50000, encoded 122 MB in 0.213secs, throughput: 4584.8Mbit/s
+symbol count = 10, encoded 127 MB in 0.063secs, throughput: 16252.8Mbit/s
+symbol count = 100, encoded 127 MB in 0.034secs, throughput: 30101.1Mbit/s
+symbol count = 250, encoded 127 MB in 0.051secs, throughput: 20057.8Mbit/s
+symbol count = 500, encoded 127 MB in 0.038secs, throughput: 26855.5Mbit/s
+symbol count = 1000, encoded 126 MB in 0.039secs, throughput: 26041.7Mbit/s
+symbol count = 2000, encoded 126 MB in 0.057secs, throughput: 17818.0Mbit/s
+symbol count = 5000, encoded 122 MB in 0.061secs, throughput: 16009.2Mbit/s
+symbol count = 10000, encoded 122 MB in 0.061secs, throughput: 16009.2Mbit/s
+symbol count = 20000, encoded 122 MB in 0.111secs, throughput: 8797.9Mbit/s
+symbol count = 50000, encoded 122 MB in 0.180secs, throughput: 5425.3Mbit/s
 
 Symbol size: 1280 bytes
-symbol count = 10, decoded 127 MB in 0.244secs using 0.0% overhead, throughput: 4196.4Mbit/s
-symbol count = 100, decoded 127 MB in 0.191secs using 0.0% overhead, throughput: 5358.3Mbit/s
-symbol count = 250, decoded 127 MB in 0.179secs using 0.0% overhead, throughput: 5714.8Mbit/s
-symbol count = 500, decoded 127 MB in 0.171secs using 0.0% overhead, throughput: 5967.9Mbit/s
-symbol count = 1000, decoded 126 MB in 0.174secs using 0.0% overhead, throughput: 5836.9Mbit/s
-symbol count = 2000, decoded 126 MB in 0.182secs using 0.0% overhead, throughput: 5580.4Mbit/s
-symbol count = 5000, decoded 122 MB in 0.189secs using 0.0% overhead, throughput: 5167.0Mbit/s
-symbol count = 10000, decoded 122 MB in 0.226secs using 0.0% overhead, throughput: 4321.1Mbit/s
-symbol count = 20000, decoded 122 MB in 0.297secs using 0.0% overhead, throughput: 3288.1Mbit/s
-symbol count = 50000, decoded 122 MB in 0.435secs using 0.0% overhead, throughput: 2245.0Mbit/s
+symbol count = 10, decoded 127 MB in 0.174secs using 0.0% overhead, throughput: 5884.6Mbit/s
+symbol count = 100, decoded 127 MB in 0.146secs using 0.0% overhead, throughput: 7009.8Mbit/s
+symbol count = 250, decoded 127 MB in 0.146secs using 0.0% overhead, throughput: 7006.5Mbit/s
+symbol count = 500, decoded 127 MB in 0.143secs using 0.0% overhead, throughput: 7136.4Mbit/s
+symbol count = 1000, decoded 126 MB in 0.144secs using 0.0% overhead, throughput: 7053.0Mbit/s
+symbol count = 2000, decoded 126 MB in 0.140secs using 0.0% overhead, throughput: 7254.5Mbit/s
+symbol count = 5000, decoded 122 MB in 0.159secs using 0.0% overhead, throughput: 6141.9Mbit/s
+symbol count = 10000, decoded 122 MB in 0.193secs using 0.0% overhead, throughput: 5059.9Mbit/s
+symbol count = 20000, decoded 122 MB in 0.268secs using 0.0% overhead, throughput: 3643.9Mbit/s
+symbol count = 50000, decoded 122 MB in 0.391secs using 0.0% overhead, throughput: 2497.6Mbit/s
 
-symbol count = 10, decoded 127 MB in 0.246secs using 5.0% overhead, throughput: 4162.3Mbit/s
-symbol count = 100, decoded 127 MB in 0.194secs using 5.0% overhead, throughput: 5275.5Mbit/s
-symbol count = 250, decoded 127 MB in 0.182secs using 5.0% overhead, throughput: 5620.6Mbit/s
-symbol count = 500, decoded 127 MB in 0.174secs using 5.0% overhead, throughput: 5865.0Mbit/s
-symbol count = 1000, decoded 126 MB in 0.183secs using 5.0% overhead, throughput: 5549.9Mbit/s
-symbol count = 2000, decoded 126 MB in 0.191secs using 5.0% overhead, throughput: 5317.4Mbit/s
-symbol count = 5000, decoded 122 MB in 0.196secs using 5.0% overhead, throughput: 4982.5Mbit/s
-symbol count = 10000, decoded 122 MB in 0.258secs using 5.0% overhead, throughput: 3785.1Mbit/s
-symbol count = 20000, decoded 122 MB in 0.325secs using 5.0% overhead, throughput: 3004.8Mbit/s
-symbol count = 50000, decoded 122 MB in 0.511secs using 5.0% overhead, throughput: 1911.1Mbit/s
+symbol count = 10, decoded 127 MB in 0.187secs using 5.0% overhead, throughput: 5475.5Mbit/s
+symbol count = 100, decoded 127 MB in 0.146secs using 5.0% overhead, throughput: 7009.8Mbit/s
+symbol count = 250, decoded 127 MB in 0.140secs using 5.0% overhead, throughput: 7306.8Mbit/s
+symbol count = 500, decoded 127 MB in 0.117secs using 5.0% overhead, throughput: 8722.3Mbit/s
+symbol count = 1000, decoded 126 MB in 0.120secs using 5.0% overhead, throughput: 8463.5Mbit/s
+symbol count = 2000, decoded 126 MB in 0.126secs using 5.0% overhead, throughput: 8060.5Mbit/s
+symbol count = 5000, decoded 122 MB in 0.134secs using 5.0% overhead, throughput: 7287.8Mbit/s
+symbol count = 10000, decoded 122 MB in 0.172secs using 5.0% overhead, throughput: 5677.7Mbit/s
+symbol count = 20000, decoded 122 MB in 0.260secs using 5.0% overhead, throughput: 3756.0Mbit/s
+symbol count = 50000, decoded 122 MB in 0.415secs using 5.0% overhead, throughput: 2353.2Mbit/s
 ```
 
 The following were run on a Raspberry Pi 3 B+ (Cortex-A53 @ 1.4GHz), as of raptorq version 2.0.0
