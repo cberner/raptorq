@@ -97,7 +97,7 @@ impl SymbolSlab {
     }
 
     /// Borrow symbol `i` as a byte slice.
-    #[inline]
+    #[inline(always)]
     pub fn get(&self, i: usize) -> &[u8] {
         let i = self.physical_index(i);
         let start = i * self.symbol_size;
@@ -105,7 +105,7 @@ impl SymbolSlab {
     }
 
     /// Mutably borrow symbol `i` as a byte slice.
-    #[inline]
+    #[inline(always)]
     pub fn get_mut(&mut self, i: usize) -> &mut [u8] {
         let i = self.physical_index(i);
         let start = i * self.symbol_size;
@@ -114,7 +114,7 @@ impl SymbolSlab {
 
     /// Get mutable access to `dest` and shared access to `src` simultaneously.
     /// Panics if `dest == src`.
-    #[inline]
+    #[inline(always)]
     pub fn get_pair_mut(&mut self, dest: usize, src: usize) -> (&mut [u8], &[u8]) {
         let dest = self.physical_index(dest);
         let src = self.physical_index(src);
