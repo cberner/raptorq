@@ -565,7 +565,7 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
             debug_symbol_mul_ops_by_phase: vec![0; 5],
             debug_symbol_add_ops_by_phase: vec![0; 5],
         }
-        // No HDPC row swapping needed — matrix has no HDPC rows
+        // No HDPC row swapping needed - has no HDPC rows
     }
 
     #[inline(never)]

@@ -215,7 +215,7 @@ pub fn generate_constraint_matrix_no_hdpc<T: BinaryMatrix>(
         matrix.set(i, ((i + 1) % P) + W, Octet::one());
     }
 
-    // G_ENC — starts at row S (no HDPC rows in between)
+    // G_ENC - starts at row S (no HDPC rows in between)
     let lt_symbols = num_lt_symbols(Kprime as u32);
     let pi_symbols = num_pi_symbols(Kprime as u32);
     let sys_index = systematic_index(Kprime as u32);
