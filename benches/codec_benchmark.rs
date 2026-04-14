@@ -4,7 +4,7 @@ use criterion::Throughput;
 use criterion::criterion_group;
 use criterion::criterion_main;
 
-use rand::Rng;
+use rand::RngExt;
 use raptorq::SourceBlockDecoder;
 use raptorq::SourceBlockEncoder;
 use raptorq::Symbol;

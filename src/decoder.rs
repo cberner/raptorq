@@ -467,7 +467,7 @@ mod codec_tests {
         vec::Vec,
     };
 
-    use rand::Rng;
+    use rand::RngExt;
     #[cfg(not(feature = "python"))]
     use rand::seq::SliceRandom;
 

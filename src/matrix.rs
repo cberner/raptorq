@@ -352,7 +352,7 @@ impl BinaryMatrix for DenseBinaryMatrix {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::matrix::{BinaryMatrix, DenseBinaryMatrix};
     use crate::octet::Octet;

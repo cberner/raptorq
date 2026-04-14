@@ -82,7 +82,7 @@ impl<'a> AddAssign<&'a Symbol> for Symbol {
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use std::vec::Vec;
 
     use crate::symbol::Symbol;

@@ -51,7 +51,7 @@ pub fn perform_op(op: &SymbolOps, symbols: &mut SymbolSlab) {
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use std::vec::Vec;
 
     use crate::octet::Octet;

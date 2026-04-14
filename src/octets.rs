@@ -1098,7 +1098,7 @@ pub fn add_assign(octets: &mut [u8], other: &[u8]) {
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use std::vec::Vec;
 
     use crate::octet::Octet;

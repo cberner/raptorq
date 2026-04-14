@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use raptorq::{ObjectTransmissionInformation, SourceBlockDecoder, SourceBlockEncoder};
 use std::time::Instant;
 

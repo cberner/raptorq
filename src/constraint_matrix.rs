@@ -241,7 +241,7 @@ mod tests {
     use crate::systematic_constants::{
         extended_source_block_symbols, num_hdpc_symbols, num_ldpc_symbols,
     };
-    use rand::Rng;
+    use rand::RngExt;
     use std::vec::Vec;
 
     #[allow(non_snake_case)]

@@ -290,7 +290,7 @@ impl<'b> Div<&'b Octet> for &Octet {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use crate::octet::OCT_EXP;
     use crate::octet::OCT_LOG;

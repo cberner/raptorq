@@ -3,7 +3,7 @@
 use arbitrary::Unstructured;
 use libfuzzer_sys::arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
-use rand::Rng;
+use rand::RngExt;
 use rand::prelude::*;
 use raptorq::{Decoder, EncodingPacket, Encoder};
 use std::mem::size_of;
@@ -63,7 +63,7 @@ fuzz_target!(|config: FuzzConfig| {
     // Generate some random data to send
     let mut data: Vec<u8> = vec![0; len];
     for i in 0..data.len() {
-        data[i] = rng.gen();
+        data[i] = rng.random();
     }
 
     let encoder = Encoder::with_defaults(&data, config.max_packet_size.value);

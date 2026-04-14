@@ -2,7 +2,7 @@
 use rand::seq::SliceRandom;
 
 #[cfg(not(feature = "python"))]
-use rand::Rng;
+use rand::RngExt;
 
 #[cfg(not(feature = "python"))]
 use raptorq::{Decoder, Encoder, EncodingPacket};

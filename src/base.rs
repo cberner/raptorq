@@ -329,7 +329,7 @@ pub fn intermediate_tuple(
 #[cfg(test)]
 mod tests {
     use crate::{EncodingPacket, ObjectTransmissionInformation, PayloadId};
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     fn max_transfer_size() {

@@ -486,7 +486,7 @@ fn enc_into(
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use std::vec::Vec;
 
     use super::*;
