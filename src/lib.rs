@@ -79,3 +79,5 @@ pub use crate::sparse_matrix::SparseBinaryMatrix;
 pub use crate::symbol::Symbol;
 #[cfg(feature = "benchmarking")]
 pub use crate::symbol_slab::SymbolSlab;
+#[cfg(feature = "benchmarking")]
+pub use crate::systematic_constants::num_intermediate_symbols;

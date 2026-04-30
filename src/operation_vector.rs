@@ -31,19 +31,19 @@ pub enum SymbolOps {
     },
 }
 
-pub fn perform_op(op: &SymbolOps, symbols: &mut SymbolSlab) {
+pub fn perform_op(op: SymbolOps, symbols: &mut SymbolSlab) {
     match op {
         SymbolOps::AddAssign { dest, src } => {
-            symbols.add_assign(*dest, *src);
+            symbols.add_assign(dest, src);
         }
         SymbolOps::MulAssign { dest, scalar } => {
-            symbols.mulassign_scalar(*dest, scalar);
+            symbols.mulassign_scalar(dest, &scalar);
         }
         SymbolOps::FMA { dest, src, scalar } => {
-            symbols.fma(*dest, *src, scalar);
+            symbols.fma(dest, src, &scalar);
         }
         SymbolOps::Reorder { order } => {
-            symbols.set_reorder(order.clone());
+            symbols.set_reorder(order);
         }
     }
 }
@@ -74,7 +74,7 @@ mod tests {
 
         let mut slab =
             SymbolSlab::from_symbols(vec![Symbol::new(raw0), Symbol::new(raw1)], symbol_size);
-        perform_op(&SymbolOps::AddAssign { dest: 0, src: 1 }, &mut slab);
+        perform_op(SymbolOps::AddAssign { dest: 0, src: 1 }, &mut slab);
         assert_eq!(expected, slab.get(0));
     }
 
@@ -99,7 +99,7 @@ mod tests {
         let mut slab =
             SymbolSlab::from_symbols(vec![Symbol::new(raw0), Symbol::new(raw1)], symbol_size);
         perform_op(
-            &SymbolOps::FMA {
+            SymbolOps::FMA {
                 dest: 0,
                 src: 1,
                 scalar: Octet::new(value),
@@ -124,7 +124,7 @@ mod tests {
 
         let mut slab = SymbolSlab::from_symbols(vec![Symbol::new(raw0)], symbol_size);
         perform_op(
-            &SymbolOps::MulAssign {
+            SymbolOps::MulAssign {
                 dest: 0,
                 scalar: Octet::new(value),
             },
@@ -148,7 +148,7 @@ mod tests {
         assert_eq!(slab.get(9)[0], 9);
 
         perform_op(
-            &SymbolOps::Reorder {
+            SymbolOps::Reorder {
                 order: vec![9, 7, 5, 3, 1, 8, 0, 6, 2, 4],
             },
             &mut slab,

@@ -139,9 +139,21 @@ pub struct SourceBlockDecoder {
     received_esi: Set<u32>,
     decoded: bool,
     sparse_threshold: u32,
+
+    #[cfg_attr(feature = "serde_support", serde(default, skip))]
+    computed_set: bool,
+    #[cfg_attr(feature = "serde_support", serde(default, skip))]
+    computed: SourceBlockDecoderComputed,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+struct SourceBlockDecoderComputed {
+    num_intermediate_symbols: u32,
+    params: EncodingParameters,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 struct EncodingParameters {
     lt_symbols: u32,
     pi_symbols: u32,
@@ -168,12 +180,29 @@ impl SourceBlockDecoder {
             received_esi: Set::new(),
             decoded: false,
             sparse_threshold: SPARSE_MATRIX_THRESHOLD,
+            computed_set: false,
+            computed: Default::default(),
         }
     }
 
     #[cfg(any(test, feature = "benchmarking"))]
     pub fn set_sparse_threshold(&mut self, value: u32) {
         self.sparse_threshold = value;
+    }
+
+    fn computed(&mut self) -> SourceBlockDecoderComputed {
+        if !self.computed_set {
+            self.computed_set = true;
+            self.computed.num_intermediate_symbols =
+                num_intermediate_symbols(self.source_block_symbols);
+            self.computed.params = EncodingParameters {
+                lt_symbols: num_lt_symbols(self.source_block_symbols),
+                pi_symbols: num_pi_symbols(self.source_block_symbols),
+                sys_index: systematic_index(self.source_block_symbols),
+                p1: calculate_p1(self.source_block_symbols),
+            };
+        }
+        self.computed
     }
 
     fn unpack_sub_blocks(&self, result: &mut [u8], symbol: &[u8], symbol_index: usize) {
@@ -204,23 +233,16 @@ impl SourceBlockDecoder {
         hdpc_rows: DenseOctetMatrix,
         symbols: SymbolSlab,
     ) -> Option<Vec<u8>> {
-        let intermediate_symbols = match fused_inverse_mul_symbols(
+        let computed = self.computed();
+        let intermediate_symbols = fused_inverse_mul_symbols(
             constraint_matrix,
             hdpc_rows,
             symbols,
             self.source_block_symbols,
-        ) {
-            (None, _) => return None,
-            (Some(s), _) => s,
-        };
+            computed.num_intermediate_symbols,
+        )?;
 
         let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
-        let params = EncodingParameters {
-            lt_symbols: num_lt_symbols(self.source_block_symbols),
-            pi_symbols: num_pi_symbols(self.source_block_symbols),
-            sys_index: systematic_index(self.source_block_symbols),
-            p1: calculate_p1(self.source_block_symbols),
-        };
         let ss = self.symbol_size as usize;
         let mut rebuilt_buf = vec![0u8; ss];
         for i in 0..self.source_block_symbols as usize {
@@ -231,7 +253,7 @@ impl SourceBlockDecoder {
                     &mut rebuilt_buf,
                     &intermediate_symbols,
                     i as u32,
-                    params,
+                    computed.params,
                 );
                 self.unpack_sub_blocks(&mut result, &rebuilt_buf, i);
             }
@@ -248,22 +270,15 @@ impl SourceBlockDecoder {
         constraint_matrix: impl BinaryMatrix,
         symbols: SymbolSlab,
     ) -> Option<Vec<u8>> {
-        let intermediate_symbols = match fused_inverse_mul_symbols_no_hdpc(
+        let computed = self.computed();
+        let intermediate_symbols = fused_inverse_mul_symbols_no_hdpc(
             constraint_matrix,
             symbols,
             self.source_block_symbols,
-        ) {
-            (None, _) => return None,
-            (Some(s), _) => s,
-        };
+            computed.num_intermediate_symbols,
+        )?;
 
         let mut result = vec![0; self.symbol_size as usize * self.source_block_symbols as usize];
-        let params = EncodingParameters {
-            lt_symbols: num_lt_symbols(self.source_block_symbols),
-            pi_symbols: num_pi_symbols(self.source_block_symbols),
-            sys_index: systematic_index(self.source_block_symbols),
-            p1: calculate_p1(self.source_block_symbols),
-        };
         let mut rebuilt_buf = vec![0u8; self.symbol_size as usize];
         for i in 0..self.source_block_symbols as usize {
             if let Some(ref symbol) = self.source_symbols[i] {
@@ -273,7 +288,7 @@ impl SourceBlockDecoder {
                     &mut rebuilt_buf,
                     &intermediate_symbols,
                     i as u32,
-                    params,
+                    computed.params,
                 );
                 self.unpack_sub_blocks(&mut result, &rebuilt_buf, i);
             }
@@ -413,13 +428,13 @@ impl SourceBlockDecoder {
         if num_extended_symbols >= self.sparse_threshold {
             let (constraint_matrix, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(
                 self.source_block_symbols,
-                &encoded_isis,
+                encoded_isis.iter().cloned(),
             );
             self.try_pi_decode(constraint_matrix, hdpc, d)
         } else {
             let (constraint_matrix, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(
                 self.source_block_symbols,
-                &encoded_isis,
+                encoded_isis.iter().cloned(),
             );
             self.try_pi_decode(constraint_matrix, hdpc, d)
         }
