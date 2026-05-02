@@ -14,7 +14,7 @@ use crate::constraint_matrix::generate_constraint_matrix;
 use crate::matrix::DenseBinaryMatrix;
 use crate::octets::add_assign;
 use crate::operation_vector::{SymbolOps, perform_op};
-use crate::pi_solver::fused_inverse_mul_symbols;
+use crate::pi_solver::{fused_inverse_mul_symbol_ops, fused_inverse_mul_symbols};
 use crate::sparse_matrix::SparseBinaryMatrix;
 use crate::symbol_slab::SymbolSlab;
 use crate::systematic_constants::extended_source_block_symbols;
@@ -27,6 +27,7 @@ use crate::systematic_constants::{calculate_p1, systematic_index};
 use crate::util::int_div_ceil;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use likely_polyfill::likely;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
@@ -174,17 +175,15 @@ impl Encoder {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct SourceBlockEncodingPlan {
-    operations: Vec<SymbolOps>,
-    source_symbol_count: u16,
+    pub operations: Vec<SymbolOps>,
+    pub source_symbol_count: u16,
 }
 
 impl SourceBlockEncodingPlan {
     // Generates an encoding plan that is valid for any combination of data length and symbol size
     // where ceil(data_length / symbol_size) = symbol_count
     pub fn generate(symbol_count: u16) -> SourceBlockEncodingPlan {
-        // TODO: refactor pi_solver, so that we don't need this dummy data to generate a plan
-        let symbols = SymbolSlab::with_zeros(symbol_count as usize, 1);
-        let (_, ops) = gen_intermediate_symbols(&symbols, 1, SPARSE_MATRIX_THRESHOLD);
+        let ops = gen_intermediate_symbol_ops(symbol_count, 1, SPARSE_MATRIX_THRESHOLD);
         SourceBlockEncodingPlan {
             operations: ops.unwrap(),
             source_symbol_count: symbol_count,
@@ -301,7 +300,7 @@ impl SourceBlockEncoder {
             let intermediate_symbols = gen_intermediate_symbols_with_plan(
                 &source_symbols,
                 config.symbol_size() as usize,
-                &plan.operations,
+                plan.operations.iter().cloned(),
             );
             return SourceBlockEncoder {
                 source_block_id,
@@ -312,7 +311,7 @@ impl SourceBlockEncoder {
 
         #[cfg(not(feature = "std"))]
         {
-            let (intermediate_symbols, _operations) = gen_intermediate_symbols(
+            let intermediate_symbols = gen_intermediate_symbols(
                 &source_symbols,
                 config.symbol_size() as usize,
                 SPARSE_MATRIX_THRESHOLD,
@@ -339,7 +338,7 @@ impl SourceBlockEncoder {
         let intermediate_symbols = gen_intermediate_symbols_with_plan(
             &source_symbols,
             config.symbol_size() as usize,
-            &plan.operations,
+            plan.operations.iter().cloned(),
         );
 
         SourceBlockEncoder {
@@ -391,10 +390,14 @@ impl SourceBlockEncoder {
 }
 
 #[allow(non_snake_case)]
-fn create_d(source_block: &SymbolSlab, symbol_size: usize) -> SymbolSlab {
-    let L = num_intermediate_symbols(source_block.len() as u32);
+fn create_d(
+    source_block: &SymbolSlab,
+    symbol_size: usize,
+    extended_source_symbols: u32,
+) -> (SymbolSlab, u32) {
     let S = num_ldpc_symbols(source_block.len() as u32);
     let H = num_hdpc_symbols(source_block.len() as u32);
+    let L = extended_source_symbols + S + H;
 
     assert_eq!(source_block.symbol_size(), symbol_size);
     let mut D = SymbolSlab::with_zeros(L as usize, symbol_size);
@@ -402,39 +405,83 @@ fn create_d(source_block: &SymbolSlab, symbol_size: usize) -> SymbolSlab {
     // Copy source symbols into positions S+H..
     D.copy_block_from((S + H) as usize, source_block.as_bytes());
     // Extended padding symbols stay zero.
-    D
+    (D, L)
 }
 
 // See section 5.3.3.4
-#[allow(non_snake_case)]
+#[allow(non_snake_case, unused)]
 fn gen_intermediate_symbols(
     source_block: &SymbolSlab,
     symbol_size: usize,
     sparse_threshold: u32,
-) -> (Option<SymbolSlab>, Option<Vec<SymbolOps>>) {
+) -> Option<SymbolSlab> {
     let extended_source_symbols = extended_source_block_symbols(source_block.len() as u32);
-    let D = create_d(source_block, symbol_size);
-
-    let indices: Vec<u32> = (0..extended_source_symbols).collect();
-    let (intermediate_symbols, operations) = if extended_source_symbols >= sparse_threshold {
-        let (A, hdpc) =
-            generate_constraint_matrix::<SparseBinaryMatrix>(extended_source_symbols, &indices);
-        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols)
+    let (D, L) = create_d(source_block, symbol_size, extended_source_symbols);
+    let intermediate_symbols = if likely(extended_source_symbols == source_block.len() as u32) {
+        L
     } else {
-        let (A, hdpc) =
-            generate_constraint_matrix::<DenseBinaryMatrix>(extended_source_symbols, &indices);
-        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols)
+        num_intermediate_symbols(extended_source_symbols)
     };
 
-    (intermediate_symbols, operations)
+    if extended_source_symbols >= sparse_threshold {
+        let (A, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(
+            extended_source_symbols,
+            0..extended_source_symbols,
+        );
+        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, intermediate_symbols)
+    } else {
+        let (A, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(
+            extended_source_symbols,
+            0..extended_source_symbols,
+        );
+        fused_inverse_mul_symbols(A, hdpc, D, extended_source_symbols, intermediate_symbols)
+    }
 }
+
+// See section 5.3.3.4
+#[allow(non_snake_case)]
+fn gen_intermediate_symbol_ops(
+    symbol_count: u16,
+    symbol_size: usize,
+    sparse_threshold: u32,
+) -> Option<Vec<SymbolOps>> {
+    let extended_source_symbols = extended_source_block_symbols(symbol_count as u32);
+    let L = extended_source_symbols
+        + num_ldpc_symbols(symbol_count as u32)
+        + num_hdpc_symbols(symbol_count as u32);
+    let D = SymbolSlab::with_zeros(L as usize, symbol_size);
+    let intermediate_symbols = if likely(extended_source_symbols == symbol_count as u32) {
+        L
+    } else {
+        num_intermediate_symbols(extended_source_symbols)
+    };
+
+    if extended_source_symbols >= sparse_threshold {
+        let (A, hdpc) = generate_constraint_matrix::<SparseBinaryMatrix>(
+            extended_source_symbols,
+            0..extended_source_symbols,
+        );
+        fused_inverse_mul_symbol_ops(A, hdpc, D, extended_source_symbols, intermediate_symbols)
+    } else {
+        let (A, hdpc) = generate_constraint_matrix::<DenseBinaryMatrix>(
+            extended_source_symbols,
+            0..extended_source_symbols,
+        );
+        fused_inverse_mul_symbol_ops(A, hdpc, D, extended_source_symbols, intermediate_symbols)
+    }
+}
+
 #[allow(non_snake_case)]
 fn gen_intermediate_symbols_with_plan(
     source_block: &SymbolSlab,
     symbol_size: usize,
-    operation_vector: &[SymbolOps],
+    operation_vector: impl ExactSizeIterator<Item = SymbolOps>,
 ) -> SymbolSlab {
-    let mut D = create_d(source_block, symbol_size);
+    let (mut D, _) = create_d(
+        source_block,
+        symbol_size,
+        extended_source_block_symbols(source_block.len() as u32),
+    );
 
     for op in operation_vector {
         perform_op(op, &mut D);
@@ -537,7 +584,7 @@ mod tests {
     fn enc_constraint(sparse_threshold: u32) {
         let source_symbols = gen_test_symbols();
 
-        let (intermediate_symbols, _) =
+        let intermediate_symbols =
             gen_intermediate_symbols(&source_symbols, SYMBOL_SIZE, sparse_threshold);
         let intermediate_symbols = intermediate_symbols.unwrap();
 
@@ -565,7 +612,7 @@ mod tests {
 
     #[allow(non_snake_case)]
     fn ldpc_constraint(sparse_threshold: u32) {
-        let (intermediate_symbols, _) =
+        let intermediate_symbols =
             gen_intermediate_symbols(&gen_test_symbols(), SYMBOL_SIZE, sparse_threshold);
         let C = intermediate_symbols.unwrap();
         let S = num_ldpc_symbols(NUM_SYMBOLS) as usize;

@@ -115,7 +115,7 @@ fn generate_hdpc_rows(Kprime: usize, S: usize, H: usize) -> DenseOctetMatrix {
 #[allow(non_snake_case)]
 pub fn generate_constraint_matrix<T: BinaryMatrix>(
     source_block_symbols: u32,
-    encoded_symbol_indices: &[u32],
+    encoded_symbol_indices: impl ExactSizeIterator<Item = u32>,
 ) -> (T, DenseOctetMatrix) {
     let Kprime = extended_source_block_symbols(source_block_symbols) as usize;
     let S = num_ldpc_symbols(source_block_symbols) as usize;
@@ -160,7 +160,7 @@ pub fn generate_constraint_matrix<T: BinaryMatrix>(
     let pi_symbols = num_pi_symbols(Kprime as u32);
     let sys_index = systematic_index(Kprime as u32);
     let p1 = calculate_p1(Kprime as u32);
-    for (row, &i) in encoded_symbol_indices.iter().enumerate() {
+    for (row, i) in encoded_symbol_indices.enumerate() {
         // row != i, because i is the ESI
         let tuple = intermediate_tuple(i, lt_symbols, sys_index, p1);
 
