@@ -141,7 +141,7 @@ $ pip install maturin
 $ maturin build --features python
 ```
 
-Alternatively, refer to the [Building and Distribution section](https://pyo3.rs/v0.8.5/building_and_distribution.html) in the [pyo3 user guide](https://pyo3.rs/v0.8.5/).
+Alternatively, refer to the [Building and Distribution section](https://pyo3.rs/v0.29.0/building-and-distribution.html) in the [pyo3 user guide](https://pyo3.rs/v0.29.0/).
 Note, you must pass the `--cargo-extra-args="--features python"` argument to Maturin when building this crate
 to enable the Python binding features.
 

@@ -1,6 +1,6 @@
 [project]
 name = "raptorq"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dynamic = ["version"]
 classifier = ["Development Status :: 4 - Beta",
     "License :: OSI Approved :: Apache Software License",
