@@ -184,6 +184,12 @@ impl SymbolSlab {
         self.mapping = Some(order);
     }
 
+    /// Zero all symbol data and clear any reorder mapping.
+    pub fn zero(&mut self) {
+        self.data.fill(0);
+        self.mapping = None;
+    }
+
     /// Bulk copy from a contiguous source block into the slab at the given offset.
     /// `source` must be `count * symbol_size` bytes.
     #[allow(dead_code)]
@@ -266,6 +272,30 @@ mod tests {
         assert_eq!(slab.get(0), &[2]);
         assert_eq!(slab.get(1), &[0]);
         assert_eq!(slab.get(2), &[1]);
+    }
+
+    #[test]
+    fn zero_clears_data_and_mapping() {
+        let mut slab = SymbolSlab::from_symbols(
+            vec![
+                Symbol::new(vec![0xAA, 0xBB]),
+                Symbol::new(vec![0xCC, 0xDD]),
+            ],
+            2,
+        );
+        slab.set_reorder(vec![1, 0]);
+        assert_eq!(slab.get(0), &[0xCC, 0xDD]);
+        assert_eq!(slab.get(1), &[0xAA, 0xBB]);
+
+        slab.zero();
+
+        assert_eq!(slab.get(0), &[0x00, 0x00]);
+        assert_eq!(slab.get(1), &[0x00, 0x00]);
+
+        // check mapping is cleared with a sentinel at slot 0
+        slab.copy_block_from(0, &[0xAB, 0xCD]);
+        assert_eq!(slab.get(0), &[0xAB, 0xCD]);
+        assert_eq!(slab.get(1), &[0x00, 0x00]);
     }
 
     #[test]

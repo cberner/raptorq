@@ -349,6 +349,41 @@ impl SourceBlockEncoder {
         }
     }
 
+    /// Reset the encoder to encode new data of the same K
+    /// Panics if plan K, data K, or data length do not match the encoder's K.
+    pub fn reset(&mut self, data: &[u8], plan: &SourceBlockEncodingPlan) {
+        let k = self.source_symbols.len();
+        let sym_size = self.intermediate_symbols.symbol_size();
+
+        assert_eq!(
+            k, plan.source_symbol_count as usize,
+            "plan K={} does not match encoder K={}",
+            plan.source_symbol_count, k
+        );
+        assert_eq!(
+            data.len(), k * sym_size,
+            "data must be padded to K*sym_size={} bytes, got {}",
+            k * sym_size, data.len()
+        );
+
+        let s = num_ldpc_symbols(k as u32) as usize;
+        let h = num_hdpc_symbols(k as u32) as usize;
+
+        // source_symbols has no mapping — copy_block_from writes to physical layout.
+        self.source_symbols.copy_block_from(0, data);
+
+        // rebuild D
+        self.intermediate_symbols.zero();
+        for i in 0..k {
+            self.intermediate_symbols
+                .get_mut(s + h + i)
+                .copy_from_slice(self.source_symbols.get(i));
+        }
+        for op in &plan.operations {
+            perform_op(op, &mut self.intermediate_symbols);
+        }
+    }
+
     pub fn source_packets(&self) -> Vec<EncodingPacket> {
         (0..self.source_symbols.len())
             .map(|i| {
@@ -627,6 +662,68 @@ mod tests {
                 .collect::<Vec<_>>(),
             &[5, 6, 7, 8]
         );
+    }
+
+    #[test]
+    fn reset_produces_same_output_as_new() {
+        let symbol_size = 2;
+        let data: [u8; 6] = [0, 1, 2, 3, 4, 5];
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 1, 1, 1);
+        let mut encoder = SourceBlockEncoder::new(0, &config, &data);
+
+        let source_before = encoder.source_packets();
+        let repair_before = encoder.repair_packets(0, 3);
+
+        let plan = SourceBlockEncodingPlan::generate(3);
+        encoder.reset(&data, &plan);
+
+        assert_eq!(encoder.source_packets(), source_before);
+        assert_eq!(encoder.repair_packets(0, 3), repair_before);
+    }
+
+    #[test]
+    fn reset_with_different_data_produces_different_output() {
+        let symbol_size = 2;
+        let data_1: [u8; 6] = [0, 1, 2, 3, 4, 5];
+        let data_2: [u8; 6] = [10, 11, 12, 13, 14, 15];
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 1, 1, 1);
+        let mut encoder = SourceBlockEncoder::new(0, &config, &data_1);
+
+        let repair_before = encoder.repair_packets(0, 1);
+
+        let plan = SourceBlockEncodingPlan::generate(3);
+        encoder.reset(&data_2, &plan);
+
+        assert_ne!(encoder.repair_packets(0, 1), repair_before);
+        assert_eq!(
+            encoder.source_packets(),
+            [[10u8, 11], [12, 13], [14, 15]]
+                .into_iter()
+                .enumerate()
+                .map(|(i, d)| EncodingPacket::new(PayloadId::new(0, i as u32), d.into()))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn reset_roundtrip_decodes_new_data() {
+        let symbol_size = 2;
+        let data_1: [u8; 6] = [0, 1, 2, 3, 4, 5];
+        let data_2: [u8; 6] = [10, 11, 12, 13, 14, 15];
+        let config = ObjectTransmissionInformation::new(0, symbol_size, 1, 1, 1);
+        let mut encoder = SourceBlockEncoder::new(0, &config, &data_1);
+
+        let plan = SourceBlockEncodingPlan::generate(3);
+        encoder.reset(&data_2, &plan);
+
+        // Repair-only forces the decoder to run the full linear algebra path,
+        // verifying that intermediate_symbols were correctly regenerated from data_2.
+        let repair_packets = encoder.repair_packets(0, 3);
+
+        let mut decoder = crate::SourceBlockDecoder::new(0, &config, 6);
+        let result = decoder.decode(repair_packets);
+
+        assert_eq!(result.unwrap(), data_2.to_vec());
     }
 
     #[cfg(not(feature = "python"))]
