@@ -21,19 +21,25 @@ impl Encoder {
         let encoder = EncoderNative::with_defaults(data.as_bytes(), maximum_transmission_unit);
         Ok(Encoder { encoder })
     }
-
+    
     pub fn get_encoded_packets(
         &self,
         py: Python<'_>,
         repair_packets_per_block: u32,
     ) -> PyResult<Vec<Py<PyBytes>>> {
-        let packets: Vec<Py<PyBytes>> = self
-            .encoder
-            .get_encoded_packets(repair_packets_per_block)
+        // Release the GIL during the CPU-bound encoding + serialization.
+        let raw: Vec<Vec<u8>> = py.allow_threads(|| {
+            self.encoder
+                .get_encoded_packets(repair_packets_per_block)
+                .iter()
+                .map(|packet| packet.serialize())
+                .collect()
+        });
+        // GIL is held again here: safe to create Python objects.
+        let packets = raw
             .iter()
-            .map(|packet| PyBytes::new(py, &packet.serialize()).into())
+            .map(|bytes| PyBytes::new(py, bytes).into())
             .collect();
-
         Ok(packets)
     }
 }
@@ -63,9 +69,12 @@ impl Decoder {
         py: Python<'_>,
         packet: Bound<'_, PyBytes>,
     ) -> PyResult<Option<Py<PyBytes>>> {
-        let result = self
-            .decoder
-            .decode(EncodingPacket::deserialize(packet.as_bytes()));
+        // Copy bytes out before releasing the GIL (PyBytes is a Python object).
+        let packet_bytes = packet.as_bytes().to_vec();
+        let result: Option<Vec<u8>> = py.allow_threads(|| {
+            self.decoder
+                .decode(EncodingPacket::deserialize(&packet_bytes))
+        });
         Ok(result.map(|data| PyBytes::new(py, &data).into()))
     }
 }
