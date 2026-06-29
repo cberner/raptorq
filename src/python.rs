@@ -28,7 +28,7 @@ impl Encoder {
         repair_packets_per_block: u32,
     ) -> PyResult<Vec<Py<PyBytes>>> {
         // Release the GIL during the CPU-bound encoding + serialization.
-        let raw: Vec<Vec<u8>> = py.allow_threads(|| {
+        let raw: Vec<Vec<u8>> = py.detach(|| {
             self.encoder
                 .get_encoded_packets(repair_packets_per_block)
                 .iter()
@@ -71,7 +71,7 @@ impl Decoder {
     ) -> PyResult<Option<Py<PyBytes>>> {
         // Copy bytes out before releasing the GIL (PyBytes is a Python object).
         let packet_bytes = packet.as_bytes().to_vec();
-        let result: Option<Vec<u8>> = py.allow_threads(|| {
+        let result: Option<Vec<u8>> = py.detach(|| {
             self.decoder
                 .decode(EncodingPacket::deserialize(&packet_bytes))
         });
