@@ -74,36 +74,6 @@ impl Decoder {
     }
 }
 
-#[pymethods]
-impl Decoder {
-    #[staticmethod]
-    pub fn with_defaults(
-        transfer_length: u64,
-        maximum_transmission_unit: u16,
-    ) -> PyResult<Decoder> {
-        let config = ObjectTransmissionInformation::with_defaults(
-            transfer_length,
-            maximum_transmission_unit,
-        );
-        let decoder = DecoderNative::new(config);
-        Ok(Decoder { decoder })
-    }
-
-    pub fn decode(
-        &mut self,
-        py: Python<'_>,
-        packet: Bound<'_, PyBytes>,
-    ) -> PyResult<Option<Py<PyBytes>>> {
-        // Copy bytes out before releasing the GIL (PyBytes is a Python object).
-        let packet_bytes = packet.as_bytes().to_vec();
-        let result: Option<Vec<u8>> = py.detach(|| {
-            self.decoder
-                .decode(EncodingPacket::deserialize(&packet_bytes))
-        });
-        Ok(result.map(|data| PyBytes::new(py, &data).into()))
-    }
-}
-
 #[pymodule]
 pub fn raptorq(_py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Encoder>()?;
