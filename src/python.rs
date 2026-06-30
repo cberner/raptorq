@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::vec::Vec;
 
 use crate::base::{EncodingPacket, ObjectTransmissionInformation};
@@ -6,8 +7,8 @@ use crate::encoder::Encoder as EncoderNative;
 use pyo3::prelude::*;
 use pyo3::types::*;
 
-#[pyclass]
-pub struct Encoder {
+#[pyclass(frozen)]
+struct Encoder {
     encoder: EncoderNative,
 }
 
@@ -21,51 +22,54 @@ impl Encoder {
         let encoder = EncoderNative::with_defaults(data.as_bytes(), maximum_transmission_unit);
         Ok(Encoder { encoder })
     }
-
-    pub fn get_encoded_packets(
+    
+    fn get_encoded_packets(
         &self,
         py: Python<'_>,
         repair_packets_per_block: u32,
     ) -> PyResult<Vec<Py<PyBytes>>> {
-        let packets: Vec<Py<PyBytes>> = self
-            .encoder
-            .get_encoded_packets(repair_packets_per_block)
-            .iter()
-            .map(|packet| PyBytes::new(py, &packet.serialize()).into())
-            .collect();
-
-        Ok(packets)
+        let raw: Vec<Vec<u8>> = py.detach(|| {
+            self.encoder
+                .get_encoded_packets(repair_packets_per_block)
+                .iter()
+                .map(|packet| packet.serialize())
+                .collect()
+        });
+        Ok(raw.iter().map(|bytes| PyBytes::new(py, bytes).into()).collect())
     }
 }
 
-#[pyclass]
-pub struct Decoder {
-    decoder: DecoderNative,
+#[pyclass(frozen)]
+struct Decoder {
+    decoder: Mutex<DecoderNative>,
 }
 
 #[pymethods]
 impl Decoder {
     #[staticmethod]
-    pub fn with_defaults(
+    fn with_defaults(
         transfer_length: u64,
         maximum_transmission_unit: u16,
-    ) -> PyResult<Decoder> {
+    ) -> Decoder {
         let config = ObjectTransmissionInformation::with_defaults(
             transfer_length,
             maximum_transmission_unit,
         );
-        let decoder = DecoderNative::new(config);
-        Ok(Decoder { decoder })
+        Decoder { decoder: Mutex::new(DecoderNative::new(config)) }
     }
 
-    pub fn decode(
-        &mut self,
+    fn decode(
+        &self,
         py: Python<'_>,
         packet: Bound<'_, PyBytes>,
     ) -> PyResult<Option<Py<PyBytes>>> {
-        let result = self
-            .decoder
-            .decode(EncodingPacket::deserialize(packet.as_bytes()));
+        let packet_bytes = packet.as_bytes().to_vec();
+        let result: Option<Vec<u8>> = py.detach(|| {
+            self.decoder
+                .lock()
+                .unwrap()
+                .decode(EncodingPacket::deserialize(&packet_bytes))
+        });
         Ok(result.map(|data| PyBytes::new(py, &data).into()))
     }
 }
