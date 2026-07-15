@@ -39,6 +39,52 @@ impl SymbolSlab {
         }
     }
 
+    /// Build a slab of `total_symbols` with:
+    /// - `zero_prefix_symbols` leading all-zero symbols,
+    /// - then the contiguous `source` bytes (must be a multiple of `symbol_size`),
+    /// - then zero-filled padding through `total_symbols`.
+    ///
+    /// Unlike [`with_zeros`] + overwrite, the source region is never memzero'd.
+    pub(crate) fn with_zero_prefix_source_and_padding(
+        total_symbols: usize,
+        symbol_size: usize,
+        zero_prefix_symbols: usize,
+        source: &[u8],
+    ) -> Self {
+        assert!(symbol_size > 0, "symbol_size must be non-zero");
+        assert_eq!(
+            source.len() % symbol_size,
+            0,
+            "source length must be a multiple of symbol_size"
+        );
+        let source_symbols = source.len() / symbol_size;
+        assert!(
+            zero_prefix_symbols
+                .checked_add(source_symbols)
+                .is_some_and(|used| used <= total_symbols),
+            "prefix+source exceeds total_symbols"
+        );
+        let total_bytes = total_symbols
+            .checked_mul(symbol_size)
+            .expect("slab byte length overflow");
+        let prefix_bytes = zero_prefix_symbols * symbol_size;
+
+        let mut data = Vec::with_capacity(total_bytes);
+        // Zero only the constraint prefix.
+        data.resize(prefix_bytes, 0);
+        // Copy source without a prior memset of that region.
+        data.extend_from_slice(source);
+        // Zero only the trailing padding (K'..K and any unused tail).
+        data.resize(total_bytes, 0);
+
+        SymbolSlab {
+            data,
+            count: total_symbols,
+            symbol_size,
+            mapping: None,
+        }
+    }
+
     /// Create a slab from already-contiguous symbol bytes.
     pub(crate) fn from_bytes(data: Vec<u8>, symbol_size: usize) -> Self {
         assert!(symbol_size > 0, "symbol_size must be non-zero");
@@ -276,5 +322,19 @@ mod tests {
         slab.fma(0, 1, &scalar);
         // GF(256): 0x01 ^ (0x02 * 3) = 0x01 ^ 0x06 = 0x07
         assert_eq!(slab.get(0), &[0x07]);
+    }
+
+    #[test]
+    fn zero_prefix_source_and_padding_layout() {
+        // 2 zero prefix + 2 source + 1 padding = 5 symbols of size 3
+        let source = vec![1, 2, 3, 4, 5, 6];
+        let slab = SymbolSlab::with_zero_prefix_source_and_padding(5, 3, 2, &source);
+        assert_eq!(slab.len(), 5);
+        assert_eq!(slab.get(0), &[0, 0, 0]);
+        assert_eq!(slab.get(1), &[0, 0, 0]);
+        assert_eq!(slab.get(2), &[1, 2, 3]);
+        assert_eq!(slab.get(3), &[4, 5, 6]);
+        assert_eq!(slab.get(4), &[0, 0, 0]);
+        assert_eq!(slab.as_bytes().len(), 15);
     }
 }

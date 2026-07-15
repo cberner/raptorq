@@ -397,12 +397,17 @@ fn create_d(source_block: &SymbolSlab, symbol_size: usize) -> SymbolSlab {
     let H = num_hdpc_symbols(source_block.len() as u32);
 
     assert_eq!(source_block.symbol_size(), symbol_size);
-    let mut D = SymbolSlab::with_zeros(L as usize, symbol_size);
-    // First S+H entries are zero (already set).
-    // Copy source symbols into positions S+H..
-    D.copy_block_from((S + H) as usize, source_block.as_bytes());
-    // Extended padding symbols stay zero.
-    D
+    // D layout (RFC 6330 §5.3.3.4):
+    //   [0, S+H)           — zero RHS for LDPC/HDPC rows
+    //   [S+H, S+H+K)       — source symbols
+    //   [S+H+K, L)         — zero padding for K'..K extended symbols
+    // Avoid memzero of the source region (K * T bytes) on the hot encode path.
+    SymbolSlab::with_zero_prefix_source_and_padding(
+        L as usize,
+        symbol_size,
+        (S + H) as usize,
+        source_block.as_bytes(),
+    )
 }
 
 // See section 5.3.3.4
