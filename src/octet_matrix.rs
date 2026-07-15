@@ -95,4 +95,23 @@ impl DenseOctetMatrix {
             fused_addassign_mul_scalar(dest_row, temp_row, scalar);
         }
     }
+
+    /// Borrow a full matrix row as bytes.
+    #[inline]
+    pub fn row_as_slice(&self, row: usize) -> &[u8] {
+        &self.elements[row]
+    }
+
+    /// Copy `src` into `row` starting at `start_col` (bulk fill helper for GE).
+    #[inline]
+    pub fn copy_row_segment(&mut self, row: usize, start_col: usize, src: &[u8]) {
+        let end = start_col + src.len();
+        self.elements[row][start_col..end].copy_from_slice(src);
+    }
+
+    /// Write a single byte without constructing an [`Octet`].
+    #[inline]
+    pub fn set_byte(&mut self, i: usize, j: usize, value: u8) {
+        self.elements[i][j] = value;
+    }
 }

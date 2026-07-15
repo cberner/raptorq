@@ -1117,18 +1117,22 @@ impl<T: BinaryMatrix> IntermediateSymbolDecoder<T> {
         col_offset: usize,
         size: usize,
     ) -> Option<DenseOctetMatrix> {
-        // Copy U_lower into a new matrix and merge it with the HDPC rows
+        // Copy U_lower into a new matrix and merge it with the HDPC rows.
+        // HDPC rows are already dense GF(256): bulk-copy each row segment.
+        // Binary A rows still need per-column extraction (bit-packed source).
         let mut submatrix = DenseOctetMatrix::new(self.A.height() - row_offset, size, 0);
         let first_hdpc_row = self.A.height() - hdpc_rows.height();
-        for row in row_offset..self.A.height() {
-            for col in col_offset..(col_offset + size) {
-                let value = if row < first_hdpc_row {
-                    self.A.get(row, col)
-                } else {
-                    hdpc_rows.get(row - first_hdpc_row, col)
-                };
-                submatrix.set(row - row_offset, col - col_offset, value);
+        for row in row_offset..first_hdpc_row {
+            let dest_row = row - row_offset;
+            for col in 0..size {
+                // Binary matrix → 0/1 octet; avoid Octet construction in set().
+                submatrix.set_byte(dest_row, col, self.A.get(row, col_offset + col).byte());
             }
+        }
+        for hr in 0..hdpc_rows.height() {
+            let dest_row = first_hdpc_row - row_offset + hr;
+            let src = &hdpc_rows.row_as_slice(hr)[col_offset..(col_offset + size)];
+            submatrix.copy_row_segment(dest_row, 0, src);
         }
 
         for i in 0..size {
