@@ -9,7 +9,6 @@ use crate::octet::OCTET_MUL;
     any(
         target_arch = "x86",
         target_arch = "x86_64",
-        target_arch = "arm",
         target_arch = "aarch64",
     ),
     feature = "std"
@@ -19,7 +18,6 @@ use crate::octet::OCTET_MUL_HI_BITS;
     any(
         target_arch = "x86",
         target_arch = "x86_64",
-        target_arch = "arm",
         target_arch = "aarch64",
     ),
     feature = "std"
@@ -138,7 +136,7 @@ pub fn fused_addassign_mul_scalar_binary(
 }
 
 // TODO: enable when stable
-#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_binary_neon(
     octets: &mut [u8],
@@ -484,7 +482,7 @@ fn mulassign_scalar_fallback(octets: &mut [u8], scalar: &Octet) {
 }
 
 // TODO: enable when stable
-#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn mulassign_scalar_neon(octets: &mut [u8], scalar: &Octet) {
     unsafe {
@@ -670,7 +668,7 @@ fn fused_addassign_mul_scalar_fallback(octets: &mut [u8], other: &[u8], scalar: 
 }
 
 // TODO: enable when stable
-#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn fused_addassign_mul_scalar_neon(octets: &mut [u8], other: &[u8], scalar: &Octet) {
     unsafe {
@@ -909,7 +907,7 @@ use std::arch::aarch64::uint8x16_t;
 // use std::arch::arm::uint8x16_t;
 
 // TODO: enable when stable
-#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
     unsafe {
@@ -928,7 +926,7 @@ unsafe fn store_neon(ptr: *mut uint8x16_t, value: uint8x16_t) {
 }
 
 // TODO: enable when stable
-#[cfg(all(any(target_arch = "arm", target_arch = "aarch64"), feature = "std"))]
+#[cfg(all(target_arch = "aarch64", feature = "std"))]
 // #[target_feature(enable = "neon")]
 unsafe fn add_assign_neon(octets: &mut [u8], other: &[u8]) {
     unsafe {
