@@ -308,9 +308,6 @@ impl SourceBlockDecoder {
             }
         }
 
-        let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
-        let num_padding_symbols = num_extended_symbols - self.source_block_symbols;
-
         // Case 1: the number of received packets is insufficient for decoding
         if self.received_esi.len() < self.source_block_symbols as usize {
             return None;
@@ -328,7 +325,90 @@ impl SourceBlockDecoder {
             return Some(result);
         }
 
-        // Case 3: we may have sufficient symbols to do a standard decoding
+        self.reconstruct()
+    }
+
+    /// One-shot decode: given the complete, currently-known set of packets for this
+    /// source block, reassembles it into `out` (cleared and resized in place) instead
+    /// of returning a freshly allocated `Vec<u8>`, and without consuming `packets` —
+    /// the caller keeps ownership of its packet buffer.
+    ///
+    /// In the common case (no source symbol missing) this writes directly from the
+    /// borrowed packets into `out` with no `Symbol` allocated. If some source symbols
+    /// are missing, falls back to the same algebraic reconstruction `decode` uses,
+    /// cloning the received payloads into owned buffers as needed for that solve.
+    ///
+    /// Unlike `decode`, this assumes a single call per source block with every
+    /// packet already known — it does not accumulate state across repeated calls.
+    pub fn decode_to(&mut self, packets: &[EncodingPacket], out: &mut Vec<u8>) -> bool {
+        for s in &mut self.source_symbols {
+            *s = None;
+        }
+        self.repair_packets.clear();
+        self.received_source_symbols = 0;
+        self.received_esi.clear();
+        self.decoded = false;
+
+        for packet in packets {
+            assert_eq!(self.source_block_id, packet.payload_id().source_block_number());
+            if self.received_esi.insert(packet.payload_id().encoding_symbol_id())
+                && packet.payload_id().encoding_symbol_id() < self.source_block_symbols
+            {
+                self.received_source_symbols += 1;
+            }
+        }
+
+        if self.received_esi.len() < self.source_block_symbols as usize {
+            return false;
+        }
+
+        out.clear();
+        out.resize(self.symbol_size as usize * self.source_block_symbols as usize, 0);
+
+        if self.received_source_symbols == self.source_block_symbols {
+            for packet in packets {
+                let esi = packet.payload_id().encoding_symbol_id();
+                if esi < self.source_block_symbols {
+                    self.unpack_sub_blocks(out, packet.data(), esi as usize);
+                }
+            }
+            self.decoded = true;
+            return true;
+        }
+
+        // `self.received_esi` only tells us which ESIs were seen at least once; it doesn't
+        // track whether we've already stored a repair packet for one here, so a duplicate
+        // repair packet (e.g. received twice) would otherwise be pushed twice, feeding
+        // `reconstruct()` a redundant equation row and risking a rank-deficient solve.
+        // `source_symbols` doesn't need this: indexed assignment is naturally idempotent.
+        let mut seen_repair_esi = Set::new();
+        for packet in packets {
+            let esi = packet.payload_id().encoding_symbol_id();
+            if esi >= self.source_block_symbols {
+                if seen_repair_esi.insert(esi) {
+                    self.repair_packets.push(packet.clone());
+                }
+            } else {
+                self.source_symbols[esi as usize] = Some(Symbol::new(packet.data().to_vec()));
+            }
+        }
+
+        match self.reconstruct() {
+            Some(result) => {
+                *out = result;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Case 3 of `decode`/`decode_to`: not all source symbols were received, so the
+    /// missing ones must be reconstructed algebraically from `self.source_symbols` and
+    /// `self.repair_packets`, which the caller is expected to have already populated.
+    fn reconstruct(&mut self) -> Option<Vec<u8>> {
+        let num_extended_symbols = extended_source_block_symbols(self.source_block_symbols);
+        let num_padding_symbols = num_extended_symbols - self.source_block_symbols;
+
         let s = num_ldpc_symbols(self.source_block_symbols) as usize;
         let h = num_hdpc_symbols(self.source_block_symbols) as usize;
         let l = num_intermediate_symbols(self.source_block_symbols) as usize;
@@ -822,5 +902,95 @@ mod codec_tests {
                 "Decoded data mismatch (repair-only) at symbol_count={symbol_count}"
             );
         }
+    }
+
+    /// Test decode_to with complete packet set (no loss) — verifies output matches
+    /// decode() and packets are not consumed.
+    #[test]
+    fn decode_to_no_loss() {
+        let symbol_size = 1280;
+        let symbol_count = 10;
+        let elements = symbol_size * symbol_count as usize;
+        let mut data: Vec<u8> = vec![0; elements];
+        for element in &mut data {
+            *element = rand::rng().random();
+        }
+
+        let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new(1, &config, &data);
+
+        // Get all source packets
+        let packets = encoder.source_packets();
+
+        // Decode using original decode() method
+        let mut decoder1 = SourceBlockDecoder::new(1, &config, elements as u64);
+        let mut expected = None;
+        for packet in &packets {
+            expected = decoder1.decode(iter::once(packet.clone()));
+            if expected.is_some() {
+                break;
+            }
+        }
+        let expected = expected.unwrap();
+
+        // Decode using decode_to() method
+        let mut decoder2 = SourceBlockDecoder::new(1, &config, elements as u64);
+        let mut decoded = Vec::new();
+        let ok = decoder2.decode_to(&packets, &mut decoded);
+
+        // Verify decode_to succeeded and output matches
+        assert!(ok, "decode_to should succeed with complete packet set");
+        assert_eq!(decoded, expected, "decode_to output should match decode()");
+
+        // Verify packets were not consumed
+        assert!(!packets.is_empty(), "packets Vec should not be consumed");
+        assert_eq!(packets.len(), symbol_count as usize, "packet count should be unchanged");
+    }
+
+    /// Test decode_to with packet loss (needs algebraic reconstruction) — verifies
+    /// output matches decode() with repair packets.
+    #[test]
+    fn decode_to_with_loss() {
+        let symbol_size = 1280;
+        let symbol_count = 10;
+        let elements = symbol_size * symbol_count as usize;
+        let mut data: Vec<u8> = vec![0; elements];
+        for element in &mut data {
+            *element = rand::rng().random();
+        }
+
+        let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new(1, &config, &data);
+
+        // Get source and some repair packets, drop one source packet
+        let mut packets = encoder.source_packets();
+        let mut repair_packets = encoder.repair_packets(0, 5);
+        packets.pop(); // Drop last source packet
+
+        // Add repair packets to compensate
+        packets.append(&mut repair_packets);
+
+        // Decode using original decode() method
+        let mut decoder1 = SourceBlockDecoder::new(1, &config, elements as u64);
+        let mut expected = None;
+        for packet in &packets {
+            expected = decoder1.decode(iter::once(packet.clone()));
+            if expected.is_some() {
+                break;
+            }
+        }
+        let expected = expected.expect("should decode with repair packets");
+
+        // Decode using decode_to() method
+        let mut decoder2 = SourceBlockDecoder::new(1, &config, elements as u64);
+        let mut decoded = Vec::new();
+        let ok = decoder2.decode_to(&packets, &mut decoded);
+
+        // Verify decode_to succeeded and output matches
+        assert!(ok, "decode_to should succeed with repair packets");
+        assert_eq!(decoded, expected, "decode_to output should match decode() with repair");
+
+        // Verify packets were not consumed
+        assert!(!packets.is_empty(), "packets Vec should not be consumed");
     }
 }
