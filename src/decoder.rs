@@ -359,13 +359,24 @@ impl SourceBlockDecoder {
         }
 
         if self.received_esi.len() < self.source_block_symbols as usize {
+            // Restore the reset state from function entry instead of leaving `received_esi`/
+            // `received_source_symbols` referencing ESIs this call never stored into
+            // `source_symbols`/`repair_packets`: a caller falling back to the incremental
+            // `decode()` API afterward would otherwise see those ESIs as already received,
+            // take its all-source fast path, and unwrap a `source_symbols` slot that's still
+            // `None`. `clear()` keeps the set's already-allocated capacity, so this doesn't
+            // allocate.
+            self.received_esi.clear();
+            self.received_source_symbols = 0;
             return false;
         }
 
-        out.clear();
-        out.resize(self.symbol_size as usize * self.source_block_symbols as usize, 0);
-
         if self.received_source_symbols == self.source_block_symbols {
+            // Only resize here: this is the one branch that actually writes into `out` in
+            // place. The reconstruction branch below replaces `out` wholesale with its own
+            // freshly built `Vec`, so pre-zeroing it first would just be wasted work.
+            out.clear();
+            out.resize(self.symbol_size as usize * self.source_block_symbols as usize, 0);
             for packet in packets {
                 let esi = packet.payload_id().encoding_symbol_id();
                 if esi < self.source_block_symbols {
@@ -376,6 +387,15 @@ impl SourceBlockDecoder {
             return true;
         }
 
+        // This clones/copies every packet's payload into `self.repair_packets`/
+        // `self.source_symbols`, unlike the fast path above which reads `packets` in place.
+        // That's the cost of `decode_to` only borrowing `packets` (so the caller can keep and
+        // reuse its `Vec<EncodingPacket>` instead of handing over ownership): these two fields
+        // are struct-level state shared with the streaming `decode` API above, which needs
+        // owned data since it accumulates across calls, so this one-shot call pays the same
+        // price even though it alone wouldn't otherwise need to outlive `packets`. Only taken
+        // on the loss path (some source symbol missing), not the common no-loss case.
+        //
         // `self.received_esi` only tells us which ESIs were seen at least once; it doesn't
         // track whether we've already stored a repair packet for one here, so a duplicate
         // repair packet (e.g. received twice) would otherwise be pushed twice, feeding
@@ -992,5 +1012,43 @@ mod codec_tests {
 
         // Verify packets were not consumed
         assert!(!packets.is_empty(), "packets Vec should not be consumed");
+    }
+
+    /// Regression test: a `decode_to` call that fails for lack of packets must not corrupt
+    /// `received_esi`/`received_source_symbols` state used by the incremental `decode()` API.
+    /// Previously, `decode_to` recorded seen ESIs before checking whether it had enough of
+    /// them, so a caller falling back to `decode()` after a failed `decode_to` would find
+    /// those ESIs already marked as received (with no matching `source_symbols` entry),
+    /// letting `decode()` take its all-source fast path and panic on `.unwrap()`.
+    #[test]
+    fn decode_to_insufficient_then_decode_does_not_panic() {
+        let symbol_size = 1280;
+        let symbol_count = 10;
+        let elements = symbol_size * symbol_count as usize;
+        let mut data: Vec<u8> = vec![0; elements];
+        for element in &mut data {
+            *element = rand::rng().random();
+        }
+
+        let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new(1, &config, &data);
+        let packets = encoder.source_packets();
+
+        let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
+
+        // Not enough packets: decode_to must fail without wedging decoder state.
+        let mut decoded = Vec::new();
+        let ok = decoder.decode_to(&packets[..packets.len() - 1], &mut decoded);
+        assert!(!ok, "decode_to should fail when a source packet is missing");
+
+        // Falling back to the incremental API with the full packet set (as a caller would,
+        // re-presenting everything it knows plus what just arrived) must still work rather
+        // than panicking on a `source_symbols` slot the failed decode_to never populated.
+        let result = decoder.decode(packets.iter().cloned());
+        assert!(
+            result.is_some(),
+            "decode() should complete the transfer after a failed decode_to"
+        );
+        assert_eq!(result.unwrap(), data, "decoded data should match the original");
     }
 }
