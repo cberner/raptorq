@@ -384,6 +384,16 @@ impl SourceBlockDecoder {
                 }
             }
             self.decoded = true;
+            // This fast path writes packet data straight into `out` without storing it into
+            // `self.source_symbols` (that's the point: no `Symbol` allocation). Left as-is,
+            // `received_esi`/`received_source_symbols` would claim every source symbol was
+            // received while `source_symbols` stays all `None`. A caller that falls back to
+            // the incremental `decode()` API afterward would then hit its all-source fast
+            // path and unwrap a still-`None` slot. Clear the bookkeeping so a later `decode()`
+            // call starts fresh instead of trusting this stale state; `clear()` keeps the
+            // set's capacity, so this doesn't allocate.
+            self.received_esi.clear();
+            self.received_source_symbols = 0;
             return true;
         }
 
@@ -1048,6 +1058,42 @@ mod codec_tests {
         assert!(
             result.is_some(),
             "decode() should complete the transfer after a failed decode_to"
+        );
+        assert_eq!(result.unwrap(), data, "decoded data should match the original");
+    }
+
+    /// Regression test: a successful no-loss `decode_to` must not leave `received_esi`/
+    /// `received_source_symbols` claiming every source symbol was received while
+    /// `source_symbols` itself stays unpopulated (that fast path writes straight into `out`
+    /// and never touches `source_symbols`). Otherwise a subsequent `decode()` call on the same
+    /// decoder would take its all-source fast path and panic on `.unwrap()`.
+    #[test]
+    fn decode_to_success_then_decode_does_not_panic() {
+        let symbol_size = 1280;
+        let symbol_count = 10;
+        let elements = symbol_size * symbol_count as usize;
+        let mut data: Vec<u8> = vec![0; elements];
+        for element in &mut data {
+            *element = rand::rng().random();
+        }
+
+        let config = ObjectTransmissionInformation::new(0, symbol_size as u16, 0, 1, 1);
+        let encoder = SourceBlockEncoder::new(1, &config, &data);
+        let packets = encoder.source_packets();
+
+        let mut decoder = SourceBlockDecoder::new(1, &config, elements as u64);
+
+        let mut decoded = Vec::new();
+        let ok = decoder.decode_to(&packets, &mut decoded);
+        assert!(ok, "decode_to should succeed when every source packet is present");
+        assert_eq!(decoded, data, "decode_to output should match the original");
+
+        // Reusing the decoder via the incremental API afterward must not panic, even though
+        // decode_to already reported every ESI as received.
+        let result = decoder.decode(packets.iter().cloned());
+        assert!(
+            result.is_some(),
+            "decode() should still complete after a successful decode_to"
         );
         assert_eq!(result.unwrap(), data, "decoded data should match the original");
     }
