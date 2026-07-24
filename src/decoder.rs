@@ -330,7 +330,7 @@ impl SourceBlockDecoder {
 
     /// One-shot decode: given the complete, currently-known set of packets for this
     /// source block, reassembles it into `out` (cleared and resized in place) instead
-    /// of returning a freshly allocated `Vec<u8>`, and without consuming `packets` —
+    /// of returning a freshly allocated `Vec<u8>`, and without consuming `packets` --
     /// the caller keeps ownership of its packet buffer.
     ///
     /// In the common case (no source symbol missing) this writes directly from the
@@ -339,7 +339,7 @@ impl SourceBlockDecoder {
     /// cloning the received payloads into owned buffers as needed for that solve.
     ///
     /// Unlike `decode`, this assumes a single call per source block with every
-    /// packet already known — it does not accumulate state across repeated calls.
+    /// packet already known -- it does not accumulate state across repeated calls.
     pub fn decode_to(&mut self, packets: &[EncodingPacket], out: &mut Vec<u8>) -> bool {
         for s in &mut self.source_symbols {
             *s = None;
@@ -390,7 +390,7 @@ impl SourceBlockDecoder {
             // received while `source_symbols` stays all `None`. A caller that falls back to
             // the incremental `decode()` API afterward would then hit its all-source fast
             // path and unwrap a still-`None` slot. Clear the bookkeeping so a later `decode()`
-            // call starts fresh instead of trusting this stale state; `clear()` keeps the
+            // call starts fresh instead of trusting this stale state -- `clear()` keeps the
             // set's capacity, so this doesn't allocate.
             self.received_esi.clear();
             self.received_source_symbols = 0;
@@ -934,7 +934,7 @@ mod codec_tests {
         }
     }
 
-    /// Test decode_to with complete packet set (no loss) — verifies output matches
+    /// Test decode_to with complete packet set (no loss) -- verifies output matches
     /// decode() and packets are not consumed.
     #[test]
     fn decode_to_no_loss() {
@@ -977,7 +977,7 @@ mod codec_tests {
         assert_eq!(packets.len(), symbol_count as usize, "packet count should be unchanged");
     }
 
-    /// Test decode_to with packet loss (needs algebraic reconstruction) — verifies
+    /// Test decode_to with packet loss (needs algebraic reconstruction) -- verifies
     /// output matches decode() with repair packets.
     #[test]
     fn decode_to_with_loss() {
