@@ -78,6 +78,22 @@ impl Decoder {
         }
     }
 
+    /// Adds one packet to the decoder, returning the decoded object once
+    /// enough packets have been received.
+    ///
+    /// # Corruption
+    ///
+    /// `packet` must not be corrupt. RaptorQ corrects erasures, not errors,
+    /// and cannot detect a packet whose contents were altered in transit; see
+    /// the [crate-level documentation](crate#erasure-correction-not-error-detection).
+    /// Corruption of a packet's payload will produce incorrect output rather
+    /// than an error.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the packet's source block number is not one of the blocks
+    /// described by the [`ObjectTransmissionInformation`] this decoder was
+    /// built with, which a corrupt FEC Payload ID can cause.
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         let block_number = packet.payload_id.source_block_number() as usize;
         if self.blocks[block_number].is_none() {
@@ -283,6 +299,21 @@ impl SourceBlockDecoder {
         Some(result)
     }
 
+    /// Adds packets to the decoder, returning the decoded source block once
+    /// enough have been received.
+    ///
+    /// # Corruption
+    ///
+    /// `packets` must not be corrupt. RaptorQ corrects erasures, not errors,
+    /// and cannot detect a packet whose contents were altered in transit; see
+    /// the [crate-level documentation](crate#erasure-correction-not-error-detection).
+    /// Corruption of a packet's payload will produce incorrect output rather
+    /// than an error.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any packet's source block number differs from this decoder's,
+    /// which a corrupt FEC Payload ID can cause.
     pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
         &mut self,
         packets: T,
