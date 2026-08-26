@@ -16,18 +16,24 @@
 //! whatever the surrounding protocol provides — a transport that authenticates
 //! its payloads, a checksum, or a signature over each packet.
 //!
-//! Passing corrupted data in has no single defined outcome. It may:
+//! Passing corrupted data in has no single defined outcome. Depending on
+//! which bytes were altered, it may:
 //!
 //! - **return incorrect data**, with no error and no indication that anything
-//!   is wrong, when the corruption is in a packet's payload;
-//! - **panic**, when the corruption is in the 4-byte FEC Payload ID that
-//!   prefixes each packet, since the block and symbol numbers it carries are
-//!   used to index the decoder's state;
-//! - fail to decode and return [`None`].
+//!   is wrong. This is what happens when a packet's payload is altered but its
+//!   length is unchanged: the payload is indistinguishable from a legitimate
+//!   symbol, so it is decoded as one;
+//! - **panic**, when the corruption changes the length of a packet's payload
+//!   to less than the symbol size, or alters the 4-byte FEC Payload ID that
+//!   prefixes each packet. Payload lengths and the block and symbol numbers in
+//!   the ID are used to index the decoder's state, so a value outside the range
+//!   the [`ObjectTransmissionInformation`] describes is out of bounds;
+//! - fail to decode and return [`None`], if the corruption cost enough symbols
+//!   that not enough remain.
 //!
-//! None of these should be relied on as a signal. A corruption check that
-//! happens *before* decoding is the only thing that makes the outcome
-//! well-defined.
+//! None of these should be relied on as a signal, and which one occurs is not
+//! part of the API contract. A corruption check that happens *before* decoding
+//! is the only thing that makes the outcome well-defined.
 
 #![allow(
     clippy::needless_return,
