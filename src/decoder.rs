@@ -86,14 +86,19 @@ impl Decoder {
     /// `packet` must not be corrupt. RaptorQ corrects erasures, not errors,
     /// and cannot detect a packet whose contents were altered in transit; see
     /// the [crate-level documentation](crate#erasure-correction-not-error-detection).
-    /// Corruption of a packet's payload will produce incorrect output rather
-    /// than an error.
+    /// Corrupting a packet's payload without changing its length produces
+    /// incorrect output rather than an error.
     ///
     /// # Panics
     ///
     /// Panics if the packet's source block number is not one of the blocks
     /// described by the [`ObjectTransmissionInformation`] this decoder was
     /// built with, which a corrupt FEC Payload ID can cause.
+    ///
+    /// Panics if the packet's payload is shorter than the symbol size that
+    /// [`ObjectTransmissionInformation`] describes, which truncation in
+    /// transit can cause. The panic occurs when the symbol is used to
+    /// reconstruct the block, not when the packet is added.
     pub fn decode(&mut self, packet: EncodingPacket) -> Option<Vec<u8>> {
         let block_number = packet.payload_id.source_block_number() as usize;
         if self.blocks[block_number].is_none() {
@@ -307,13 +312,17 @@ impl SourceBlockDecoder {
     /// `packets` must not be corrupt. RaptorQ corrects erasures, not errors,
     /// and cannot detect a packet whose contents were altered in transit; see
     /// the [crate-level documentation](crate#erasure-correction-not-error-detection).
-    /// Corruption of a packet's payload will produce incorrect output rather
-    /// than an error.
+    /// Corrupting a packet's payload without changing its length produces
+    /// incorrect output rather than an error.
     ///
     /// # Panics
     ///
     /// Panics if any packet's source block number differs from this decoder's,
     /// which a corrupt FEC Payload ID can cause.
+    ///
+    /// Panics if any packet's payload is shorter than this decoder's symbol
+    /// size, which truncation in transit can cause. The panic occurs when the
+    /// symbol is used to reconstruct the block, not when the packet is added.
     pub fn decode<T: IntoIterator<Item = EncodingPacket>>(
         &mut self,
         packets: T,
