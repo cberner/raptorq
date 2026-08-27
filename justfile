@@ -31,9 +31,11 @@ build_py: pre
 release_py: pre
     maturin build --release
 
+# Download the `python-dist` artifact from the Wheels workflow into
+# target/wheels before publishing. The PyPI token never leaves this machine.
 publish_py: test_py
-    docker pull quay.io/pypa/manylinux2014_x86_64
-    @MATURIN_PYPI_TOKEN=$(cat ~/.pypi/raptorq_token) docker run -it --rm -e "MATURIN_PYPI_TOKEN" -v $(pwd):/raptorq-ro:ro quay.io/pypa/manylinux2014_x86_64 /raptorq-ro/py_publish.sh
+    @test -n "$(find target/wheels -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \) -print -quit 2>/dev/null)" || (echo "No release artifacts in target/wheels. Download and extract the python-dist artifact from the Wheels workflow first." >&2; exit 1)
+    @MATURIN_PYPI_TOKEN=$(cat ~/.pypi/raptorq_token) maturin upload --skip-existing target/wheels/*
 
 install_py: pre
     maturin develop
