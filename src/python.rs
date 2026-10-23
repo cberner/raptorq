@@ -15,10 +15,15 @@ pub struct Encoder {
 impl Encoder {
     #[staticmethod]
     pub fn with_defaults(
+        py: Python<'_>,
         data: Bound<'_, PyBytes>,
         maximum_transmission_unit: u16,
     ) -> PyResult<Encoder> {
-        let encoder = EncoderNative::with_defaults(data.as_bytes(), maximum_transmission_unit);
+        // Keep an owned reference alive while borrowing immutable bytes without
+        // the GIL. Only the byte slice is captured by the detached computation.
+        let data = data.unbind();
+        let bytes = data.as_bytes(py);
+        let encoder = py.detach(|| EncoderNative::with_defaults(bytes, maximum_transmission_unit));
         Ok(Encoder { encoder })
     }
 
@@ -27,11 +32,16 @@ impl Encoder {
         py: Python<'_>,
         repair_packets_per_block: u32,
     ) -> PyResult<Vec<Py<PyBytes>>> {
-        let packets: Vec<Py<PyBytes>> = self
-            .encoder
-            .get_encoded_packets(repair_packets_per_block)
-            .iter()
-            .map(|packet| PyBytes::new(py, &packet.serialize()).into())
+        let packets: Vec<Vec<u8>> = py.detach(|| {
+            self.encoder
+                .get_encoded_packets(repair_packets_per_block)
+                .into_iter()
+                .map(|packet| packet.serialize())
+                .collect()
+        });
+        let packets = packets
+            .into_iter()
+            .map(|packet| PyBytes::new(py, &packet).into())
             .collect();
 
         Ok(packets)
@@ -47,14 +57,17 @@ pub struct Decoder {
 impl Decoder {
     #[staticmethod]
     pub fn with_defaults(
+        py: Python<'_>,
         transfer_length: u64,
         maximum_transmission_unit: u16,
     ) -> PyResult<Decoder> {
-        let config = ObjectTransmissionInformation::with_defaults(
-            transfer_length,
-            maximum_transmission_unit,
-        );
-        let decoder = DecoderNative::new(config);
+        let decoder = py.detach(|| {
+            let config = ObjectTransmissionInformation::with_defaults(
+                transfer_length,
+                maximum_transmission_unit,
+            );
+            DecoderNative::new(config)
+        });
         Ok(Decoder { decoder })
     }
 
@@ -63,9 +76,8 @@ impl Decoder {
         py: Python<'_>,
         packet: Bound<'_, PyBytes>,
     ) -> PyResult<Option<Py<PyBytes>>> {
-        let result = self
-            .decoder
-            .decode(EncodingPacket::deserialize(packet.as_bytes()));
+        let packet = EncodingPacket::deserialize(packet.as_bytes());
+        let result = py.detach(|| self.decoder.decode(packet));
         Ok(result.map(|data| PyBytes::new(py, &data).into()))
     }
 }
