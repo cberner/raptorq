@@ -1,3 +1,40 @@
+//! An implementation of RaptorQ, the fountain code defined in
+//! [RFC 6330](https://tools.ietf.org/html/rfc6330).
+//!
+//! # Erasure correction, not error detection
+//!
+//! RaptorQ recovers *erasures*: packets that were lost in transit. Given
+//! enough of the packets that were sent, it reconstructs the original object
+//! regardless of which ones went missing.
+//!
+//! It does **not** detect *errors*: packets that arrived but were altered.
+//! Nothing in the encoded stream identifies a packet as corrupt, so the
+//! decoder cannot distinguish a modified packet from a legitimate one.
+//!
+//! **Callers are responsible for ensuring that data passed to the decode
+//! functions is free of corruption.** Verify integrity before decoding, with
+//! whatever the surrounding protocol provides — a transport that authenticates
+//! its payloads, a checksum, or a signature over each packet.
+//!
+//! Passing corrupted data in has no single defined outcome. Depending on
+//! which bytes were altered, it may:
+//!
+//! - **return incorrect data**, with no error and no indication that anything
+//!   is wrong. This is what happens when a packet's payload is altered but its
+//!   length is unchanged: the payload is indistinguishable from a legitimate
+//!   symbol, so it is decoded as one;
+//! - **panic**, when the corruption changes the length of a packet's payload
+//!   to less than the symbol size, or alters the 4-byte FEC Payload ID that
+//!   prefixes each packet. Payload lengths and the block and symbol numbers in
+//!   the ID are used to index the decoder's state, so a value outside the range
+//!   the [`ObjectTransmissionInformation`] describes is out of bounds;
+//! - fail to decode and return [`None`], if the corruption cost enough symbols
+//!   that not enough remain.
+//!
+//! None of these should be relied on as a signal, and which one occurs is not
+//! part of the API contract. A corruption check that happens *before* decoding
+//! is the only thing that makes the outcome well-defined.
+
 #![allow(
     clippy::needless_return,
     clippy::unreadable_literal,
