@@ -45,7 +45,8 @@ publish_py: test_py
     rm -rf target/python-dist
     gh run download "$run_id" --repo cberner/raptorq --name python-dist --dir target/python-dist
     just check_py_dist target/python-dist
-    MATURIN_PYPI_TOKEN=$(cat ~/.pypi/raptorq_token) maturin upload target/python-dist/*
+    # `maturin upload` is deprecated (PyO3/maturin#2334); upload with uv instead
+    UV_PUBLISH_TOKEN=$(cat ~/.pypi/raptorq_token) uv publish target/python-dist/*
 
 # Check that `dir` holds exactly the 5 wheels and the sdist for the version in Cargo.toml, and that none are corrupt
 check_py_dist dir:
