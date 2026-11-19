@@ -7,7 +7,7 @@ repository = "https://github.com/cberner/raptorq"
 readme = "README.md"
 version = "2.0.1"
 edition = "2024"
-authors = ["Christopher Berner <christopherberner@gmail.com>"]
+authors = ["Christopher Berner <me@cberner.com>"]
 
 [lib]
 crate-type = ["lib"]
