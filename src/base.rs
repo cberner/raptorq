@@ -74,14 +74,9 @@ impl EncodingPacket {
         EncodingPacket { payload_id, data }
     }
 
-    /// Deserializes a packet from its on-wire representation.
-    ///
-    /// The first 4 bytes are the FEC Payload ID defined in section
-    /// [4.4.2](https://tools.ietf.org/html/rfc6330#section-4.4.2), and the
-    /// remainder is the payload. No integrity checking is performed or
-    /// possible here; see the [crate-level
-    /// documentation](crate#erasure-correction-not-error-detection) for the
-    /// caller's responsibility to reject corrupt data before decoding it.
+    /// Deserializes a packet from its on-wire representation: the 4-byte FEC
+    /// Payload ID followed by the payload. No integrity checking is performed;
+    /// see the [crate-level documentation](crate#erasure-correction-not-error-detection).
     ///
     /// # Panics
     ///
