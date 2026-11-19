@@ -72,16 +72,34 @@ pub static OCTET_MUL: [[u8; 256]; 256] = calculate_octet_mul_table();
 
 // See "Screaming Fast Galois Field Arithmetic Using Intel SIMD Instructions" by Plank et al.
 // Further adapted to AVX2
-#[cfg(any(feature = "std", test))]
+#[cfg(any(
+    test,
+    all(
+        feature = "std",
+        any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
 pub const OCTET_MUL_HI_BITS: [[u8; 32]; 256] = calculate_octet_mul_hi_table();
-#[cfg(any(feature = "std", test))]
+#[cfg(any(
+    test,
+    all(
+        feature = "std",
+        any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
 pub const OCTET_MUL_LOW_BITS: [[u8; 32]; 256] = calculate_octet_mul_low_table();
 
 const fn const_mul(x: usize, y: usize) -> u8 {
     return OCT_EXP[OCT_LOG[x] as usize + OCT_LOG[y] as usize];
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(
+    test,
+    all(
+        feature = "std",
+        any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
 const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
     let mut result = [[0; 32]; 256];
     let mut i = 1;
@@ -97,7 +115,13 @@ const fn calculate_octet_mul_hi_table() -> [[u8; 32]; 256] {
     return result;
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(
+    test,
+    all(
+        feature = "std",
+        any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
 const fn calculate_octet_mul_low_table() -> [[u8; 32]; 256] {
     let mut result = [[0; 32]; 256];
     let mut i = 1;

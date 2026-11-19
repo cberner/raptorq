@@ -6,20 +6,12 @@ use alloc::vec::Vec;
 
 use crate::octet::OCTET_MUL;
 #[cfg(all(
-    any(
-        target_arch = "x86",
-        target_arch = "x86_64",
-        target_arch = "aarch64",
-    ),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",),
     feature = "std"
 ))]
 use crate::octet::OCTET_MUL_HI_BITS;
 #[cfg(all(
-    any(
-        target_arch = "x86",
-        target_arch = "x86_64",
-        target_arch = "aarch64",
-    ),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",),
     feature = "std"
 ))]
 use crate::octet::OCTET_MUL_LOW_BITS;
